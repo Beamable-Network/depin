@@ -2,6 +2,8 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { WorkerNode } from '../worker.js';
 import { WorkerDiscoveryDocument, WorkerDiscoveryDocumentSchema } from '@beamable-network/depin';
 
+import packageJson from '../../package.json' with { type: 'json' };
+
 export async function rootRoutes(fastify: FastifyInstance, { worker }: { worker: WorkerNode }) {
   fastify.get('/', {
     schema: {
@@ -16,7 +18,7 @@ export async function rootRoutes(fastify: FastifyInstance, { worker }: { worker:
     const baseUrl = `${protocol}://${host}`;
 
     return {
-      version: '1.0.0',
+      version: packageJson.version,
       worker: {
         address,
         license: worker.getLicense(),
