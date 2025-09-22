@@ -2,9 +2,13 @@
 resolver = "2"
 members = [
     "lib/shared",
+    "lib/instructions/checker",
     "lib/instructions/escrow_deposit",
     "lib/instructions/escrow_withdraw",
-    "lib/instructions/infra_offer",
     "lib/instructions/global",
+    "lib/instructions/infra_offer",
+    "lib/instructions/init",
+    "lib/instructions/treasury",
+    "lib/instructions/worker",
     "programs/depin"
 ]
