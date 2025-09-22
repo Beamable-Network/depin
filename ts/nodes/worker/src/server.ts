@@ -24,7 +24,8 @@ export class WorkerServer {
     const worker = await WorkerNode.create(config);
     // Use our fastify logger configuration
     const fastify = Fastify({
-      logger: createFastifyLogger()
+      logger: createFastifyLogger(),
+      disableRequestLogging: true
     }).withTypeProvider<TypeBoxTypeProvider>();
 
     // Global BigInt serializer
