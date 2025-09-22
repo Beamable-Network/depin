@@ -1,15 +1,14 @@
 import { address, Address, createKeyPairSignerFromBytes, isAddress, KeyPairSigner, lamportsToSol, SignableMessage, SignatureBytes } from 'gill';
 import * as os from 'os';
 
-import { ActivateWorker, UpdateWorkerUri } from 'beamable-network-depin';
-import { WorkerMetadataAccount } from 'beamable-network-depin';
+import { DasApiInterface } from '@metaplex-foundation/digital-asset-standard-api';
 import { getAssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 import { publicKey, Umi } from '@metaplex-foundation/umi';
+import { ActivateWorker, UpdateWorkerUri, WorkerMetadataAccount } from 'beamable-network-depin';
 import { WorkerConfig } from './config.js';
 import { createRpcClient, RpcClient } from './helpers/rpc-client.js';
-import { DasApiInterface } from '@metaplex-foundation/digital-asset-standard-api';
-import { ProofStorageService } from './services/proof-storage.js';
 import { createLogger } from './logger.js';
+import { ProofStorageService } from './services/proof-storage.js';
 
 const logger = createLogger('WorkerNode');
 
@@ -99,6 +98,9 @@ export class WorkerNode {
     try {
       const balance = await this.getBalance();
       logger.info({ balanceLamports: balance, balanceSol: lamportsToSol(balance) }, 'Current balance');
+      if (balance === 0n) {
+        logger.warn('Worker has zero balance. Please fund the worker account to pay for transaction fees.');
+      }
     } catch (error) {
       logger.warn({ error }, 'Could not fetch balance');
     }
