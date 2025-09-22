@@ -4,12 +4,11 @@ import { createLogger } from './logger.js';
 
 const logger = createLogger('main');
 
-// Global process error handlers for better diagnostics
 process.on('unhandledRejection', (reason) => {
-  logger.error({ reason }, 'Unhandled promise rejection');
+  logger.error(reason, 'Unhandled promise rejection');
 });
 process.on('uncaughtException', (error) => {
-  logger.fatal({ error }, 'Uncaught exception');
+  logger.fatal(error, 'Uncaught exception');
 });
 
 async function main() {
@@ -31,6 +30,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  logger.fatal({ error }, 'Fatal error starting worker');
+  logger.fatal(error, 'Fatal error starting worker');
   process.exit(1);
 });

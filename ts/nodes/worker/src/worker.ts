@@ -102,7 +102,7 @@ export class WorkerNode {
         logger.warn('Worker has zero balance. Please fund the worker account to pay for transaction fees.');
       }
     } catch (error) {
-      logger.warn({ error }, 'Could not fetch balance');
+      logger.warn(error, 'Could not fetch balance');
     }
 
     logger.info({ license: this.license }, 'Fetching worker license');

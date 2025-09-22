@@ -90,7 +90,7 @@ export class ProofSubmitService {
 
       await this.submitProof(period, proof);
     } catch (error) {
-      logger.error({ error, period }, `Error submitting proof for period ${period}`);
+      logger.error(error, `Error submitting proof for period ${period}`);
       await this.sleep(ProofSubmitService.ERROR_RETRY_DELAY_MS);
     }
   }
@@ -132,7 +132,7 @@ export class ProofSubmitService {
       const account = await this.worker.getUmi().rpc.getAccount(publicKey(pda));
       return account.exists;
     } catch (error) {
-      logger.warn({ error, period }, `Error checking existing proof for period ${period}`);
+      logger.warn(error, `Error checking existing proof for period ${period}`);
       return false;
     }
   }

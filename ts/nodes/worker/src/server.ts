@@ -82,7 +82,7 @@ export class WorkerServer {
         host: this.config.host
       });
     } catch (error) {
-      logger.error({ error }, 'Failed to start worker server');
+      logger.error(error, 'Failed to start worker server');
       process.exit(1);
     }
   }
