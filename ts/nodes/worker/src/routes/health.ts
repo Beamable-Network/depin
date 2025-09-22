@@ -1,4 +1,4 @@
-import { HealthCheckReceiptPayloadSchema, SignedPayload, WorkerErrorResponseSchema, WorkerHealthCheckRequest, WorkerHealthCheckRequestPayloadSchema, WorkerHealthCheckRequestSchema, WorkerHealthCheckResponse, WorkerHealthCheckResponseSchema } from 'beamable-network-depin';
+import { HealthCheckReceiptPayloadSchema, SignedPayload, WorkerErrorResponseSchema, WorkerHealthCheckRequest, WorkerHealthCheckRequestPayloadSchema, WorkerHealthCheckRequestSchema, WorkerHealthCheckResponse, WorkerHealthCheckResponseSchema } from '@beamable-network/depin';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isAddress } from 'gill';
 import { WorkerNode } from '../worker.js';

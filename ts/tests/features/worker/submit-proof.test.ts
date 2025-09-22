@@ -6,7 +6,7 @@ import {
     runBrand,
     SubmitWorkerProof,
     WorkerProofAccount
-} from 'beamable-network-depin';
+} from '@beamable-network/depin';
 import bs58 from 'bs58';
 import { randomBytes } from 'crypto';
 import { address } from 'gill';

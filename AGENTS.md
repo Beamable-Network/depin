@@ -14,9 +14,9 @@ This is a Beamable.Network DePIN (Decentralized Physical Infrastructure Networks
 
 ### TypeScript SDK & Testing
 - **Workspace**: `ts/` - pnpm workspace containing all TypeScript packages
-- **Main Package**: `ts/packages/beamable-depin/` - beamable-network-depin SDK for all network interactions
+- **Main Package**: `ts/packages/beamable-depin/` - @beamable-network/depin SDK for all network interactions
 - **Utilities**: `ts/packages/b58-convert/` - Base58 conversion tools
-- **Testing**: `ts/tests/` - Integration tests for Rust program + TypeScript SDK (references beamable-network-depin via workspace)
+- **Testing**: `ts/tests/` - Integration tests for Rust program + TypeScript SDK (references @beamable-network/depin via workspace)
 - **Build**: `cd ts/packages/beamable-depin && pnpm run build`
 - **Test**: `cd ts/tests && pnpm test` (requires local Solana validator)
 

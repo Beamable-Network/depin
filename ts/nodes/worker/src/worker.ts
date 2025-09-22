@@ -4,7 +4,7 @@ import * as os from 'os';
 import { DasApiInterface } from '@metaplex-foundation/digital-asset-standard-api';
 import { getAssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 import { publicKey, Umi } from '@metaplex-foundation/umi';
-import { ActivateWorker, UpdateWorkerUri, WorkerMetadataAccount } from 'beamable-network-depin';
+import { ActivateWorker, UpdateWorkerUri, WorkerMetadataAccount } from '@beamable-network/depin';
 import { WorkerConfig } from './config.js';
 import { createRpcClient, RpcClient } from './helpers/rpc-client.js';
 import { createLogger } from './logger.js';

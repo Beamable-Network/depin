@@ -4,7 +4,7 @@
     "moduleResolution": "nodenext",
     "module": "NodeNext",
     "paths": {
-      "beamable-network-depin": [
+      "@beamable-network/depin": [
         "../packages/beamable-depin/src"
       ]
     }

@@ -5,7 +5,7 @@ A TypeScript-based worker node for the Beamable.Network DePIN (Decentralized Phy
 ## Features
 
 - HTTP API server with health checks and worker information endpoints
-- Solana blockchain integration via beamable-network-depin SDK
+- Solana blockchain integration via @beamable-network/depin SDK
 - Fastify-based web server with Swagger API documentation
 - Environment-based configuration with dotenv support
 - Docker support for containerized deployment
@@ -48,7 +48,7 @@ A TypeScript-based worker node for the Beamable.Network DePIN (Decentralized Phy
 ```bash
 # Build image (from ts/ directory). The Dockerfile uses pnpm deploy
 # to produce a minimal, production-only image that includes the
-# local workspace dependency (beamable-network-depin) without publishing.
+# local workspace dependency (@beamable-network/depin) without publishing.
 docker build -f nodes/worker/Dockerfile -t beamable-worker .
 
 # Run container

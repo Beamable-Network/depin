@@ -2,10 +2,10 @@ import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/t
 import { Address, none, some } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { BMB_MINT, LockedTokensAccount, TreasuryAuthority, TreasuryStateAccount, Unlock } from 'beamable-network-depin';
+import { BMB_MINT, LockedTokensAccount, TreasuryAuthority, TreasuryStateAccount, Unlock } from '@beamable-network/depin';
 import { standardNetworkSetup } from '../../helpers/bmb-utils.js';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
-import { getCurrentPeriod } from 'beamable-network-depin';
+import { getCurrentPeriod } from '@beamable-network/depin';
 
 describe('Unlock locked tokens', async () => {
     let lite: LiteDepin;

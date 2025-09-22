@@ -1,4 +1,4 @@
-import { findWorkerProofPDA, getCurrentPeriod, getRemainingTimeInPeriodMs, SubmitWorkerProof } from 'beamable-network-depin';
+import { findWorkerProofPDA, getCurrentPeriod, getRemainingTimeInPeriodMs, SubmitWorkerProof } from '@beamable-network/depin';
 import { publicKey } from '@metaplex-foundation/umi';
 import { WorkerNode } from '../worker.js';
 import { AggregatedProof, AggregatedProofProvider, S3AggregatedProofProvider } from './aggregated-proof-provider.js';

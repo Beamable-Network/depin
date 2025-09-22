@@ -12,7 +12,7 @@
       "group": "build"
     },
     {
-      "label": "BUILD TS beamable-network-depin",
+      "label": "BUILD TS @beamable-network/depin",
       "type": "shell",
       "command": "pnpm build",
       "options": {

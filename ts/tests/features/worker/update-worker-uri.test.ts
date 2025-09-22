@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ActivateWorker, UpdateWorkerUri, WorkerMetadataAccount } from 'beamable-network-depin';
+import { ActivateWorker, UpdateWorkerUri, WorkerMetadataAccount } from '@beamable-network/depin';
 import { address, none } from 'gill';
 import { LiteDepin } from '../../helpers/lite-depin.js';
 

@@ -15,7 +15,7 @@
   "type": "module",
   "packageManager": "pnpm@10.10.0",
   "dependencies": {
-    "beamable-network-depin": "workspace:^",
+    "@beamable-network/depin": "workspace:^",
     "@metaplex-foundation/digital-asset-standard-api": "^2.0.0",
     "@metaplex-foundation/mpl-account-compression": "^0.0.1",
     "@metaplex-foundation/mpl-bubblegum": "^5.0.2",

@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-TAG="${1:-beamable.network/worker:latest}"
+TAG="${1:-beamable-network/worker:latest}"
 
 # Find the ts workspace root (look for pnpm-workspace.yaml)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

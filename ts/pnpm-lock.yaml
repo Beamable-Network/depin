@@ -17,6 +17,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.890.0
         version: 3.890.0
+      '@beamable-network/depin':
+        specifier: workspace:^
+        version: link:../../packages/beamable-depin
       '@fastify/cors':
         specifier: ^10.0.1
         version: 10.1.0
@@ -41,9 +44,6 @@ importers:
       '@metaplex-foundation/umi-bundle-defaults':
         specifier: ^1.2.0
         version: 1.2.0(@metaplex-foundation/umi@1.2.0)(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10))
-      beamable-network-depin:
-        specifier: workspace:^
-        version: link:../../packages/beamable-depin
       bs58:
         specifier: ^6.0.0
         version: 6.0.0
@@ -75,12 +75,6 @@ importers:
       typescript:
         specifier: ^5.0.0
         version: 5.8.3
-
-  packages/b58-convert:
-    dependencies:
-      bs58:
-        specifier: ^6.0.0
-        version: 6.0.0
 
   packages/beamable-depin:
     dependencies:
@@ -118,6 +112,9 @@ importers:
 
   tests:
     dependencies:
+      '@beamable-network/depin':
+        specifier: workspace:^
+        version: link:../packages/beamable-depin
       '@metaplex-foundation/digital-asset-standard-api':
         specifier: ^2.0.0
         version: 2.0.0(@metaplex-foundation/umi@1.2.0)
@@ -160,9 +157,6 @@ importers:
       '@types/node':
         specifier: ^22.13.16
         version: 22.15.3
-      beamable-network-depin:
-        specifier: workspace:^
-        version: link:../packages/beamable-depin
       bs58:
         specifier: ^6.0.0
         version: 6.0.0

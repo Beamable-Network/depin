@@ -1,4 +1,4 @@
-import { WorkerOfferingSchema } from 'beamable-network-depin';
+import { WorkerOfferingSchema } from '@beamable-network/depin';
 import cors from '@fastify/cors';
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";

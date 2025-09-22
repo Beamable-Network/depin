@@ -1,4 +1,4 @@
-import { DEPIN_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM, periodToTimestamp, timestampToPeriod, MPL_BUBBLEGUM_PROGRAM } from 'beamable-network-depin';
+import { DEPIN_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM, periodToTimestamp, timestampToPeriod, MPL_BUBBLEGUM_PROGRAM } from '@beamable-network/depin';
 import { MPL_NOOP_PROGRAM_ID } from '@metaplex-foundation/mpl-account-compression';
 import { AssetWithProof, createTreeV2, findLeafAssetIdPda, hashAssetData, hashCollection, hashMetadataCreators, hashMetadataDataV2, mintV2 } from '@metaplex-foundation/mpl-bubblegum';
 import { createCollection, MPL_CORE_PROGRAM_ID } from '@metaplex-foundation/mpl-core';

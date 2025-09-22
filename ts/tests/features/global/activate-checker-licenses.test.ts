@@ -1,6 +1,6 @@
 import { assert, describe, expect, it } from 'vitest';
 
-import { ActivateCheckerLicenses, BMBStateAccount } from 'beamable-network-depin';
+import { ActivateCheckerLicenses, BMBStateAccount } from '@beamable-network/depin';
 import { LiteDepin } from '../../helpers/lite-depin.js';
 
 describe('Checker licenses activation', async () => {

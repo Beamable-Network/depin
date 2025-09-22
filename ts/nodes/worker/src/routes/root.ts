@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { WorkerNode } from '../worker.js';
-import { WorkerDiscoveryDocument, WorkerDiscoveryDocumentSchema } from 'beamable-network-depin';
+import { WorkerDiscoveryDocument, WorkerDiscoveryDocumentSchema } from '@beamable-network/depin';
 
 export async function rootRoutes(fastify: FastifyInstance, { worker }: { worker: WorkerNode }) {
   fastify.get('/', {

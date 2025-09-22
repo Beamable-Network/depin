@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { BMB_MINT, GlobalRewardsAccount, InitNetwork, TreasuryAuthority, TreasuryStateAccount, TreasuryConfigAccount } from 'beamable-network-depin';
+import { BMB_MINT, GlobalRewardsAccount, InitNetwork, TreasuryAuthority, TreasuryStateAccount, TreasuryConfigAccount } from '@beamable-network/depin';
 import { initializeNetwork } from '../../helpers/bmb-utils.js';
 import { LiteDepin } from '../../helpers/lite-depin.js';
 

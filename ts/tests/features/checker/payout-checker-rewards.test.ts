@@ -1,7 +1,7 @@
 import { Address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { GlobalRewardsAccount, LockedTokensAccount, PayoutCheckerRewards, TreasuryConfigAccount, TreasuryStateAccount, getCurrentPeriod } from 'beamable-network-depin';
+import { GlobalRewardsAccount, LockedTokensAccount, PayoutCheckerRewards, TreasuryConfigAccount, TreasuryStateAccount, getCurrentPeriod } from '@beamable-network/depin';
 import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 import { activateChecker, activateCheckerLicenses, createCheckers, standardNetworkSetup } from '../../helpers/bmb-utils.js';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';

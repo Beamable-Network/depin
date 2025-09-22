@@ -1,4 +1,4 @@
-import { BMBStateAccount, runBrand, computeProofMerkleRoot } from "beamable-network-depin";
+import { BMBStateAccount, runBrand, computeProofMerkleRoot } from "@beamable-network/depin";
 import { publicKey } from "@metaplex-foundation/umi";
 import { WorkerNode } from "../worker.js";
 

@@ -1,4 +1,4 @@
-import { BMBStateAccount, CheckerLicenseMetadataAccount, CheckerMetadataAccount, getCurrentPeriod, SignedPayload, WorkerErrorResponseSchema, WorkerProofListResponseSchema, WorkerProofPayloadSchema, WorkerProofReceiptPayloadSchema, WorkerProofRequest, WorkerProofRequestSchema, WorkerProofResponse, WorkerProofResponseSchema } from 'beamable-network-depin';
+import { BMBStateAccount, CheckerLicenseMetadataAccount, CheckerMetadataAccount, getCurrentPeriod, SignedPayload, WorkerErrorResponseSchema, WorkerProofListResponseSchema, WorkerProofPayloadSchema, WorkerProofReceiptPayloadSchema, WorkerProofRequest, WorkerProofRequestSchema, WorkerProofResponse, WorkerProofResponseSchema } from '@beamable-network/depin';
 import { publicKey } from '@metaplex-foundation/umi';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { Address, isAddress, isSome } from 'gill';
