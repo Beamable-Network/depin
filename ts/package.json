@@ -1,0 +1,13 @@
+{
+  "name": "beamable-depin-ts-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.11.1",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

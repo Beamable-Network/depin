@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "moduleResolution": "nodenext",
+    "module": "NodeNext",
+    "paths": {
+      "beamable-network-depin": [
+        "../packages/beamable-depin/src"
+      ]
+    }
+  }
+}

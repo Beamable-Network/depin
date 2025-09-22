@@ -1,0 +1,20 @@
+import { address } from 'gill';
+
+export const DEPIN_PROGRAM = address('bdpFdVD8Lyy7tKrLSASvNxk7TjbwXi7ejedZkeamPnM');
+export const MPL_ACCOUNT_COMPRESSION_PROGRAM = address("mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW");
+export const USDC_MINT = address('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+export const BMB_MINT = address('bmbWbZjP3qCT3TuG7b2ph4ZMDarHLVeGCgk9Xp9vLDw');
+export const ESCROW_SEED = "escrow";
+export const TOKEN_SEED = "token";
+export const TREASURY_SEED = "treasury";
+export const CONFIG_SEED = "config";
+export const GLOBAL_SEED = "global";
+export const STATE_SEED = "state";
+export const GLOBAL_REWARDS_SEED = "rewards";
+export const PROOF_SEED = "proof";
+export const WORKER_SEED = "worker";
+export const CHECKER_SEED = "checker";
+export const METADATA_SEED = "meta";
+export const LICENSE_SEED = "license";
+export const LOCK_SEED = "lock";
+export const SYSTEM_PROGRAM_ADDRESS = address('11111111111111111111111111111111');

@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = [
+    "lib/shared",
+    "lib/instructions/escrow_deposit",
+    "lib/instructions/escrow_withdraw",
+    "lib/instructions/infra_offer",
+    "lib/instructions/global",
+    "programs/depin"
+]

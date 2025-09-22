@@ -1,0 +1,17 @@
+# Keep Docker build context small and deterministic
+
+# Node installs and build outputs
+node_modules
+dist
+
+# VCS and editor noise
+.git
+.gitignore
+.vscode
+
+# Env and logs
+.env
+.env.*
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*

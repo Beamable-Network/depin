@@ -1,0 +1,40 @@
+{
+  "name": "tests",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "scripts": {
+    "test": "vitest run",
+    "build-and-test": "pnpm build-rust && pnpm build-beamable-depin && pnpm test",
+    "build-rust": "cargo build-sbf --manifest-path=./../../rust/programs/depin/Cargo.toml --features test --sbf-out-dir=./../../rust/target/test",
+    "build-beamable-depin": "pnpm --dir ../packages/beamable-depin run build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "packageManager": "pnpm@10.10.0",
+  "dependencies": {
+    "beamable-network-depin": "workspace:^",
+    "@metaplex-foundation/digital-asset-standard-api": "^2.0.0",
+    "@metaplex-foundation/mpl-account-compression": "^0.0.1",
+    "@metaplex-foundation/mpl-bubblegum": "^5.0.2",
+    "@metaplex-foundation/mpl-core": "^1.4.0",
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@metaplex-foundation/umi": "^1.2.0",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.2.0",
+    "@metaplex-foundation/umi-web3js-adapters": "^1.2.0",
+    "@solana-program/compute-budget": "^0.7.0",
+    "@solana-program/system": "^0.8.0",
+    "@solana-program/token": "^0.6.0",
+    "@solana/kit": "^3.0.2",
+    "@solana/web3.js": "^1.98.4",
+    "@types/node": "^22.13.16",
+    "bs58": "^6.0.0",
+    "dotenv": "^16.5.0",
+    "gill": "^0.11.0",
+    "litesvm": "^0.3.3",
+    "undici": "^7.13.0",
+    "vitest": "^3.1.2"
+  }
+}

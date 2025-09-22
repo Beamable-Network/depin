@@ -1,0 +1,9 @@
+[package]
+name = "licensing"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+borsh = "1.5.7"
+solana-program = "2.2.1"
+shared = { path = "../../shared" }

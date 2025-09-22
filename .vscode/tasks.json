@@ -1,0 +1,67 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "TEST DEPIN",
+      "type": "shell",
+      "command": "pnpm build-and-test",
+      "options": {
+        "cwd": "${workspaceFolder}/ts/tests"
+      },
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "BUILD TS beamable-network-depin",
+      "type": "shell",
+      "command": "pnpm build",
+      "options": {
+        "cwd": "${workspaceFolder}/ts/packages/beamable-depin"
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "BUILD RUST depin TEST",
+      "type": "shell",
+      "command": "cargo build-sbf --features test --sbf-out-dir=./target/test",
+      "options": {
+        "cwd": "${workspaceFolder}/rust"
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "BUILD RUST depin",
+      "type": "shell",
+      "command": "cargo build-sbf",
+      "options": {
+        "cwd": "${workspaceFolder}/rust"
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "BUILD and DEPLOY depin TEST",
+      "type": "shell",
+      "command": "bash build-deploy-depin-test.sh",
+      "options": {
+        "cwd": "${workspaceFolder}/rust"
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    }
+  ]
+}
