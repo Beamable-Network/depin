@@ -3,7 +3,7 @@ import { mplBubblegum } from '@metaplex-foundation/mpl-bubblegum';
 import { createSignerFromKeypair, RpcInterface, signerIdentity, Umi } from '@metaplex-foundation/umi';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { appendTransactionMessageInstructions, BaseTransactionMessage, createSolanaRpc, createSolanaRpcSubscriptions, createTransactionMessage, getSignatureFromTransaction, MessageSigner, pipe, Rpc, sendAndConfirmTransactionFactory, setTransactionMessageFeePayerSigner, setTransactionMessageLifetimeUsingBlockhash, Signature, signTransactionMessageWithSigners, SolanaError, SolanaRpcApi, TransactionSigner } from "gill";
-import { WorkerConfig } from '../config.js';
+import { CheckerConfig } from '../config.js';
 import { getLogger } from '../logger.js';
 
 const logger = getLogger('RpcClient');
@@ -13,12 +13,12 @@ export interface RpcClient {
     buildAndSendTransaction: (instructions: ReadonlyArray<BaseTransactionMessage['instructions'][number]>, commitment?: "processed" | "confirmed" | "finalized") => Promise<{ signature: Signature; logs: readonly string[] | null }>;
 }
 
-function createUmiClient(config: WorkerConfig): Umi & { rpc: DasApiInterface; } {
+function createUmiClient(config: CheckerConfig): Umi & { rpc: DasApiInterface; } {
     const umi = createUmi(config.solanaRpcUrl)
         .use(mplBubblegum())
         .use(dasApi());
 
-    const signer = createSignerFromKeypair(umi, umi.eddsa.createKeypairFromSecretKey(config.workerPrivateKeyBytes));
+    const signer = createSignerFromKeypair(umi, umi.eddsa.createKeypairFromSecretKey(config.checkerPrivateKeyBytes));
 
     umi.use(signerIdentity(signer));
 
@@ -38,7 +38,6 @@ function createBuildAndSendTransactionFn(params: {
     return async (instructions: ReadonlyArray<BaseTransactionMessage['instructions'][number]>, commitment: "processed" | "confirmed" | "finalized" = "confirmed"): Promise<{ signature: Signature; logs: readonly string[] | null }> => {
         const recent = await rpc.getLatestBlockhash().send();
         try {
-
             const txMessage = await pipe(
                 createTransactionMessage({ version: 0 }),
                 (tx) => setTransactionMessageFeePayerSigner(wallet, tx),
@@ -51,7 +50,6 @@ function createBuildAndSendTransactionFn(params: {
 
             logger.debug({ txSig }, 'Sending transaction with signature');
             await sendAndConfirmTransaction(tx, { commitment, skipPreflight: false });
-
 
             const txInfo = await rpc.getTransaction(txSig, {
                 maxSupportedTransactionVersion: 0,
@@ -70,21 +68,21 @@ function createBuildAndSendTransactionFn(params: {
     };
 }
 
-export function createRpcClient(signer: TransactionSigner & MessageSigner, config: WorkerConfig): RpcClient {
+export function createRpcClient(signer: TransactionSigner & MessageSigner, config: CheckerConfig): RpcClient {
     const umiClient = createUmiClient(config);
-    
+
     // Create Gill RPC clients for transaction handling
     const rpc = createSolanaRpc(config.solanaRpcUrl);
     const rpcSubscriptions = createSolanaRpcSubscriptions(config.solanaRpcUrl.replace('http', 'ws'));
-    
+
     const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions });
-    
+
     const buildAndSendTransaction = createBuildAndSendTransactionFn({
         rpc,
         wallet: signer,
         sendAndConfirmTransaction
     });
-    
+
     return {
         umi: umiClient,
         buildAndSendTransaction
@@ -93,16 +91,10 @@ export function createRpcClient(signer: TransactionSigner & MessageSigner, confi
 
 function getErrorMessage(error: unknown): string {
     if (error instanceof SolanaError) {
-        // Traverse the error chain to find the root cause
         let currentError: any = error;
         const messages: string[] = [];
-        
         while (currentError) {
-            if (currentError.message) {
-                messages.push(currentError.message);
-            }
-            
-            // Move to the next error in the chain
+            if (currentError.message) messages.push(currentError.message);
             if (currentError.cause instanceof Error) {
                 currentError = currentError.cause;
             } else if (currentError.cause && typeof currentError.cause === 'object' && 'message' in currentError.cause) {
@@ -111,14 +103,8 @@ function getErrorMessage(error: unknown): string {
                 break;
             }
         }
-        
-        // Return all messages joined, or just the original message if no chain found
         return messages.length > 1 ? messages.join(' -> ') : (error.message || 'Unknown SolanaError');
     }
-    
-    if (error instanceof Error) {
-        return error.message;
-    }
-    
+    if (error instanceof Error) return error.message;
     return String(error);
 }

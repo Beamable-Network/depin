@@ -1,10 +1,10 @@
 import { WorkerConfig } from './config.js';
 import { WorkerServer } from './server.js';
-import { createLogger } from './logger.js';
+import { getLogger } from './logger.js';
 
 import packageJson from '../package.json' with { type: 'json' };
 
-const logger = createLogger('main');
+const logger = getLogger('main');
 
 process.on('unhandledRejection', (err) => {
   logger.error(err, 'Unhandled promise rejection');

@@ -12,6 +12,49 @@ importers:
         specifier: ^5.0.0
         version: 5.8.3
 
+  nodes/checker:
+    dependencies:
+      '@beamable-network/depin':
+        specifier: workspace:^
+        version: link:../../packages/beamable-depin
+      '@metaplex-foundation/digital-asset-standard-api':
+        specifier: ^2.0.0
+        version: 2.0.0(@metaplex-foundation/umi@1.2.0)
+      '@metaplex-foundation/mpl-bubblegum':
+        specifier: ^5.0.2
+        version: 5.0.2(@metaplex-foundation/umi@1.2.0)
+      '@metaplex-foundation/umi':
+        specifier: ^1.2.0
+        version: 1.2.0
+      '@metaplex-foundation/umi-bundle-defaults':
+        specifier: ^1.2.0
+        version: 1.2.0(@metaplex-foundation/umi@1.2.0)(@solana/web3.js@1.98.4(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10))
+      dotenv:
+        specifier: ^16.5.0
+        version: 16.5.0
+      gill:
+        specifier: ^0.11.0
+        version: 0.11.0(@solana/sysvars@3.0.2(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.8.3))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.8.3)(ws@8.18.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))
+      pino:
+        specifier: ^9.10.0
+        version: 9.10.0
+      pino-pretty:
+        specifier: ^13.1.1
+        version: 13.1.1
+      undici:
+        specifier: ^7.13.0
+        version: 7.13.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.15.3
+      tsx:
+        specifier: ^4.19.4
+        version: 4.19.4
+      typescript:
+        specifier: ^5.0.0
+        version: 5.8.3
+
   nodes/worker:
     dependencies:
       '@aws-sdk/client-s3':

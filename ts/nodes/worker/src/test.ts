@@ -1,7 +1,7 @@
 import { createSignableMessage, generateKeyPairSigner, getBase58Decoder } from "gill";
-import { createLogger } from './logger.js';
+import { getLogger } from './logger.js';
 
-const logger = createLogger('test');
+const logger = getLogger('test');
 
 const signer = await generateKeyPairSigner();
 logger.info({ address: signer.address }, "Generated signer");

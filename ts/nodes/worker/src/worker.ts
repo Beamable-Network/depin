@@ -7,10 +7,10 @@ import { publicKey, Umi } from '@metaplex-foundation/umi';
 import { ActivateWorker, UpdateWorkerUri, WorkerMetadataAccount } from '@beamable-network/depin';
 import { WorkerConfig } from './config.js';
 import { createRpcClient, RpcClient } from './helpers/rpc-client.js';
-import { createLogger } from './logger.js';
+import { getLogger } from './logger.js';
 import { ProofStorageService } from './services/proof-storage.js';
 
-const logger = createLogger('WorkerNode');
+const logger = getLogger('WorkerNode');
 
 export class WorkerNode {
   private readonly proofStorage: ProofStorageService;

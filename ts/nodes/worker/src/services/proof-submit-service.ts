@@ -2,10 +2,10 @@ import { findWorkerProofPDA, getCurrentPeriod, getRemainingTimeInPeriodMs, Submi
 import { publicKey } from '@metaplex-foundation/umi';
 import { WorkerNode } from '../worker.js';
 import { AggregatedProof, AggregatedProofProvider, S3AggregatedProofProvider } from './aggregated-proof-provider.js';
-import { createLogger } from '../logger.js';
+import { getLogger } from '../logger.js';
 const { getAssetWithProof } = await import('@metaplex-foundation/mpl-bubblegum');
 
-const logger = createLogger('ProofSubmitService');
+const logger = getLogger('ProofSubmitService');
 
 export class ProofSubmitService {
   private static readonly MIN_DELAY_MS = 60_000; // 1 minute

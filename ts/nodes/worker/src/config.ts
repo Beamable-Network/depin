@@ -22,11 +22,16 @@ export class WorkerConfig {
   private _workerPrivateKeyBytes?: Uint8Array;
 
   constructor() {
+    const solanaRpcUrl = process.env.SOLANA_RPC_URL;
     const externalUrl = process.env.EXTERNAL_URL;
     const workerPrivateKey = process.env.WORKER_PRIVATE_KEY;
     const workerLicense = process.env.WORKER_LICENSE;
     const s3BucketName = process.env.S3_BUCKET_NAME;
     const s3Region = process.env.S3_REGION;
+
+    if (!solanaRpcUrl) {
+      throw new Error('SOLANA_RPC_URL environment variable is required');
+    }
 
     if (!externalUrl) {
       throw new Error('EXTERNAL_URL environment variable is required');
@@ -50,7 +55,7 @@ export class WorkerConfig {
 
     this.port = parseInt(process.env.PORT || '3000');
     this.host = process.env.HOST || '0.0.0.0';
-    this.solanaRpcUrl = process.env.SOLANA_RPC_URL || 'http://localhost:8899';
+    this.solanaRpcUrl = solanaRpcUrl;
     this.workerPrivateKey = workerPrivateKey;
     this.workerLicense = workerLicense;
     this.environment = (process.env.NODE_ENV as WorkerConfig['environment']) || 'development';

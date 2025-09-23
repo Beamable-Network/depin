@@ -1,9 +1,9 @@
 import { GetObjectCommand, type GetObjectCommandOutput, HeadObjectCommand, ListObjectsV2Command, type ListObjectsV2CommandOutput, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { SignedPayload, WorkerProofPayloadSchema, type WorkerProofListResponse } from '@beamable-network/depin';
 import { WorkerConfig } from '../config.js';
-import { createLogger } from '../logger.js';
+import { getLogger } from '../logger.js';
 
-const logger = createLogger('ProofStorage');
+const logger = getLogger('ProofStorage');
 
 export class ProofStorageService {
   private s3Client: S3Client;

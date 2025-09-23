@@ -8,9 +8,9 @@ import { WorkerConfig } from './config.js';
 import { registerRoutes } from './routes/index.js';
 import { WorkerNode } from './worker.js';
 import { ProofSubmitService } from './services/proof-submit-service.js';
-import { createLogger, createLoggerOptions } from './logger.js';
+import { createLoggerOptions, getLogger } from './logger.js';
 
-const logger = createLogger('WorkerServer');
+const logger = getLogger('WorkerServer');
 
 export class WorkerServer {
   private constructor(
@@ -73,11 +73,9 @@ export class WorkerServer {
 
   async start(): Promise<void> {
     try {
-      // Initialize background proof submission service first.
-      // If it fails, do not start the worker or HTTP server.
+      await this.worker.start();
       await this.submitService.start();
 
-      await this.worker.start();
       await this.fastify.listen({
         port: this.config.port,
         host: this.config.host
