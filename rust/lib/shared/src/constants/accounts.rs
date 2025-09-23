@@ -18,8 +18,8 @@ pub const BMB_LICENSE_ADMIN: Pubkey = Pubkey::new_from_array([
 ]);
 
 pub const CHECKER_TREE: Pubkey = Pubkey::new_from_array([
-    198, 250, 122, 243, 190, 219, 173, 58, 61, 101, 243, 106, 171, 201, 116, 49, 177, 187, 228,
-    194, 210, 246, 224, 228, 124, 166, 2, 3, 69, 47, 93, 97,
+    39, 68, 57, 67, 63, 51, 186, 79, 134, 11, 22, 228, 89, 104, 89, 50, 139, 13, 72, 173, 31, 219,
+    84, 181, 6, 191, 45, 27, 216, 47, 201, 3,
 ]);
 
 pub const WORKER_TREE: Pubkey = Pubkey::new_from_array([
