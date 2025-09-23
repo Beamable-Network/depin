@@ -5,6 +5,7 @@ import { CheckerConfig } from './config.js';
 import { createRpcClient, RpcClient } from './helpers/rpc-client.js';
 import { getLogger } from './logger.js';
 import { CheckerService } from './services/checker-service.js';
+import { ActivateChecker, CheckerMetadataAccount } from '@beamable-network/depin';
 
 const logger = getLogger('CheckerNode');
 
@@ -54,17 +55,38 @@ export class CheckerNode {
       logger.warn(err, 'Could not fetch balance');
     }
 
-    // Validate that the checker license asset exists and is readable
-    try {
-      const asset = await getAssetWithProof(this.rpc.umi, publicKey(this.license));
-      logger.debug({ licenseIndex: asset.index, owner: asset.leafOwner }, 'Checker license asset loaded');
-      if (address(asset.leafOwner) !== checkerAddress) {
-        logger.info({ delegatedTo: asset.leafOwner, checkerAddress }, 'Checker license may be delegated');
-      }
-    } catch (err) {
-      logger.warn({ err }, 'Failed to read checker license asset');
+
+    logger.info({ license: this.license }, 'Fetching checker license');
+    const license = await getAssetWithProof(this.rpc.umi, publicKey(this.license));
+    logger.info({ licenseIndex: license.index, licenseOwner: license.leafOwner }, 'Checker license');
+
+    const checkerMetadataPda = await CheckerMetadataAccount.findCheckerMetadataPDA(this.license, checkerAddress);
+    const checkerMetadataAccount = await this.rpc.umi.rpc.getAccount(publicKey(checkerMetadataPda[0]));
+
+    if (!checkerMetadataAccount.exists && address(license.leafOwner) != checkerAddress) {
+      throw new Error(`Checker license is owned by ${license.leafOwner}, but checker address is ${checkerAddress}. An activation can only be performed by the license owner.`);
     }
 
+    // Activate the license
+    if (!checkerMetadataAccount.exists) {
+      logger.info('Activating checker license...');
+
+      const activate = new ActivateChecker({
+        checker_license: license,
+        delegated_to: checkerAddress,
+        signer: checkerAddress
+      });
+
+      const tx = await this.rpc.buildAndSendTransaction([await activate.getInstruction()], 'finalized')
+      logger.info({ txSig: tx.signature }, 'Checker license activated');
+    }
+    else {
+      const checkerMetadata = CheckerMetadataAccount.deserializeFrom(checkerMetadataAccount.data);
+      if (checkerMetadata.delegatedTo !== checkerAddress) {
+        throw new Error(`Checker license is delegated to ${checkerMetadata.delegatedTo}, but checker address is ${checkerAddress}.`);
+      }
+    }
+    
     this.checkerService.start();
   }
 

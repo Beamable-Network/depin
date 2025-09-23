@@ -107,8 +107,7 @@ export class WorkerNode {
 
     logger.info({ license: this.license }, 'Fetching worker license');
     const license = await getAssetWithProof(this.rpc.umi, publicKey(this.license));
-    logger.debug({ licenseIndex: license.index }, 'Worker license index');
-    logger.debug({ licenseOwner: license.leafOwner }, 'Worker license owner');
+    logger.info({ licenseIndex: license.index, licenseOwner: license.leafOwner }, 'Checker license');
 
     const workerMetadataPda = await WorkerMetadataAccount.findWorkerMetadataPDA(this.license, workerAddress);
     const workerMetadataAccount = await this.rpc.umi.rpc.getAccount(publicKey(workerMetadataPda[0]));
