@@ -27,7 +27,7 @@ export class ProofSubmitService {
     }
 
     this.isRunning = true;
-    logger.info('Starting ProofSubmitService');
+    logger.info({ currentPeriod: getCurrentPeriod() }, 'Starting ProofSubmitService');
     this.runProofSubmissionLoop();
   }
 
@@ -39,7 +39,7 @@ export class ProofSubmitService {
   // Main Loop
   private async runProofSubmissionLoop(): Promise<void> {
     // Submit proof for the previous period on startup
-    const currentPeriod = getCurrentPeriod();
+    let currentPeriod = getCurrentPeriod();
     logger.debug({ currentPeriod }, 'Proof loop initialized');
     if (currentPeriod > 0) {
       await this.submitProofForPeriod(currentPeriod - 1, true);
@@ -47,14 +47,16 @@ export class ProofSubmitService {
 
     // Start the periodic submission loop
     while (this.isRunning) {
-      const period = getCurrentPeriod();
-      const timeToNextPeriod = getRemainingTimeInPeriodMs(period);
+      currentPeriod = getCurrentPeriod();
+      const timeToNextPeriod = getRemainingTimeInPeriodMs(currentPeriod);
 
-      logger.info({ seconds: Math.round(timeToNextPeriod / 1000), nextPeriod: period + 1 }, 'Waiting until next period');
+      logger.info({ currentPeriod, seconds: Math.round(timeToNextPeriod / 1000), nextPeriod: currentPeriod + 1 }, 'Waiting until next period');
       await this.sleep(timeToNextPeriod);
 
-      if (this.isRunning && period > 0) {
-        await this.submitProofForPeriod(period - 1, false);
+      currentPeriod = getCurrentPeriod();
+
+      if (this.isRunning && currentPeriod > 0) {
+        await this.submitProofForPeriod(currentPeriod - 1, false);
       }
     }
   }
@@ -62,29 +64,30 @@ export class ProofSubmitService {
   // Proof Submission
   private async submitProofForPeriod(period: number, isStartup: boolean): Promise<void> {
     try {
-      logger.info({ period }, 'Submitting startup proof for period');
+      const currentPeriod = getCurrentPeriod();
+      logger.info({ period, currentPeriod }, isStartup ? 'Submitting startup proof for period' : 'Submitting proof for period');
       if (!isStartup) {
-        const maxDelay = Math.max(0, getRemainingTimeInPeriodMs(period) - ProofSubmitService.MIN_DELAY_MS);
-        logger.info({ period, maxDelayMs: maxDelay }, 'Waiting random jitter before submit');
+        const maxDelay = Math.max(0, getRemainingTimeInPeriodMs(currentPeriod) - ProofSubmitService.MIN_DELAY_MS);
+        logger.info({ period, currentPeriod, maxDelayMs: maxDelay }, 'Waiting random jitter before submit');
         await this.waitWithRandomDelay(maxDelay);
       }
 
       if (!this.isRunning) return;
 
       if (await this.isProofAlreadySubmitted(period)) {
-        logger.info(`Proof for period ${period} already exists, skipping`);
+        logger.info({ period, currentPeriod }, `Proof for period ${period} already exists, skipping`);
         return;
       }
 
       const proof = await this.proofProvider.getAggregatedProof(period);
       if (!proof) {
-        logger.warn(`No proof data available for period ${period}`);
+        logger.warn({ period, currentPeriod }, `No proof data available for period ${period}`);
         return;
       }
 
       // Double-check to prevent race conditions
       if (await this.isProofAlreadySubmitted(period)) {
-        logger.info(`Proof for period ${period} was submitted by another process`);
+        logger.info({ period, currentPeriod }, `Proof for period ${period} was submitted by another process`);
         return;
       }
 
