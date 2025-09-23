@@ -6,8 +6,6 @@ import packageJson from '../package.json' with { type: 'json' };
 
 const logger = createLogger('main');
 
-logger.info(`Starting Beamable.Network DePIN Worker Node, version ${packageJson.version}`);
-
 process.on('unhandledRejection', (err) => {
   logger.error(err, 'Unhandled promise rejection');
 });
@@ -16,7 +14,7 @@ process.on('uncaughtException', (error) => {
 });
 
 async function main() {
-  logger.info('Starting worker process');
+  logger.info({ version: packageJson.version }, 'Starting Beamable.Network DePIN Worker Node');
   const config = new WorkerConfig();
   logger.debug({ env: config.environment, host: config.host, port: config.port, externalUrl: config.externalUrl }, 'Loaded configuration');
   const server = await WorkerServer.create(config);
