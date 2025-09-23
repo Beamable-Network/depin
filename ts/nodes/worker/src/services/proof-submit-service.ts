@@ -92,8 +92,8 @@ export class ProofSubmitService {
       }
 
       await this.submitProof(period, proof);
-    } catch (error) {
-      logger.error(error, `Error submitting proof for period ${period}`);
+    } catch (err) {
+      logger.error(err, `Error submitting proof for period ${period}`);
       await this.sleep(ProofSubmitService.ERROR_RETRY_DELAY_MS);
     }
   }
@@ -134,8 +134,8 @@ export class ProofSubmitService {
       const [pda] = await findWorkerProofPDA(this.worker.getLicense(), period);
       const account = await this.worker.getUmi().rpc.getAccount(publicKey(pda));
       return account.exists;
-    } catch (error) {
-      logger.warn(error, `Error checking existing proof for period ${period}`);
+    } catch (err) {
+      logger.warn(err, `Error checking existing proof for period ${period}`);
       return false;
     }
   }

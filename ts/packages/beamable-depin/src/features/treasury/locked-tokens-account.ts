@@ -133,8 +133,8 @@ export class LockedTokensAccount {
                     address: address(account.pubkey),
                     data: lockedTokensData,
                 });
-            } catch (error) {
-                console.warn(`Failed to decode LockedTokens account ${account.pubkey}:`, error);
+            } catch (err) {
+                console.warn(`Failed to decode LockedTokens account ${account.pubkey}:`, err);
                 continue;
             }
         }

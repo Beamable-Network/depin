@@ -75,8 +75,8 @@ export class WorkerConfig {
       }
       this._workerPrivateKeyBytes = new Uint8Array(secretKeyArray);
       return this._workerPrivateKeyBytes;
-    } catch (error) {
-      throw new Error(`Invalid WORKER_PRIVATE_KEY format. Expected JSON array of 64 numbers from solana-keygen grind. Error: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (err) {
+      throw new Error(`Invalid WORKER_PRIVATE_KEY format. Expected JSON array of 64 numbers from solana-keygen grind. Error: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 }

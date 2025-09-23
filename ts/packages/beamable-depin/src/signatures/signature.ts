@@ -37,7 +37,7 @@ export class Signature implements BaseSignature {
             const publicKey = await getPublicKeyFromAddress(address(this.publicKey));
             const signatureBytes = getBase58Encoder().encode(this.signature) as SignatureBytes;
             return await verifySignature(publicKey, signatureBytes, messageData);
-        } catch (error) {
+        } catch (err) {
             return false;
         }
     }
@@ -97,7 +97,7 @@ export class SignedPayload<T extends TSchema> implements BaseSignature {
             
             // Verify the signature
             return await verifySignature(publicKey, signatureBytes, messageData);
-        } catch (error) {
+        } catch (err) {
             // If any step fails, signature is invalid
             return false;
         }

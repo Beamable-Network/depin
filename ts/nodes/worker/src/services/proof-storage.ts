@@ -37,13 +37,13 @@ export class ProofStorageService {
       }));
 
       throw new ProofAlreadyExistsError(`Proof already exists for period ${period} and checker ${checkerLicenseIndex}`);
-    } catch (error) {
-      if (error instanceof ProofAlreadyExistsError) {
-        throw error;
+    } catch (err) {
+      if (err instanceof ProofAlreadyExistsError) {
+        throw err;
       }
 
-      if ((error as any).name !== 'NotFound') {
-        throw new Error(`Failed to check if proof exists: ${error instanceof Error ? error.message : String(error)}`);
+      if ((err as any).name !== 'NotFound') {
+        throw new Error(`Failed to check if proof exists: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
@@ -58,8 +58,8 @@ export class ProofStorageService {
         ContentType: 'application/json'
       }));
       logger.debug({ key, period, checkerLicenseIndex }, 'Proof stored');
-    } catch (error) {
-      throw new Error(`Failed to store proof to S3: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (err) {
+      throw new Error(`Failed to store proof to S3: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -105,8 +105,8 @@ export class ProofStorageService {
         }
       } while (continuationToken);
       logger.debug({ period, count: proofs.length, ms: Date.now() - start }, 'Listed proofs by period');
-    } catch (error) {
-      throw new Error(`Failed to list proofs for period ${period}: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (err) {
+      throw new Error(`Failed to list proofs for period ${period}: ${err instanceof Error ? err.message : String(err)}`);
     }
 
     return proofs;

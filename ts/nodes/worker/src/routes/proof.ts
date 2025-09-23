@@ -28,10 +28,10 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
         try {
             const proofsWithIndex = await worker.getProofStorage().listProofsByPeriod(parsed);
             return reply.code(200).send(proofsWithIndex);
-        } catch (error) {
+        } catch (err) {
             return reply.code(400).send({
                 error: 'proof_fetch_failed',
-                message: `Failed to fetch proofs: ${error instanceof Error ? error.message : String(error)}`,
+                message: `Failed to fetch proofs: ${err instanceof Error ? err.message : String(err)}`,
                 timestamp: Date.now()
             });
         }
@@ -168,10 +168,10 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
             // Save the checker index
             checkerLicenseIndex = licenseAsset.compression.seq;
             log.debug({ checkerLicenseIndex }, 'Resolved checker license index');
-        } catch (error) {
+        } catch (err) {
             return reply.code(400).send({
                 error: 'checker_license_unavailable',
-                message: `Failed to fetch checker license asset: ${error instanceof Error ? error.message : String(error)}`,
+                message: `Failed to fetch checker license asset: ${err instanceof Error ? err.message : String(err)}`,
                 timestamp: Date.now()
             });
         }
@@ -180,8 +180,8 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
         try {
             await worker.getProofStorage().storeProof(checkerLicenseIndex, proof);
             log.debug({ period: proof.payload.period, checkerLicenseIndex }, 'Stored proof');
-        } catch (error) {
-            if (error instanceof ProofAlreadyExistsError) {
+        } catch (err) {
+            if (err instanceof ProofAlreadyExistsError) {
                 log.warn({ period: proof.payload.period, checkerLicenseIndex }, 'Duplicate proof');
                 return reply.code(400).send({
                     error: 'proof_already_exists',
@@ -191,7 +191,7 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
             }
             return reply.code(400).send({
                 error: 'proof_storage_failed',
-                message: `Failed to store proof: ${error instanceof Error ? error.message : String(error)}`,
+                message: `Failed to store proof: ${err instanceof Error ? err.message : String(err)}`,
                 timestamp: Date.now()
             });
         }

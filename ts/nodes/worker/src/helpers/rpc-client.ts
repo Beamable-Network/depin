@@ -63,9 +63,9 @@ function createBuildAndSendTransactionFn(params: {
             logger.debug({ logs }, 'Transaction logs');
 
             return { signature: txSig, logs };
-        } catch (error) {
-            logger.error({ error: getErrorMessage(error) }, 'Error sending transaction');
-            throw error;
+        } catch (err) {
+            logger.error({ err: getErrorMessage(err) }, 'Error sending transaction');
+            throw err;
         }
     };
 }

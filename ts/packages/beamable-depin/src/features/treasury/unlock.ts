@@ -63,7 +63,7 @@ export class Unlock {
                 const accounts = await LockedTokensAccount.getLockedTokens(rpc, this.owner);
                 const match = accounts.find(a => a.data.lockPeriod === this.params.lock_period && a.data.unlockedAt.__option === 'None');
                 if (match) unlockPeriod = match.data.unlockPeriod;
-            } catch (e) {
+            } catch (err) {
                 // ignore, will error below if still undefined
             }
         }

@@ -8,7 +8,7 @@ import { WorkerConfig } from './config.js';
 import { registerRoutes } from './routes/index.js';
 import { WorkerNode } from './worker.js';
 import { ProofSubmitService } from './services/proof-submit-service.js';
-import { createLogger, createFastifyLogger } from './logger.js';
+import { createLogger, createLoggerOptions } from './logger.js';
 
 const logger = createLogger('WorkerServer');
 
@@ -24,7 +24,7 @@ export class WorkerServer {
     const worker = await WorkerNode.create(config);
     // Use our fastify logger configuration
     const fastify = Fastify({
-      logger: createFastifyLogger(),
+      logger: createLoggerOptions('Fastify'),
       disableRequestLogging: true
     }).withTypeProvider<TypeBoxTypeProvider>();
 
@@ -82,8 +82,8 @@ export class WorkerServer {
         port: this.config.port,
         host: this.config.host
       });
-    } catch (error) {
-      logger.error(error, 'Failed to start worker server');
+    } catch (err) {
+      logger.error(err, 'Failed to start worker server');
       process.exit(1);
     }
   }

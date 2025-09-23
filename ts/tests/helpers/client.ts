@@ -120,7 +120,7 @@ async function createWalletFromEnv(): Promise<TransactionSigner & MessageSigner>
   try {
     const privateKeyBytes = getWalletPrivateKeyBytes();
     return await createKeyPairSignerFromBytes(privateKeyBytes);
-  } catch (error) {
+  } catch (err) {
     throw new Error("Invalid WALLET_PRIVATE_KEY format. Please ensure it's a valid JSON array of numbers.");
   }
 }
@@ -139,7 +139,7 @@ export function getWalletPrivateKeyBytes(): Uint8Array {
   try {
     const privateKeyArray = JSON.parse(privateKeyJson);
     return new Uint8Array(privateKeyArray);
-  } catch (error) {
+  } catch (err) {
     throw new Error("Invalid WALLET_PRIVATE_KEY format. Please ensure it's a valid JSON array of numbers.");
   }
 }
@@ -177,9 +177,9 @@ function createBuildAndSendTransactionFn(params: {
       console.log('Transaction logs:', txInfo.meta.logMessages);
 
       return { signature: txSig, logs: txInfo.meta.logMessages };
-    } catch (error) {
-      console.error('Error sending transaction:', error);
-      throw error;
+    } catch (err) {
+      console.error('Error sending transaction:', err);
+      throw err;
     }
   };
 }

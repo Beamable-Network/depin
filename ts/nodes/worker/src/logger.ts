@@ -1,5 +1,4 @@
 import pino, { LoggerOptions } from 'pino';
-import pretty from 'pino-pretty';
 
 const levelFromEnv = (raw?: string): string => {
   // Support numeric and string levels; default to 'info'
@@ -28,7 +27,7 @@ const prettyOptions = {
   ignore: 'pid,hostname',
 } as const;
 
-export const createLogger = (name: string) => {
+export const createLoggerOptions = (name: string): LoggerOptions => {
   const pinoLevel = levelFromEnv(process.env.LOG_LEVEL);
   const baseOptions: LoggerOptions = {
     level: pinoLevel,
@@ -36,26 +35,15 @@ export const createLogger = (name: string) => {
   };
 
   if (!isJsonFormat()) {
-    const prettyStream = pretty(prettyOptions);
-    return pino(baseOptions, prettyStream);
-  }
-  return pino(baseOptions);
-};
-
-export const createFastifyLogger = (name = 'Fastify') => {
-  const pinoLevel = levelFromEnv(process.env.LOG_LEVEL);
-  if (isJsonFormat()) {
-    return {
-      level: pinoLevel,
-      base: { name }
-    };
-  }
-  return {
-    level: pinoLevel,
-    base: { name },
-    transport: {
+    baseOptions.transport = {
       target: 'pino-pretty',
       options: prettyOptions,
-    }
-  };
+    };
+  }
+
+  return baseOptions;
+};
+
+export const createLogger = (name: string) => {
+  return pino(createLoggerOptions(name));
 };
