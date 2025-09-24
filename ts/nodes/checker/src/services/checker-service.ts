@@ -1,4 +1,5 @@
 import { BMBStateAccount, DEPIN_PROGRAM, DepinAccountType, getCurrentPeriod, getRemainingTimeInPeriodMs, runBrand, WorkerMetadataAccount } from '@beamable-network/depin';
+import { publicKey } from '@metaplex-foundation/umi';
 import { getBase58Codec, getBase64Codec, getU8Codec, isNone } from 'gill';
 import { GetProgramAccountsV2Config } from 'helius-sdk/types/types';
 import { CheckerNode } from '../checker.js';
@@ -84,8 +85,8 @@ export class CheckerService {
     logger.info({ period }, 'Running checker tasks');
 
     const bmbState = await BMBStateAccount.readFromState(async (address) => {
-      const accountData = await this.checker.getRpcClient().helius.getAccountInfo(address, { encoding: 'base64' });
-      const accountDataBytes = accountData.value?.data ? getBase64Codec().encode(accountData.value.data) : null;
+      const accountData = await this.checker.getRpcClient().umi.rpc.getAccount(publicKey(address));
+      const accountDataBytes = accountData.exists ? accountData.data : null;
       if (!accountDataBytes) return null;
       return accountDataBytes;
     });
