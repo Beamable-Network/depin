@@ -3,7 +3,7 @@ use solana_program::{account_info::AccountInfo, declare_id, entrypoint, entrypoi
 mod processor;
 mod instruction;
 
-declare_id!("bdpFdVD8Lyy7tKrLSASvNxk7TjbwXi7ejedZkeamPnM");
+declare_id!("bmb3KBHjzHzH7ZJ1aNG1v2XpciuX9g89TyRYK7sJXec");
 
 entrypoint!(process_instruction);
 
