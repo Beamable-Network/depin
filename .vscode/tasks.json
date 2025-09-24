@@ -62,6 +62,17 @@
         "kind": "build",
         "isDefault": false
       }
+    },
+    {
+      "label": "PUBLISH NPM @beamable-network/depin",
+      "type": "shell",
+      "command": "pnpm publish",
+      "options": {
+        "cwd": "${workspaceFolder}/ts/packages/beamable-depin"
+      },
+      "problemMatcher": [],
+      "group": "build",
+      "dependsOn": "BUILD TS @beamable-network/depin"
     }
   ]
 }
