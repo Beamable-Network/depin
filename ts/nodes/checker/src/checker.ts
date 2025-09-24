@@ -72,16 +72,12 @@ export class CheckerNode {
     const checkerMetadataPda = await CheckerMetadataAccount.findCheckerMetadataPDA(address(this.license.rpcAsset.id), checkerAddress);
     const checkerMetadataAccount = await this.rpc.helius.getAccountInfo(checkerMetadataPda[0]);
 
-    if (!checkerMetadataAccount.value?.data.length) {
-      throw new Error(`Checker metadata account does not exist for license ${this.license} and checker ${checkerAddress}. Please activate the checker license.`);
-    }
-
     if (checkerMetadataAccount.value == null && address(license.leafOwner) != checkerAddress) {
       throw new Error(`Checker license is owned by ${license.leafOwner}, but checker address is ${checkerAddress}. An activation can only be performed by the license owner.`);
     }
 
-    // Activate the license
-    if (checkerMetadataAccount.value == null) {
+    if (!checkerMetadataAccount.value) {
+      // Activate the license
       logger.info('Activating checker license...');
 
       const activate = new ActivateChecker({

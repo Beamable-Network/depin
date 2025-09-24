@@ -61,7 +61,7 @@ export class CheckerService {
               break;
             }
             else {
-              logger.error({ err, period }, 'Period tasks failed, will retry');
+              logger.error({ err, period, retryMs: CheckerService.ERROR_RETRY_DELAY_MS }, 'Period tasks failed, will retry');
               await this.sleep(CheckerService.ERROR_RETRY_DELAY_MS);
             }
           }
