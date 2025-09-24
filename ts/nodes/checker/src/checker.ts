@@ -3,7 +3,7 @@ import { AssetWithProof, getAssetWithProof } from '@metaplex-foundation/mpl-bubb
 import { publicKey } from '@metaplex-foundation/umi';
 import { address, Address, createKeyPairSignerFromBytes, isAddress, KeyPairSigner, lamportsToSol } from 'gill';
 import { CheckerConfig } from './config.js';
-import { createRpcClient, RpcClient } from './helpers/rpc-client.js';
+import { createRpcClient, RpcClient } from './utils/rpc-client.js';
 import { getLogger } from './logger.js';
 import { CheckerService } from './services/checker-service.js';
 

@@ -6,7 +6,7 @@ import { getAssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 import { publicKey, Umi } from '@metaplex-foundation/umi';
 import { ActivateWorker, UpdateWorkerUri, WorkerMetadataAccount } from '@beamable-network/depin';
 import { WorkerConfig } from './config.js';
-import { createRpcClient, RpcClient } from './helpers/rpc-client.js';
+import { createRpcClient, RpcClient } from './utils/rpc-client.js';
 import { getLogger } from './logger.js';
 import { ProofStorageService } from './services/proof-storage.js';
 
