@@ -7,15 +7,18 @@ const addressEncoder = getAddressEncoder();
 export class WorkerMetadataAccount {
     suspendedAt: Option<bigint>;
     delegatedTo: Address;
+    license: Address;
     discoveryUri: string;
 
     constructor(fields: {
         suspendedAt: Option<bigint>;
         delegatedTo: Address;
+        license: Address;
         discoveryUri: string;
     }) {
         this.suspendedAt = fields.suspendedAt;
         this.delegatedTo = fields.delegatedTo;
+        this.license = fields.license;
         this.discoveryUri = fields.discoveryUri;
     }
 
@@ -24,6 +27,7 @@ export class WorkerMetadataAccount {
             1 + // discriminator
             1 + 8 + // suspendedAt (Option<u64>)
             32 + // delegatedTo (address)
+            32 + // license (address)
             4 + discoveryUriLength // discoveryUri (String with length prefix)
         );
     }
@@ -31,6 +35,7 @@ export class WorkerMetadataAccount {
     public static readonly DataCodecV1: Codec<WorkerMetadataAccount> = getStructCodec([
         ["suspendedAt", getOptionCodec(getU64Codec())],
         ["delegatedTo", getAddressCodec()],
+        ["license", getAddressCodec()],
         ["discoveryUri", addCodecSizePrefix(getUtf8Codec(), getU32Codec())],
     ]);
 

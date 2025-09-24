@@ -16,7 +16,7 @@ process.on('uncaughtException', (err) => {
 async function main() {
   logger.info({ version: packageJson.version }, 'Starting Beamable.Network DePIN Checker Node');
   const config = new CheckerConfig();
-  logger.debug({ env: config.environment, rpc: config.solanaRpcUrl }, 'Loaded configuration');
+  logger.debug({ network: config.solanaNetwork }, 'Loaded configuration');
 
   const checker = await CheckerNode.create(config);
 

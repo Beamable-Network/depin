@@ -74,7 +74,7 @@ export class WorkerServer {
   async start(): Promise<void> {
     try {
       await this.worker.start();
-      await this.submitService.start();
+      this.submitService.start();
 
       await this.fastify.listen({
         port: this.config.port,

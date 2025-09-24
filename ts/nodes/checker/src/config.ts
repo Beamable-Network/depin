@@ -5,21 +5,30 @@ const checkerDir = dirname(import.meta.dirname);
 const envPath = join(checkerDir, '.env');
 dotenv.config({ path: envPath });
 
-export class CheckerConfig {
-  public readonly solanaRpcUrl: string;
+export class CheckerConfig {  
+  public readonly solanaNetwork: "mainnet" | "devnet";
+  public readonly heliusApiKey: string;
   public readonly checkerPrivateKey: string;
   public readonly checkerLicense: string;
-  public readonly environment: 'development' | 'production' | 'testing';
 
   private _checkerPrivateKeyBytes?: Uint8Array;
 
   constructor() {
-    const solanaRpcUrl = process.env.SOLANA_RPC_URL;
+    const solanaNetwork = process.env.SOLANA_NETWORK;
+    const heliusApiKey = process.env.HELIUS_API_KEY;
     const checkerPrivateKey = process.env.CHECKER_PRIVATE_KEY;
     const checkerLicense = process.env.CHECKER_LICENSE;
 
-    if (!solanaRpcUrl) {
-      throw new Error('SOLANA_RPC_URL environment variable is required');
+    if (!solanaNetwork) {
+      throw new Error('SOLANA_NETWORK environment variable is required');
+    }
+
+    if (solanaNetwork !== 'mainnet' && solanaNetwork !== 'devnet') {
+      throw new Error('SOLANA_NETWORK must be either "mainnet" or "devnet"');
+    }
+
+    if (!heliusApiKey) {
+      throw new Error('HELIUS_API_KEY environment variable is required');
     }
 
     if (!checkerPrivateKey) {
@@ -30,10 +39,10 @@ export class CheckerConfig {
       throw new Error('CHECKER_LICENSE environment variable is required');
     }
 
-    this.solanaRpcUrl = solanaRpcUrl;
+    this.solanaNetwork = solanaNetwork;
     this.checkerPrivateKey = checkerPrivateKey;
     this.checkerLicense = checkerLicense;
-    this.environment = (process.env.NODE_ENV as CheckerConfig['environment']) || 'development';
+    this.heliusApiKey = heliusApiKey;
   }
 
   get checkerPrivateKeyBytes(): Uint8Array {
@@ -51,5 +60,9 @@ export class CheckerConfig {
     } catch (err) {
       throw new Error(`Invalid CHECKER_PRIVATE_KEY format. Expected JSON array of 64 numbers from solana-keygen grind. Error: ${err instanceof Error ? err.message : String(err)}`);
     }
+  }
+
+  getSolanaRpcUrl(): string {
+      return `https://${this.solanaNetwork}.helius-rpc.com/?api-key=${this.heliusApiKey}`;
   }
 }

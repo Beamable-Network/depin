@@ -29,7 +29,7 @@ describe('Checker licenses activation', async () => {
 
         assert.isNotNull(stateAccountDataBytes, 'BMBState account should exist after activating licenses');
         const stateAccount = BMBStateAccount.deserializeFrom(stateAccountDataBytes!);
-        expect(stateAccount.getCheckerCountForPeriod(1)).toEqual(1000n);
+        expect(stateAccount.getCheckerCountForPeriod(1)).toEqual(1000);
     });
 
     it('should not allow activating checkers for current or past periods', async () => {
@@ -80,7 +80,7 @@ describe('Checker licenses activation', async () => {
         const stateAccountPda = await BMBStateAccount.findPDA();
         const stateAccountDataBytes = lite.getAccountData(stateAccountPda[0]);
         const stateAccount = BMBStateAccount.deserializeFrom(stateAccountDataBytes!);
-        expect(stateAccount.getCheckerCountForPeriod(6)).toEqual(750n);
+        expect(stateAccount.getCheckerCountForPeriod(6)).toEqual(750);
     });
 
     it('should not allow to change the checker count if already set for period', async () => {
@@ -103,7 +103,7 @@ describe('Checker licenses activation', async () => {
         const stateAccountPda = await BMBStateAccount.findPDA();
         let stateAccountDataBytes = lite.getAccountData(stateAccountPda[0]);
         let stateAccount = BMBStateAccount.deserializeFrom(stateAccountDataBytes!);
-        expect(stateAccount.getCheckerCountForPeriod(10)).toEqual(1000n);
+        expect(stateAccount.getCheckerCountForPeriod(10)).toEqual(1000);
 
         const changeCount = new ActivateCheckerLicenses({
             checker_count: 500,

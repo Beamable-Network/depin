@@ -157,7 +157,7 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
                 });
             }
 
-            if (licenseAsset.compression.seq > checkerCount) {
+            if (licenseAsset.compression.leaf_id > checkerCount) {
                 return reply.code(400).send({
                     error: 'invalid_checker_license',
                     message: 'The provided checker license is not activated in BMBState',
@@ -166,7 +166,7 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
             }
 
             // Save the checker index
-            checkerLicenseIndex = licenseAsset.compression.seq;
+            checkerLicenseIndex = licenseAsset.compression.leaf_id;
             log.debug({ checkerLicenseIndex }, 'Resolved checker license index');
         } catch (err) {
             return reply.code(400).send({

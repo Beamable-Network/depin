@@ -59,7 +59,7 @@ export class BMBStateAccount implements BMBStateAccountData {
         return { period, checkerCount };
     }
 
-    public getCheckerCountForPeriod(targetPeriod: number): bigint | null {
+    public getCheckerCountForPeriod(targetPeriod: number): number | null {
         const ringBuffer = new RingBuffer64(this.period_checkers_buffer, 16);
         
         // Iterate backwards from current_index to find the first period <= target
@@ -71,7 +71,7 @@ export class BMBStateAccount implements BMBStateAccountData {
             
             const parsed = this.parsePeriodCheckerU64(value);
             if (parsed.period <= targetPeriod) {
-                return parsed.checkerCount;
+                return Number(parsed.checkerCount);
             }
         }
         
