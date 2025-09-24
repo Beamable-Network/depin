@@ -1,6 +1,6 @@
 {
   "name": "@beamable-network/depin",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Beamable DePIN SDK for Solana blockchain interactions",
   "main": "dist/index.js",
   "type": "module",
