@@ -1,8 +1,9 @@
-import { BMBStateAccount, getCurrentPeriod, getRemainingTimeInPeriodMs, ProgramAccount, runBrand, WorkerDiscoveryDocument, WorkerMetadataAccount } from '@beamable-network/depin';
+import { BMBStateAccount, getCurrentPeriod, getPeriodEndMs, getRemainingTimeInPeriodMs, ProgramAccount, runBrand, WorkerDiscoveryDocument, WorkerMetadataAccount } from '@beamable-network/depin';
 import { publicKey } from '@metaplex-foundation/umi';
 import { CheckerNode } from '../checker.js';
 import { getLogger } from '../logger.js';
 import { ResolvedWorkerDiscovery, WorkerDiscoveryService } from './worker-discovery-service.js';
+import { HealthCheckManager } from './health-check-service.js';
 import { promiseStateAsync } from 'p-state';
 
 const logger = getLogger('CheckerService');
@@ -14,6 +15,7 @@ export class CheckerService {
   private static readonly PERIOD_SKIP_THRESHOLD_MS = 60 * 60 * 1000; // 1h - threshold for skipping periods
   private static readonly BUFFER_SLEEP_MS = 10_000; // 10 seconds - buffer time for various sleep operations
   private static readonly ERROR_RETRY_DELAY_MS = 60_000; // 1 minute
+  private static readonly HEALTH_ABORT_THRESHOLD_MS = 10 * 60 * 1000; // abort health checks 10 minutes before period end
 
   private isRunning = false;
   private currentPeriod = 0;
@@ -47,7 +49,7 @@ export class CheckerService {
         // Period has changed
         this.currentPeriod = period;
 
-        const remainingMs = getRemainingTimeInPeriodMs();
+        const remainingMs = getRemainingTimeInPeriodMs(period);
         
         if (remainingMs < CheckerService.PERIOD_SKIP_THRESHOLD_MS) {
           logger.warn({ period, remainingMs }, 'Skipping period tasks due to insufficient remaining time');
@@ -88,8 +90,8 @@ export class CheckerService {
         }
       }
 
-      if (getRemainingTimeInPeriodMs() > CheckerService.BUFFER_SLEEP_MS && this.currentPeriod === getCurrentPeriod()) {
-        const remainingTime = getRemainingTimeInPeriodMs();
+      if (getRemainingTimeInPeriodMs(this.currentPeriod) > CheckerService.BUFFER_SLEEP_MS && this.currentPeriod === getCurrentPeriod()) {
+        const remainingTime = getRemainingTimeInPeriodMs(this.currentPeriod);
         const sleepTime = remainingTime + CheckerService.BUFFER_SLEEP_MS; // 10 seconds buffer
         logger.info({ period: this.currentPeriod, sleepTime }, 'Sleeping until next period');
         await this.sleep(sleepTime);
@@ -130,34 +132,77 @@ export class CheckerService {
       return;
     }
 
-    await this.resolveWorkers(eligibleWorkers, period, (entry) => {
-      logger.debug({ period, worker: entry.discovery.worker.address, license: entry.workerAccount.data.license, discoveryUri: entry.workerAccount.data.discoveryUri }, 'Worker resolved');
-      // Start checking process
-    });    
+    // Prepare health check manager and controller for this period
+    const healthManager = new HealthCheckManager();
+    const healthAc = new AbortController();
+    const periodEndAt = getPeriodEndMs(period);
+
+    try {
+      await this.resolveWorkers(eligibleWorkers, period, (entry) => {
+        logger.debug({ period, worker: entry.discovery.worker.address, license: entry.workerAccount.data.license, discoveryUri: entry.workerAccount.data.discoveryUri }, 'Worker resolved');
+        // Start health check session for this worker
+        healthManager.startSession({
+          workerAccount: entry.workerAccount,
+          discovery: entry.discovery,
+          period,
+        }, {
+          periodEndAt,
+          signal: healthAc.signal,
+        });
+      });
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') {
+        logger.warn({ period }, 'Discovery aborted; continuing with any resolved workers');
+      } else {
+        logger.warn({ err, period }, 'Discovery errored; continuing with any resolved workers');
+      }
+    }
+
+    // After discovery, wait for all health checks; abort HEALTH_ABORT_THRESHOLD_MS before period end
+    const healthPromise = healthManager.waitForAll();
+    const healthTimer = setTimeout(async () => {
+      const state = await promiseStateAsync(healthPromise);
+      if (state === 'pending') {
+        healthAc.abort('Aborting health checks, period ending soon');
+      }
+    }, Math.max(0, getRemainingTimeInPeriodMs(period) - CheckerService.HEALTH_ABORT_THRESHOLD_MS));
+
+    try {
+      await healthPromise;
+    }
+    finally {
+      clearTimeout(healthTimer);
+      await healthManager.close();
+    }
   }
 
   private async resolveWorkers(eligibleWorkers: ProgramAccount<WorkerMetadataAccount>[], period: number, onResolved: (entry: ResolvedWorkerDiscovery) => void): Promise<void> {    
-    const ac = new AbortController();
+    const discoveryAc = new AbortController();
 
-    const remainingTimeMs = getRemainingTimeInPeriodMs();
+    const remainingTimeMs = getRemainingTimeInPeriodMs(period);
 
     const resolvePromise = this.discoveryService.resolve({
       workerAccounts: eligibleWorkers,
       period,
-      onResolved,
-      signal: ac.signal
+      onResolved: (entry) => onResolved(entry),
+      signal: discoveryAc.signal
     });
 
     const timer = setTimeout(async () => {
       const state = await promiseStateAsync(resolvePromise);
       if (state === 'pending') {
-        ac.abort('Aborting worker resolution due to period ending soon');
+        discoveryAc.abort('Aborting worker resolution due to period ending soon');
       }      
-    }, Math.max(0, remainingTimeMs - CheckerService.PERIOD_SKIP_THRESHOLD_MS)); // Abort worker resolution if less than 1 hour remains in the period
+    }, Math.max(0, remainingTimeMs - CheckerService.PERIOD_SKIP_THRESHOLD_MS)); // Abort worker resolution if less than PERIOD_SKIP_THRESHOLD_MS remains in the period
 
-    await resolvePromise;
-    clearTimeout(timer);
+    try {
+      await resolvePromise;
+    } finally {
+      clearTimeout(timer);
+    }
   }
+
+  
 
   private isWorkerEligible(myLicenseIndex: number, worker: WorkerMetadataAccount, period: number, periodCheckers: number): boolean {
     const brandOutput = runBrand(worker.license, period, periodCheckers);

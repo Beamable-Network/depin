@@ -73,9 +73,9 @@ export class ProofSubmitService {
         }
       }
 
-      if (getRemainingTimeInPeriodMs() > ProofSubmitService.BUFFER_SLEEP_MS && this.currentPeriod === getCurrentPeriod()) {
-        const remainingTime = getRemainingTimeInPeriodMs();
-        const sleepTime = remainingTime + ProofSubmitService.BUFFER_SLEEP_MS; // 10 seconds buffer
+      const remainingMs = getRemainingTimeInPeriodMs(this.currentPeriod);
+      if (remainingMs > ProofSubmitService.BUFFER_SLEEP_MS) {
+        const sleepTime = remainingMs + ProofSubmitService.BUFFER_SLEEP_MS; // 10 seconds buffer
         logger.info({ sleepTime }, 'Sleeping until next period');
         await this.sleep(sleepTime);
       }

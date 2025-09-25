@@ -33,6 +33,7 @@ export class CheckerNode {
 
   getLicense(): AssetWithProof | undefined { return this.license; }
   getAddress(): Address { return this.signer.address; }
+  getNetwork(): "mainnet" | "devnet" { return this.config.solanaNetwork; }
   getSigner(): KeyPairSigner { return this.signer; }
   getRpcClient(): RpcClient { return this.rpc; }
 

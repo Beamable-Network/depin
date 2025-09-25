@@ -46,3 +46,14 @@ export function getRemainingTimeInPeriodMs(period?: number): number {
     const remaining = endMs - nowMs;
     return remaining > 0 ? remaining : 0;
 }
+
+/**
+ * Returns the epoch milliseconds for the end of the given period.
+ * Periods are daily windows starting at 2025-06-01 00:00:00 UTC (PERIOD_ZERO).
+ * The end of period N is the start of period N+1.
+ */
+export function getPeriodEndMs(period: number): number {
+    if (period < 0) throw new Error('Period cannot be negative');
+    const endSec = periodToTimestamp(period + 1);
+    return Number(endSec * BigInt(1000));
+}

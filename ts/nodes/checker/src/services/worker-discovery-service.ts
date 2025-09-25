@@ -31,6 +31,16 @@ export class WorkerDiscoveryService {
   }
 
   async fetchActiveWorkerAccounts(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {
+    const network = this.checker.getNetwork();
+    
+    if (network === 'devnet') {
+      return this.fetchActiveWorkerAccountsV1();
+    } else {
+      return this.fetchActiveWorkerAccountsV2();
+    }
+  }
+
+  private async fetchActiveWorkerAccountsV2(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {    
     const helius = this.checker.getRpcClient().helius;
 
     const activeWorkerAccounts: Array<ProgramAccount<WorkerMetadataAccount>> = [];
@@ -74,6 +84,44 @@ export class WorkerDiscoveryService {
 
       paginationKey = res.paginationKey || null;
     } while (paginationKey);
+
+    return activeWorkerAccounts;
+  }
+
+  private async fetchActiveWorkerAccountsV1(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {
+    const helius = this.checker.getRpcClient().helius;
+    
+    const activeWorkerAccounts: Array<ProgramAccount<WorkerMetadataAccount>> = [];
+
+    const requestOptions = {
+      encoding: 'base64' as const,
+      filters: [
+        {
+          memcmp: {
+            bytes: getBase58Codec().decode(getU8Codec().encode(DepinAccountType.WorkerMetadata)),
+            offset: 0,
+          },
+        },
+      ],
+    };
+
+    const res = await helius.getProgramAccounts(DEPIN_PROGRAM, requestOptions);
+
+    for (const account of res) {
+      const dataField = account.account.data;
+      if (dataField == null) continue;
+      try {
+        const workerAccount = WorkerMetadataAccount.deserializeFrom(getBase64Codec().encode(account.account.data));
+        if (isNone(workerAccount.suspendedAt) && workerAccount.discoveryUri.trim().length > 0) {
+          activeWorkerAccounts.push({
+            address: address(account.pubkey),
+            data: workerAccount
+          });
+        }
+      } catch {
+        // Ignore invalid accounts
+      }
+    }
 
     return activeWorkerAccounts;
   }
