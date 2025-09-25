@@ -41,6 +41,9 @@ importers:
       p-limit:
         specifier: ^7.1.1
         version: 7.1.1
+      p-state:
+        specifier: ^3.0.0
+        version: 3.0.0
       pino:
         specifier: ^9.10.0
         version: 9.10.0
@@ -2111,6 +2114,10 @@ packages:
 
   p-limit@7.1.1:
     resolution: {integrity: sha512-i8PyM2JnsNChVSYWLr2BAjNoLi0BAYC+wecOnZnVV+YSNJkzP7cWmvI34dk0WArWfH9KwBHNoZI3P3MppImlIA==}
+    engines: {node: '>=20'}
+
+  p-state@3.0.0:
+    resolution: {integrity: sha512-QUdqu6xT6mUO6b5KiOxqXFFAHYmsm2P3XBlzROIV347OMyObTcYCAojKxZr5njc8J1OD/1SX4gN7pNqTSCNwtw==}
     engines: {node: '>=20'}
 
   package-json-from-dist@1.0.1:
@@ -5267,6 +5274,8 @@ snapshots:
   p-limit@7.1.1:
     dependencies:
       yocto-queue: 1.2.1
+
+  p-state@3.0.0: {}
 
   package-json-from-dist@1.0.1: {}
 

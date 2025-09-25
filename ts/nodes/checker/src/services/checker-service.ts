@@ -3,6 +3,7 @@ import { publicKey } from '@metaplex-foundation/umi';
 import { CheckerNode } from '../checker.js';
 import { getLogger } from '../logger.js';
 import { WorkerDiscoveryService } from './worker-discovery-service.js';
+import { promiseStateAsync } from 'p-state';
 
 const logger = getLogger('CheckerService');
 
@@ -74,8 +75,14 @@ export class CheckerService {
               break;
             }
             else {
-              logger.error({ err, period, retryMs: CheckerService.ERROR_RETRY_DELAY_MS }, 'Period tasks failed, will retry');
-              await this.sleep(CheckerService.ERROR_RETRY_DELAY_MS);
+              if (err instanceof Error && err.name === 'AbortError') {
+                logger.warn({ err, period }, 'Operation aborted, exiting retry loop');
+                break;
+              }
+              else {
+                logger.error({ err, period, retryMs: CheckerService.ERROR_RETRY_DELAY_MS }, 'Period tasks failed, will retry');
+                await this.sleep(CheckerService.ERROR_RETRY_DELAY_MS);
+              }
             }
           }
         }
@@ -132,11 +139,26 @@ export class CheckerService {
       // Start checking process
     };
 
-    await this.discoveryService.resolve({
+    const ac = new AbortController();
+
+    const remainingTimeMs = getRemainingTimeInPeriodMs();
+
+    const resolvePromise = this.discoveryService.resolve({
       workerAccounts: eligibleWorkers,
       period,
       onResolved,
+      signal: ac.signal
     });
+
+    const timer = setTimeout(async () => {
+      const state = await promiseStateAsync(resolvePromise);
+      if (state === 'pending') {
+        ac.abort('Aborting worker resolution due to period ending soon');
+      }      
+    }, Math.max(0, remainingTimeMs - CheckerService.PERIOD_SKIP_THRESHOLD_MS)); // Abort worker resolution if less than 1 hour remains in the period
+
+    await resolvePromise;
+    clearTimeout(timer);
   }
 
   private isWorkerEligible(myLicenseIndex: number, worker: WorkerMetadataAccount, period: number, periodCheckers: number): boolean {

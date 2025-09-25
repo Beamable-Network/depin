@@ -6,6 +6,7 @@ export * from './utils/filters.js';
 export * from './utils/bmb.js';
 export * from './utils/bubblegum.js';
 export * from './utils/recent-block-info.js';
+export * from './utils/delay.js';
 
 export { SubmitWorkerProof } from './features/worker/submit-worker-proof.js';
 export { InitNetwork } from './features/init/init-network.js';

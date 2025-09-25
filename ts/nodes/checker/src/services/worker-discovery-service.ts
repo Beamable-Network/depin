@@ -1,4 +1,4 @@
-import { DEPIN_PROGRAM, DepinAccountType, ProgramAccount, WorkerDiscoveryDocument, WorkerMetadataAccount } from '@beamable-network/depin';
+import { DEPIN_PROGRAM, DepinAccountType, ProgramAccount, sleep, WorkerDiscoveryDocument, WorkerMetadataAccount } from '@beamable-network/depin';
 import { address, getBase58Codec, getBase64Codec, getU8Codec, isNone } from 'gill';
 import { GetProgramAccountsV2Config } from 'helius-sdk/types/types';
 import pLimit from 'p-limit';
@@ -82,8 +82,9 @@ export class WorkerDiscoveryService {
     workerAccounts: ProgramAccount<WorkerMetadataAccount>[];
     period: number;
     onResolved: (entry: ResolvedWorkerDiscovery) => void;
+    signal?: AbortSignal;
   }): Promise<void> {
-    const { workerAccounts, period, onResolved } = params;
+    const { workerAccounts, period, onResolved, signal } = params;
 
     const limit = pLimit(WorkerDiscoveryService.CONCURRENCY);
 
@@ -91,13 +92,15 @@ export class WorkerDiscoveryService {
     const pending = new Set(workerAccounts);
 
     while (pending.size > 0) {
+      signal?.throwIfAborted();
       const batch = Array.from(pending);
 
       await Promise.all(
         batch.map(workerAccount =>
           limit(async () => {
+            signal?.throwIfAborted();
             const uri = (workerAccount.data.discoveryUri ?? '').trim();
-            const doc = await this.tryFetchDiscoveryUri(uri, period);
+            const doc = await this.tryFetchDiscoveryUri(uri, period, signal);
 
             if (doc) {
               try {
@@ -112,12 +115,12 @@ export class WorkerDiscoveryService {
 
       if (pending.size > 0) {
         logger.info({ remaining: pending.size, period }, 'Discovery unresolved; retrying later');
-        await this.sleep(WorkerDiscoveryService.RETRY_INTERVAL_MS);
+        await sleep(WorkerDiscoveryService.RETRY_INTERVAL_MS, signal);
       }
     }
   }
 
-  private async tryFetchDiscoveryUri(uri: string, period: number): Promise<WorkerDiscoveryDocument | null> {
+  private async tryFetchDiscoveryUri(uri: string, period: number, signal?: AbortSignal): Promise<WorkerDiscoveryDocument | null> {
     if (!uri?.length) return null;
     try {
       const res = await request(uri, {
@@ -125,6 +128,7 @@ export class WorkerDiscoveryService {
         dispatcher: this.agent,
         headersTimeout: WorkerDiscoveryService.HTTP_TIMEOUT_MS,
         bodyTimeout: WorkerDiscoveryService.HTTP_TIMEOUT_MS,
+        signal
       });
 
       if (res.statusCode !== 200) {
@@ -136,12 +140,12 @@ export class WorkerDiscoveryService {
       const discovery = json as WorkerDiscoveryDocument;
       return discovery;
     } catch (err) {
+      // Propagate cancellation (when signaled or when undici throws AbortError)
+      if (signal?.aborted || (err as Error)?.name === 'AbortError') {
+        throw err;
+      }
       logger.warn({ err, uri, period }, 'Discovery request error');
       return null;
     }
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return ms > 0 ? new Promise(resolve => setTimeout(resolve, ms)) : Promise.resolve();
   }
 }
