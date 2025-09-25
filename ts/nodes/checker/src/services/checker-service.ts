@@ -54,7 +54,7 @@ export class CheckerService {
         if (remainingMs < CheckerService.PERIOD_SKIP_THRESHOLD_MS) {
           logger.warn({ period, remainingMs }, 'Skipping period tasks due to insufficient remaining time');
           const sleepTime = remainingMs + CheckerService.BUFFER_SLEEP_MS;
-          logger.info({ period, sleepTime }, 'Sleeping until next period');
+          logger.info({ sleepTime }, 'Sleeping until next period');
           this.sleep(sleepTime);
           continue;
         }
@@ -93,7 +93,7 @@ export class CheckerService {
       if (getRemainingTimeInPeriodMs(this.currentPeriod) > CheckerService.BUFFER_SLEEP_MS && this.currentPeriod === getCurrentPeriod()) {
         const remainingTime = getRemainingTimeInPeriodMs(this.currentPeriod);
         const sleepTime = remainingTime + CheckerService.BUFFER_SLEEP_MS; // 10 seconds buffer
-        logger.info({ period: this.currentPeriod, sleepTime }, 'Sleeping until next period');
+        logger.info({ sleepTime }, 'Sleeping until next period');
         await this.sleep(sleepTime);
       }
       else {
