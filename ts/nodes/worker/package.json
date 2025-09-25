@@ -1,6 +1,6 @@
 {
   "name": "@beamable/depin-worker",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "DePIN Worker Node - Infrastructure provider service",
   "main": "dist/index.js",
   "type": "module",

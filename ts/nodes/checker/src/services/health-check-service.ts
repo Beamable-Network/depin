@@ -93,9 +93,7 @@ export class HealthCheckManager {
   async waitForAll(): Promise<void> {
     const sessionCount = this.sessions.size;
     if (sessionCount > 0) {
-      logger.info({ sessionCount }, 'Waiting for all health check sessions to complete');
       await Promise.all(Array.from(this.sessions));
-      logger.info({ sessionCount }, 'All health check sessions completed');
     }
   }
 
@@ -206,18 +204,27 @@ class HealthCheckSession {
   private async runHealthCheckLoop(cutoffAt: number, signal?: AbortSignal): Promise<void> {
     logger.debug({ ...this.logContext, cutoffAt: new Date(cutoffAt).toISOString() }, 'Starting health check loop');
     
+    const executeHealthCheck = async () => {
+      signal?.throwIfAborted();
+      await this.limit(async () => this.performCheck(signal).catch(err => {
+        if (err instanceof DOMException && err.name === 'AbortError') throw err;
+        logger.warn({ ...this.logContext, err }, 'Health check request error');
+      }));
+    };
+
+    // Perform the first check immediately
+    if (Date.now() < cutoffAt) {
+      await executeHealthCheck();
+    }
+
+    // Continue with delayed checks
     while (Date.now() < cutoffAt) {
       signal?.throwIfAborted();
       const delay = this.calculateNextDelay(cutoffAt);
       if (delay <= 0) break;
 
       await sleep(delay, signal);
-      signal?.throwIfAborted();
-
-      await this.limit(async () => this.performCheck(signal).catch(err => {
-        if (err instanceof DOMException && err.name === 'AbortError') throw err;
-        logger.warn({ ...this.logContext, err }, 'Health check request error');
-      }));
+      await executeHealthCheck();
     }
 
     logger.debug(this.logContext, 'Reached session cutoff; ending health checks');
@@ -242,7 +249,7 @@ class HealthCheckSession {
     const start = Date.now();
     try {
       const res = await request(url, {
-        method: 'GET',
+        method: 'POST', // TODO: implement the proper signed payload
         dispatcher: this.agent,
         headersTimeout: HealthCheckManager.DEFAULT_CONFIG.httpTimeoutMs,
         bodyTimeout: HealthCheckManager.DEFAULT_CONFIG.httpTimeoutMs,
@@ -255,7 +262,7 @@ class HealthCheckSession {
       const isSuccess = res.statusCode === 200;
       this.metrics.update(latency, isSuccess);
       
-      logger.debug({ 
+      logger.info({ 
         ...this.logContext, 
         statusCode: res.statusCode, 
         latencyMs: latency, 

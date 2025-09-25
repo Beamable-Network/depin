@@ -111,14 +111,15 @@ export class WorkerDiscoveryService {
       const dataField = account.account.data;
       if (dataField == null) continue;
       try {
-        const workerAccount = WorkerMetadataAccount.deserializeFrom(getBase64Codec().encode(account.account.data));
+        const workerAccount = WorkerMetadataAccount.deserializeFrom(getBase64Codec().encode(account.account.data[0]));
         if (isNone(workerAccount.suspendedAt) && workerAccount.discoveryUri.trim().length > 0) {
           activeWorkerAccounts.push({
             address: address(account.pubkey),
             data: workerAccount
           });
         }
-      } catch {
+      } catch(err) {
+        const x = err;
         // Ignore invalid accounts
       }
     }

@@ -148,6 +148,8 @@ export class WorkerNode {
           throw new Error(`Worker license is delegated to ${workerMetadata.delegatedTo}, but worker address is ${workerAddress}.`);
       }
 
+      logger.info({ curentUri: workerMetadata.discoveryUri, configuredUri: this.config.externalUrl }, 'Worker discovery URI check');
+
       // Update discovery URI if it has changed
       if (workerMetadata.discoveryUri !== this.config.externalUrl) {
         logger.info({ from: workerMetadata.discoveryUri, to: this.config.externalUrl }, 'Updating worker discovery URI');

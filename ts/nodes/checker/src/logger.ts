@@ -1,4 +1,10 @@
+import dotenv from 'dotenv';
+import { dirname, join } from 'path';
 import pino, { Logger, LoggerOptions } from 'pino';
+
+const checkerDir = dirname(import.meta.dirname);
+const envPath = join(checkerDir, '.env');
+dotenv.config({ path: envPath });
 
 const levelFromEnv = (raw?: string): string => {
   const map: Record<number, string> = { 0: 'trace', 1: 'trace', 2: 'debug', 3: 'info', 4: 'warn', 5: 'error', 6: 'fatal' };

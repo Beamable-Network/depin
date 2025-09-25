@@ -139,7 +139,7 @@ export class CheckerService {
 
     try {
       await this.resolveWorkers(eligibleWorkers, period, (entry) => {
-        logger.debug({ period, worker: entry.discovery.worker.address, license: entry.workerAccount.data.license, discoveryUri: entry.workerAccount.data.discoveryUri }, 'Worker resolved');
+        logger.info({ period, worker: entry.discovery.worker.address, license: entry.workerAccount.data.license, discoveryUri: entry.workerAccount.data.discoveryUri }, 'Worker resolved');
         // Start health check session for this worker
         healthManager.startSession({
           workerAccount: entry.workerAccount,
