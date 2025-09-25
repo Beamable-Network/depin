@@ -223,6 +223,7 @@ class HealthCheckSession {
       const delay = this.calculateNextDelay(cutoffAt);
       if (delay <= 0) break;
 
+      logger.debug({ ...this.logContext, delayMs: delay }, 'Waiting before next health check');
       await sleep(delay, signal);
       await executeHealthCheck();
     }
