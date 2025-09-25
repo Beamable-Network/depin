@@ -2,7 +2,7 @@ import { BMBStateAccount, getCurrentPeriod, getRemainingTimeInPeriodMs, ProgramA
 import { publicKey } from '@metaplex-foundation/umi';
 import { CheckerNode } from '../checker.js';
 import { getLogger } from '../logger.js';
-import { WorkerDiscoveryService } from './worker-discovery-service.js';
+import { ResolvedWorkerDiscovery, WorkerDiscoveryService } from './worker-discovery-service.js';
 import { promiseStateAsync } from 'p-state';
 
 const logger = getLogger('CheckerService');
@@ -130,15 +130,13 @@ export class CheckerService {
       return;
     }
 
-    await this.performChecks(eligibleWorkers, period);
+    await this.resolveWorkers(eligibleWorkers, period, (entry) => {
+      logger.debug({ period, worker: entry.discovery.worker.address, license: entry.workerAccount.data.license, discoveryUri: entry.workerAccount.data.discoveryUri }, 'Worker resolved');
+      // Start checking process
+    });    
   }
 
-  private async performChecks(eligibleWorkers: ProgramAccount<WorkerMetadataAccount>[], period: number): Promise<void> {
-    const onResolved = (entry: { workerAccount: ProgramAccount<WorkerMetadataAccount>; discovery: WorkerDiscoveryDocument }) => {
-      logger.info({ period, worker: entry.discovery.worker.address, license: entry.workerAccount.data.license, discoveryUri: entry.workerAccount.data.discoveryUri }, 'Worker resolved');
-      // Start checking process
-    };
-
+  private async resolveWorkers(eligibleWorkers: ProgramAccount<WorkerMetadataAccount>[], period: number, onResolved: (entry: ResolvedWorkerDiscovery) => void): Promise<void> {    
     const ac = new AbortController();
 
     const remainingTimeMs = getRemainingTimeInPeriodMs();
