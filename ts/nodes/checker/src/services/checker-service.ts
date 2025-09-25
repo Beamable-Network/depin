@@ -1,9 +1,8 @@
-import { BMBStateAccount, DEPIN_PROGRAM, DepinAccountType, getCurrentPeriod, getRemainingTimeInPeriodMs, runBrand, WorkerMetadataAccount } from '@beamable-network/depin';
+import { BMBStateAccount, getCurrentPeriod, getRemainingTimeInPeriodMs, ProgramAccount, runBrand, WorkerDiscoveryDocument, WorkerMetadataAccount } from '@beamable-network/depin';
 import { publicKey } from '@metaplex-foundation/umi';
-import { getBase58Codec, getBase64Codec, getU8Codec, isNone } from 'gill';
-import { GetProgramAccountsV2Config } from 'helius-sdk/types/types';
 import { CheckerNode } from '../checker.js';
 import { getLogger } from '../logger.js';
+import { WorkerDiscoveryService } from './worker-discovery-service.js';
 
 const logger = getLogger('CheckerService');
 
@@ -16,8 +15,11 @@ export class CheckerService {
 
   private isRunning = false;
   private currentPeriod = 0;
+  private readonly discoveryService: WorkerDiscoveryService;
 
-  constructor(private readonly checker: CheckerNode) { }
+  constructor(private readonly checker: CheckerNode) {
+    this.discoveryService = new WorkerDiscoveryService(this.checker);
+  }
 
   start(): void {
     if (this.isRunning) {
@@ -101,10 +103,10 @@ export class CheckerService {
       throw new Error('Checker license not available, check checker license configuration');
     }
 
-    const activeWorkerAccounts = await this.fetchActiveWorkerAccounts();
+    const activeWorkerAccounts = await this.discoveryService.fetchActiveWorkerAccounts();
     logger.info({ period, activeWorkers: activeWorkerAccounts.length }, 'Fetched active worker accounts');
 
-    const eligibleWorkers = activeWorkerAccounts.filter(worker => this.isWorkerEligible(myLicenseIndex, worker, period, checkerCount));
+    const eligibleWorkers = activeWorkerAccounts.filter(worker => this.isWorkerEligible(myLicenseIndex, worker.data, period, checkerCount));
     if (eligibleWorkers.length === 0) {
       logger.warn({ period }, 'No eligible workers found for this period');
       return;
@@ -113,56 +115,22 @@ export class CheckerService {
     await this.performChecks(eligibleWorkers, period);
   }
 
-  private async performChecks(eligibleWorkers: WorkerMetadataAccount[], period: number): Promise<void> {
-    throw new Error('Function not implemented.');
+  private async performChecks(eligibleWorkers: ProgramAccount<WorkerMetadataAccount>[], period: number): Promise<void> {
+    const onResolved = (entry: { workerAccount: ProgramAccount<WorkerMetadataAccount>; discovery: WorkerDiscoveryDocument }) => {
+      logger.info({ period, worker: entry.workerAccount.data.delegatedTo, license: entry.workerAccount.data.license }, 'Worker resolved');
+      // Start checking process
+    };
+
+    await this.discoveryService.resolve({
+      workerAccounts: eligibleWorkers,
+      period,
+      onResolved,
+    });
   }
 
   private isWorkerEligible(myLicenseIndex: number, worker: WorkerMetadataAccount, period: number, periodCheckers: number): boolean {
     const brandOutput = runBrand(worker.license, period, periodCheckers);
     return brandOutput.includes(myLicenseIndex);
-  }
-
-  private async fetchActiveWorkerAccounts(): Promise<Array<WorkerMetadataAccount>> {
-    const helius = this.checker.getRpcClient().helius;
-
-    const activeWorkers: Array<WorkerMetadataAccount> = [];
-    let paginationKey: string | null = null;
-
-    do {
-      const requestOptions: GetProgramAccountsV2Config = {
-        encoding: "base64",
-        limit: 1000,
-        filters: [{
-          memcmp: {
-            bytes: getBase58Codec().decode(getU8Codec().encode(DepinAccountType.WorkerMetadata)),
-            offset: 0,
-          }
-        }]
-      };
-
-      if (paginationKey) {
-        requestOptions.paginationKey = paginationKey;
-      }
-
-      const res = await helius.getProgramAccountsV2([DEPIN_PROGRAM, requestOptions]);
-
-      for (const account of res.accounts) {
-        if (account.account.data.length) {
-          const accountDataBytes = getBase64Codec().encode(account.account.data);
-          try {
-            const workerAccount = WorkerMetadataAccount.deserializeFrom(accountDataBytes);
-            if (isNone(workerAccount.suspendedAt)) {
-              activeWorkers.push(workerAccount);
-            }
-          }
-          catch (err) { } // Ignore invalid accounts
-        }
-      }
-
-      paginationKey = res.paginationKey || null;
-    } while (paginationKey);
-
-    return activeWorkers;
   }
 
   stop(): void {
