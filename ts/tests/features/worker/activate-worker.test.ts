@@ -41,6 +41,8 @@ describe('Worker activation', async () => {
         expect(workerMetadata.suspendedAt).toEqual(none());
         expect(workerMetadata.delegatedTo).toBe(signer.address);
         expect(workerMetadata.discoveryUri).toBe("https://example.com/worker/1");
+        expect(workerMetadata.license).toBe(address(lic1.rpcAsset.id));
+        expect(workerMetadata.owner).toBe(signer.address);
     });
 
     it('shouldn\'t be able to activate someone else worker', async () => {

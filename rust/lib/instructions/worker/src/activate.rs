@@ -82,7 +82,8 @@ pub fn process_activate_worker<'info>(
         suspended_at: None,
         delegated_to: input.delegated_to,
         discovery_uri: input.discovery_uri,
-        license: leaf_asset_id
+        license: leaf_asset_id,
+        owner: license.owner,
     };
 
     // Check if WorkerMetadata already exists (upsert logic)

@@ -87,28 +87,34 @@ export class WorkerDiscoveryService {
 
     const limit = pLimit(WorkerDiscoveryService.CONCURRENCY);
 
-    await Promise.all(
-      workerAccounts.map(workerAccount =>
-        limit(async () => {
-          const uri = (workerAccount.data.discoveryUri ?? '').trim();
-          const doc = await this.tryFetchDiscoveryUri(uri, period);
-          
-          if (doc) {
-            const expectedPda = await WorkerMetadataAccount.findWorkerMetadataPDA(address(doc.worker.license), address(doc.worker.address));
-            if (expectedPda[0] != workerAccount.address) {
-              logger.warn({ expectedPda: expectedPda[0], actualPda: workerAccount.address }, 'Worker PDA does not match discovery document');
-              // TODO: schedule a retry after 30 minutes
+    // Track which workers still need a successful resolution
+    const pending = new Set(workerAccounts);
+
+    while (pending.size > 0) {
+      const batch = Array.from(pending);
+
+      await Promise.all(
+        batch.map(workerAccount =>
+          limit(async () => {
+            const uri = (workerAccount.data.discoveryUri ?? '').trim();
+            const doc = await this.tryFetchDiscoveryUri(uri, period);
+
+            if (doc) {
+              try {
+                onResolved({ workerAccount, discovery: doc });
+              } finally {
+                pending.delete(workerAccount);
+              }
             }
-            else {
-              onResolved({ workerAccount, discovery: doc });
-            }
-          }
-          else {
-            // TODO: schedule a retry after 30 minutes
-          }
-        })
-      )
-    );
+          })
+        )
+      );
+
+      if (pending.size > 0) {
+        logger.info({ remaining: pending.size, period }, 'Discovery unresolved; retrying later');
+        await this.sleep(WorkerDiscoveryService.RETRY_INTERVAL_MS);
+      }
+    }
   }
 
   private async tryFetchDiscoveryUri(uri: string, period: number): Promise<WorkerDiscoveryDocument | null> {

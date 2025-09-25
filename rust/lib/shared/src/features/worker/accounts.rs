@@ -24,11 +24,12 @@ pub struct WorkerMetadata {
     pub suspended_at: Option<u64>,
     pub delegated_to: Pubkey,
     pub license: Pubkey,
+    pub owner: Pubkey,
     pub discovery_uri: String
 }
 
 impl WorkerMetadata {
-    const BASE_SIZE: usize = 1 + 9 + 32 + 32 + 4;
+    const BASE_SIZE: usize = 1 + 9 + 32 + 32 + 32 + 4;
     
     pub fn len(&self) -> usize {
         Self::BASE_SIZE + self.discovery_uri.len()

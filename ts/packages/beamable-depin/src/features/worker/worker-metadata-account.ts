@@ -8,6 +8,7 @@ export class WorkerMetadataAccount {
     suspendedAt: Option<bigint>;
     delegatedTo: Address;
     license: Address;
+    owner: Address;
     discoveryUri: string;
 
     constructor(fields: {
@@ -28,6 +29,7 @@ export class WorkerMetadataAccount {
             1 + 8 + // suspendedAt (Option<u64>)
             32 + // delegatedTo (address)
             32 + // license (address)
+            32 + // owner (address)
             4 + discoveryUriLength // discoveryUri (String with length prefix)
         );
     }
@@ -36,6 +38,7 @@ export class WorkerMetadataAccount {
         ["suspendedAt", getOptionCodec(getU64Codec())],
         ["delegatedTo", getAddressCodec()],
         ["license", getAddressCodec()],
+        ["owner", getAddressCodec()],
         ["discoveryUri", addCodecSizePrefix(getUtf8Codec(), getU32Codec())],
     ]);
 

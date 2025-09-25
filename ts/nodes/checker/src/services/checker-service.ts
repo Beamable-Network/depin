@@ -10,6 +10,7 @@ export class CheckerService {
   private static readonly MIN_DELAY_MS = 60_000; // 1 minute
   private static readonly MAX_DELAY_MS = 240 * 60_000; // 4 hours
   private static readonly PERIOD_END_THRESHOLD_MS = 1430 * 60 * 1000; // 23h50m - threshold for early period processing
+  private static readonly PERIOD_SKIP_THRESHOLD_MS = 60 * 60 * 1000; // 1h - threshold for skipping periods
   private static readonly BUFFER_SLEEP_MS = 10_000; // 10 seconds - buffer time for various sleep operations
   private static readonly ERROR_RETRY_DELAY_MS = 60_000; // 1 minute
 
@@ -45,7 +46,17 @@ export class CheckerService {
         // Period has changed
         this.currentPeriod = period;
 
-        if (getRemainingTimeInPeriodMs(period) > CheckerService.PERIOD_END_THRESHOLD_MS) { // If more than 23h50m left in the period
+        const remainingMs = getRemainingTimeInPeriodMs();
+        
+        if (remainingMs < CheckerService.PERIOD_SKIP_THRESHOLD_MS) {
+          logger.warn({ period, remainingMs }, 'Skipping period tasks due to insufficient remaining time');
+          const sleepTime = remainingMs + CheckerService.BUFFER_SLEEP_MS;
+          logger.info({ period, sleepTime }, 'Sleeping until next period');
+          this.sleep(sleepTime);
+          continue;
+        }
+
+        if (remainingMs > CheckerService.PERIOD_END_THRESHOLD_MS) { // If more than 23h50m left in the period
           // Sleep for a random time between MIN_DELAY_MS minute and MAX_DELAY_MS
           const randomSleepTimeMs = CheckerService.MIN_DELAY_MS + Math.floor(Math.random() * (CheckerService.MAX_DELAY_MS - CheckerService.MIN_DELAY_MS));
           logger.info({ period, randomSleepTimeMs }, 'Sleeping for a while');
@@ -117,7 +128,7 @@ export class CheckerService {
 
   private async performChecks(eligibleWorkers: ProgramAccount<WorkerMetadataAccount>[], period: number): Promise<void> {
     const onResolved = (entry: { workerAccount: ProgramAccount<WorkerMetadataAccount>; discovery: WorkerDiscoveryDocument }) => {
-      logger.info({ period, worker: entry.workerAccount.data.delegatedTo, license: entry.workerAccount.data.license }, 'Worker resolved');
+      logger.info({ period, worker: entry.discovery.worker.address, license: entry.workerAccount.data.license, discoveryUri: entry.workerAccount.data.discoveryUri }, 'Worker resolved');
       // Start checking process
     };
 
