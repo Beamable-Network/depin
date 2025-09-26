@@ -10,7 +10,7 @@ const logger = getLogger('CheckerService');
 
 export class CheckerService {
   private static readonly MIN_DELAY_MS = 60_000; // 1 minute
-  private static readonly MAX_DELAY_MS = 240 * 60_000; // 4 hours
+  private static readonly MAX_DELAY_MS = 60 * 60_000; // 1 hour
   private static readonly PERIOD_END_THRESHOLD_MS = 1430 * 60 * 1000; // 23h50m - threshold for early period processing
   private static readonly PERIOD_SKIP_THRESHOLD_MS = 60 * 60 * 1000; // 1h - threshold for skipping periods
   private static readonly BUFFER_SLEEP_MS = 10_000; // 10 seconds - buffer time for various sleep operations
