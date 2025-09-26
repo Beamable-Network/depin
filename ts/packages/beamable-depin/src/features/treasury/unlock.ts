@@ -60,7 +60,9 @@ export class Unlock {
         let unlockPeriod = this.unlock_period_for_address;
         if (unlockPeriod === undefined && rpc) {
             try {
-                const accounts = await LockedTokensAccount.getLockedTokens(rpc, this.owner);
+                const accounts = await LockedTokensAccount.getLockedTokens(async (programAddress, config) => {
+                    return await rpc.getProgramAccounts(programAddress, config).send();
+                }, this.owner);
                 const match = accounts.find(a => a.data.lockPeriod === this.params.lock_period && a.data.unlockedAt.__option === 'None');
                 if (match) unlockPeriod = match.data.unlockPeriod;
             } catch (err) {

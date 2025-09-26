@@ -13,9 +13,7 @@ import {
     getU16Codec,
     getU64Codec,
     Option,
-    ProgramDerivedAddress,
-    Rpc,
-    SolanaRpcApi
+    ProgramDerivedAddress
 } from "gill";
 import { DEPIN_PROGRAM, LOCK_SEED, TREASURY_SEED } from "../../constants.js";
 import { DepinAccountType } from "../../enums.js";
@@ -100,10 +98,10 @@ export class LockedTokensAccount {
     }
 
     public static async getLockedTokens(
-        rpc: Rpc<SolanaRpcApi>,
+        getProgramAccounts: (programAddress: Address, config?: { filters: any[] }) => Promise<Array<{ pubkey: string; account: { data: ArrayLike<number> | Base58EncodedBytes } }>>,
         owner: Address
     ): Promise<Array<{ address: Address; data: LockedTokensAccount }>> {
-        const accounts = await rpc.getProgramAccounts(DEPIN_PROGRAM, {
+        const accounts = await getProgramAccounts(DEPIN_PROGRAM, {
             filters: [
                 getDepinAccountFilter(DepinAccountType.LockedTokens),
                 {
@@ -121,13 +119,15 @@ export class LockedTokensAccount {
                     }
                 }
             ]
-        }).send();
+        });
 
         const lockedAccounts: Array<{ address: Address; data: LockedTokensAccount }> = [];
 
         for (const account of accounts) {
             try {
-                const lockedTokensData = LockedTokensAccount.deserializeFrom(account.account.data);
+                const lockedTokensData = (typeof account.account.data === 'string')
+                    ? LockedTokensAccount.deserializeFrom(account.account.data as Base58EncodedBytes)
+                    : LockedTokensAccount.deserializeFrom(account.account.data as ArrayLike<number>);
 
                 lockedAccounts.push({
                     address: address(account.pubkey),
