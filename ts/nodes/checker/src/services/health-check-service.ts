@@ -1,8 +1,9 @@
-import { ProgramAccount, WorkerDiscoveryDocument, WorkerMetadataAccount, sleep, SignedPayload, WorkerHealthCheckRequestPayloadSchema } from '@beamable-network/depin';
+import { ProgramAccount, WorkerDiscoveryDocument, WorkerMetadataAccount, sleep, SignedPayload, WorkerHealthCheckRequestPayloadSchema, WorkerProofPayloadSchema } from '@beamable-network/depin';
 import pLimit from 'p-limit';
 import { Agent, request } from 'undici';
 import { getLogger } from '../logger.js';
 import { CheckerNode } from '../checker.js';
+import { withRetry } from '../utils/retry.js';
 
 const logger = getLogger('HealthCheckService');
 
@@ -22,7 +23,7 @@ export interface IHealthCheckMetrics {
 
 export interface StartSessionOptions {
   periodEndAt: number; // epoch ms; end of the period window
-  signal?: AbortSignal; // external abort signal (managed by checker-service like discoveryAc)
+  signal?: AbortSignal; // external abort signal
   minIntervalMs?: number; // default 10 minutes
   maxIntervalMs?: number; // default 30 minutes
 }
@@ -300,16 +301,95 @@ class HealthCheckSession {
   private async buildAndSendSignedProof(): Promise<void> {
     const metricsSnapshot = this.metrics.toJSON();
     
-    if (metricsSnapshot.samples > 0) {
-      logger.debug({ 
-        ...this.logContext, 
-        ...metricsSnapshot
-      }, 'Building signed proof from health check metrics');
-      
-      // Construct and send the signed proof
-      // TODO: Implement proof construction and sending
-    } else {
+    if (metricsSnapshot.samples === 0) {
       logger.warn({ ...this.logContext }, 'No health check samples collected; skipping proof');
+      return;
+    }
+
+    const checkerLicense = this.checker.getLicense();
+    if (!checkerLicense) {
+      logger.warn({ ...this.logContext }, 'No checker license available; skipping proof');
+      return;
+    }
+
+    const proofEndpoint = this.target.discovery.endpoints.proofs.submit;
+    if (!proofEndpoint?.trim()) {
+      logger.warn({ ...this.logContext }, 'No proof submission endpoint; skipping proof');
+      return;
+    }
+
+    logger.debug({ 
+      ...this.logContext, 
+      ...metricsSnapshot,
+      proofEndpoint
+    }, 'Building signed proof from health check metrics');
+    
+    try {
+      // Construct signed proof
+      const signedProof = await SignedPayload.create<typeof WorkerProofPayloadSchema>(
+        {
+          checker: this.checker.getAddress(),
+          checkerLicense: checkerLicense.rpcAsset.id,
+          worker: this.target.discovery.worker.address,
+          period: this.target.period,
+          metrics: {
+            latency: Math.round(metricsSnapshot.avgLatencyMs),
+            uptime: Math.round(metricsSnapshot.uptimePercent * 100) / 100, // Round to 2 decimals
+          },
+        },
+        this.checker.getSigner()
+      );
+
+      // Send proof to worker with retry logic
+      await withRetry(async ({ attempt }) => {
+        const res = await request(proofEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(signedProof),
+          dispatcher: this.agent,
+          headersTimeout: HealthCheckManager.DEFAULT_CONFIG.httpTimeoutMs,
+          bodyTimeout: HealthCheckManager.DEFAULT_CONFIG.httpTimeoutMs,
+        });
+
+        const responseText = await res.body.text().catch(() => 'Unable to read response body');
+        
+        if (res.statusCode === 200) {
+          logger.info({ 
+            ...this.logContext, 
+            latency: Math.round(metricsSnapshot.avgLatencyMs),
+            uptime: Math.round(metricsSnapshot.uptimePercent * 100) / 100,
+            samples: metricsSnapshot.samples,
+            attempt
+          }, 'Successfully submitted proof to worker');
+          return; // Success
+        } else {
+          // Throw error to trigger retry
+          const error = new Error(`HTTP ${res.statusCode}: ${responseText}`);
+          logger.warn({ 
+            ...this.logContext, 
+            statusCode: res.statusCode,
+            response: responseText,
+            attempt
+          }, 'Failed to submit proof to worker');
+          throw error;
+        }
+      }, {
+        maxRetries: 5,
+        baseDelayMs: 2000,
+        exponentialBackoff: false
+      }).catch(err => {
+        logger.warn({ 
+          ...this.logContext, 
+          err: err instanceof Error ? err.message : String(err)
+        }, 'Failed to submit proof to worker after all retries');
+      });
+    } catch (err) {
+      logger.warn({ 
+        ...this.logContext, 
+        err: err instanceof Error ? err.message : String(err)
+      }, 'Error submitting proof to worker');
     }
   }
 }
