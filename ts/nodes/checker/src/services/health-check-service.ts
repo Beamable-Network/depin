@@ -1,7 +1,8 @@
-import { ProgramAccount, WorkerDiscoveryDocument, WorkerMetadataAccount, sleep } from '@beamable-network/depin';
+import { ProgramAccount, WorkerDiscoveryDocument, WorkerMetadataAccount, sleep, SignedPayload, WorkerHealthCheckRequestPayloadSchema } from '@beamable-network/depin';
 import pLimit from 'p-limit';
 import { Agent, request } from 'undici';
 import { getLogger } from '../logger.js';
+import { CheckerNode } from '../checker.js';
 
 const logger = getLogger('HealthCheckService');
 
@@ -53,7 +54,7 @@ export class HealthCheckManager {
   private readonly agent: Agent;
   private readonly sessions = new Set<Promise<void>>();
 
-  constructor(config: Partial<HealthCheckConfig> = {}) {
+  constructor(private readonly checker: CheckerNode, config: Partial<HealthCheckConfig> = {}) {
     const fullConfig = { ...HealthCheckManager.DEFAULT_CONFIG, ...config };
     this.limit = pLimit(fullConfig.concurrency!);
     this.agent = new Agent({
@@ -77,7 +78,7 @@ export class HealthCheckManager {
       minIntervalMs: fullOptions.minIntervalMs,
       maxIntervalMs: fullOptions.maxIntervalMs
     }, 'Starting health check session');
-    const session = new HealthCheckSession(target, this.agent, this.limit, fullOptions);
+    const session = new HealthCheckSession(target, this.agent, this.limit, fullOptions, this.checker);
     const promise = session.run()
       .catch(err => {
         if (err instanceof DOMException && err.name === 'AbortError') {
@@ -152,6 +153,7 @@ class HealthCheckSession {
     private readonly agent: Agent,
     private readonly limit: <T>(fn: () => Promise<T>) => Promise<T>,
     private readonly opts: StartSessionOptions,
+    private readonly checker: CheckerNode,
   ) { }
 
   async run(): Promise<void> {
@@ -246,11 +248,25 @@ class HealthCheckSession {
   private async performCheck(signal?: AbortSignal): Promise<void> {
     const { discovery } = this.target;
     const url = discovery.endpoints.health;
-
-    const start = Date.now();
+    
     try {
+      // Create signed health check request
+      const signedRequest = await SignedPayload.create<typeof WorkerHealthCheckRequestPayloadSchema>(
+        {
+          checker: this.checker.getAddress(),
+          timestamp: Date.now(),
+        },
+        this.checker.getSigner()
+      );
+
+      const start = Date.now();
+
       const res = await request(url, {
-        method: 'POST', // TODO: implement the proper signed payload
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(signedRequest),
         dispatcher: this.agent,
         headersTimeout: HealthCheckManager.DEFAULT_CONFIG.httpTimeoutMs,
         bodyTimeout: HealthCheckManager.DEFAULT_CONFIG.httpTimeoutMs,

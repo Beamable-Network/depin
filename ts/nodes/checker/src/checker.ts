@@ -36,6 +36,7 @@ export class CheckerNode {
   getNetwork(): "mainnet" | "devnet" { return this.config.solanaNetwork; }
   getSigner(): KeyPairSigner { return this.signer; }
   getRpcClient(): RpcClient { return this.rpc; }
+  skipBrand(): boolean { return this.config.skipBrand; }
 
   async getBalance(): Promise<bigint> {
     const balanceResponse = await this.rpc.helius.getBalance(this.signer.address);
@@ -45,6 +46,10 @@ export class CheckerNode {
   async start(): Promise<void> {
     const checkerAddress = this.getAddress();
     logger.info({ checkerAddress }, 'Checker node starting');
+
+    if (this.skipBrand()) {
+      logger.warn('Skipping BRAND eligibility checks as per configuration. This is NOT recommended for production environments.');
+    }
 
     // Fetch and log the current balance
     try {

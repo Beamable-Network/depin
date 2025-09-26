@@ -126,14 +126,18 @@ export class CheckerService {
     const activeWorkerAccounts = await this.discoveryService.fetchActiveWorkerAccounts();
     logger.info({ period, activeWorkers: activeWorkerAccounts.length }, 'Fetched active worker accounts');
 
-    const eligibleWorkers = activeWorkerAccounts.filter(worker => this.isWorkerEligible(myLicenseIndex, worker.data, period, checkerCount));
+    let eligibleWorkers = activeWorkerAccounts;
+    if (!this.checker.skipBrand()) {
+      eligibleWorkers = activeWorkerAccounts.filter(worker => this.isWorkerEligible(myLicenseIndex, worker.data, period, checkerCount));
+    }
+
     if (eligibleWorkers.length === 0) {
       logger.warn({ period }, 'No eligible workers found for this period');
       return;
     }
 
     // Prepare health check manager and controller for this period
-    const healthManager = new HealthCheckManager();
+    const healthManager = new HealthCheckManager(this.checker);
     const healthAc = new AbortController();
     const periodEndAt = getPeriodEndMs(period);
 

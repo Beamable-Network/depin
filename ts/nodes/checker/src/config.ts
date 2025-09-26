@@ -10,6 +10,7 @@ export class CheckerConfig {
   public readonly heliusApiKey: string;
   public readonly checkerPrivateKey: string;
   public readonly checkerLicense: string;
+  public readonly skipBrand: boolean;
 
   private _checkerPrivateKeyBytes?: Uint8Array;
 
@@ -18,6 +19,7 @@ export class CheckerConfig {
     const heliusApiKey = process.env.HELIUS_API_KEY;
     const checkerPrivateKey = process.env.CHECKER_PRIVATE_KEY;
     const checkerLicense = process.env.CHECKER_LICENSE;
+    const skipBrand = process.env.SKIP_BRAND;
 
     if (!solanaNetwork) {
       throw new Error('SOLANA_NETWORK environment variable is required');
@@ -43,6 +45,7 @@ export class CheckerConfig {
     this.checkerPrivateKey = checkerPrivateKey;
     this.checkerLicense = checkerLicense;
     this.heliusApiKey = heliusApiKey;
+    this.skipBrand = skipBrand === 'true' || skipBrand === '1';
   }
 
   get checkerPrivateKeyBytes(): Uint8Array {
