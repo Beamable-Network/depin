@@ -36,6 +36,7 @@
     "@metaplex-foundation/umi": "^1.2.0",
     "@metaplex-foundation/umi-bundle-defaults": "^1.2.0",
     "bs58": "^6.0.0",
+    "dd-trace": "^5.67.0",
     "dotenv": "^16.5.0",
     "fastify": "^5.0.0",
     "gill": "^0.11.0",

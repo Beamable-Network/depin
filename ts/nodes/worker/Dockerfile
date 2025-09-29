@@ -40,4 +40,4 @@ USER worker
 
 EXPOSE 3000
 
-CMD ["node", "dist/src/index.js"]
+CMD ["node", "--require", "dd-trace/init", "dist/src/index.js"]
