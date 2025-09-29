@@ -1,6 +1,6 @@
 import { address } from 'gill';
 
-export const DEPIN_PROGRAM = address('bmbpe9Ddo4oF8HuQFN4XYXLNwzBiwh2fRmA3te9b7LG');
+export const DEPIN_PROGRAM = address('BMBpXq5RaoRf5pGsQpuwjcozaLF2TuNCmYKKcFJjFiFS');
 export const MPL_ACCOUNT_COMPRESSION_PROGRAM = address("mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW");
 export const USDC_MINT = address('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 export const BMB_MINT = address('bmbWbZjP3qCT3TuG7b2ph4ZMDarHLVeGCgk9Xp9vLDw');
