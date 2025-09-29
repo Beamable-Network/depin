@@ -61,7 +61,6 @@ docker run -p 3000:3000 --env-file nodes/worker/.env beamable-worker
 |----------|-------------|---------|
 | `PORT` | HTTP server port | `3000` |
 | `HOST` | HTTP server host | `0.0.0.0` |
-| `NODE_ENV` | Environment mode (`development`, `production`, or `testing`) | `development` |
 | `SOLANA_RPC_URL` | DAS-enabled Solana RPC endpoint (we recommend Helius) | required |
 | `WORKER_PRIVATE_KEY` | JSON array of 64 numbers from solana-keygen grind | *required* |
 | `WORKER_LICENSE` | Worker license identifier | *required* |

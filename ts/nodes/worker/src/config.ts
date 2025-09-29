@@ -58,7 +58,6 @@ export class WorkerConfig {
     this.solanaRpcUrl = solanaRpcUrl;
     this.workerPrivateKey = workerPrivateKey;
     this.workerLicense = workerLicense;
-    this.environment = (process.env.NODE_ENV as WorkerConfig['environment']) || 'development';
     this.externalUrl = externalUrl;
     this.s3Config = {
       bucketName: s3BucketName,
