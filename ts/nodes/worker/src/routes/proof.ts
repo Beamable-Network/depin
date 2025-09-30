@@ -2,13 +2,14 @@ import { BMBStateAccount, CheckerLicenseMetadataAccount, CheckerMetadataAccount,
 import { publicKey } from '@metaplex-foundation/umi';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { Address, isAddress, isSome } from 'gill';
-import { ProofAlreadyExistsError } from '../services/proof-storage.js';
 import { WorkerNode } from '../worker.js';
+import { ProofConflictError, ProofNotModifiedError } from '../services/proof-storage.js';
 
 export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker: WorkerNode }) {
     fastify.get('/proofs/:period', {
         schema: {
             response: {
+                202: WorkerProofListResponseSchema,
                 200: WorkerProofListResponseSchema,
                 400: WorkerErrorResponseSchema
             }
@@ -176,27 +177,6 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
             });
         }
 
-        // Store the proof
-        try {
-            await worker.getProofStorage().storeProof(checkerLicenseIndex, proof);
-            log.debug({ period: proof.payload.period, checkerLicenseIndex }, 'Stored proof');
-        } catch (err) {
-            if (err instanceof ProofAlreadyExistsError) {
-                log.warn({ period: proof.payload.period, checkerLicenseIndex }, 'Duplicate proof');
-                return reply.code(400).send({
-                    error: 'proof_already_exists',
-                    message: 'A proof has already been submitted for this checker license and period',
-                    timestamp: Date.now()
-                });
-            }
-            return reply.code(400).send({
-                error: 'proof_storage_failed',
-                message: `Failed to store proof: ${err instanceof Error ? err.message : String(err)}`,
-                timestamp: Date.now()
-            });
-        }
-
-        // Return signed receipt
         const signedReceipt = await SignedPayload.create<typeof WorkerProofReceiptPayloadSchema>(
             {
                 checker: proof.payload.checker,
@@ -208,8 +188,37 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
             worker.getSigner()
         );
 
+        // Store the proof
+        try {
+            await worker.getProofStorage().storeProof(checkerLicenseIndex, proof);
+            log.debug({ period: proof.payload.period, checkerLicenseIndex }, 'Stored proof');
+        } catch (err) {
+            if (err instanceof ProofNotModifiedError) {
+                log.warn({ period: proof.payload.period, checkerLicenseIndex }, 'Proof not modified');
+                // Return signed receipt
+                return reply.code(200).send({
+                    receipt: signedReceipt
+                });
+            }
+            if (err instanceof ProofConflictError) {
+                log.warn({ period: proof.payload.period, checkerLicenseIndex }, 'Proof conflict');
+                return reply.code(400).send({
+                    error: 'proof_conflict',
+                    message: `A different proof has already been submitted for period ${proof.payload.period} and checker ${checkerLicenseIndex}`,
+                    timestamp: Date.now()
+                });
+            }
+            return reply.code(400).send({
+                error: 'proof_storage_failed',
+                message: `Failed to store proof: ${err instanceof Error ? err.message : String(err)}`,
+                timestamp: Date.now()
+            });
+        }
+
+
+        // Return signed receipt
         log.debug({ checker: proof.payload.checker, period: proof.payload.period }, 'Proof accepted');
-        return reply.code(200).send({
+        return reply.code(202).send({
             receipt: signedReceipt
         });
     });

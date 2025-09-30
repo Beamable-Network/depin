@@ -28,26 +28,39 @@ export class ProofStorageService {
   async storeProof(checkerLicenseIndex: number, proof: SignedPayload<typeof WorkerProofPayloadSchema>): Promise<void> {
     const period = proof.payload.period;
     const key = `${period}/${checkerLicenseIndex}`;
+    const proofJson = JSON.stringify(proof);
 
     try {
       logger.debug({ key, period, checkerLicenseIndex }, 'Checking if proof already exists');
-      await this.s3Client.send(new HeadObjectCommand({
+      
+      // Try to get the existing proof to compare content
+      const existingProof = await this.s3Client.send(new GetObjectCommand({
         Bucket: this.bucketName,
         Key: key
       }));
 
-      throw new ProofAlreadyExistsError(`Proof already exists for period ${period} and checker ${checkerLicenseIndex}`);
+      // Convert existing proof body to string and parse
+      const existingBody: any = existingProof.Body as any;
+      const existingJson = await streamToString(existingBody);
+      const existingParsed = JSON.parse(existingJson);
+      
+      // Compare with new proof
+      const existingProofJson = JSON.stringify(existingParsed);
+      
+      if (proofJson === existingProofJson) {
+        throw new ProofNotModifiedError(`Identical proof already saved for period ${period} and checker ${checkerLicenseIndex}`);
+      } else {
+        throw new ProofConflictError(`Different proof already exists for period ${period} and checker ${checkerLicenseIndex}`);
+      }
     } catch (err) {
-      if (err instanceof ProofAlreadyExistsError) {
+      if (err instanceof ProofNotModifiedError || err instanceof ProofConflictError) {
         throw err;
       }
 
-      if ((err as any).name !== 'NotFound') {
+      if ((err as any).name !== 'NoSuchKey' && (err as any).name !== 'NotFound') {
         throw new Error(`Failed to check if proof exists: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
-
-    const proofJson = JSON.stringify(proof);
 
     try {
       logger.debug({ key, period, checkerLicenseIndex, sizeBytes: Buffer.byteLength(proofJson, 'utf8') }, 'Storing proof');
@@ -113,10 +126,17 @@ export class ProofStorageService {
   }
 }
 
-export class ProofAlreadyExistsError extends Error {
+export class ProofConflictError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'ProofAlreadyExistsError';
+    this.name = 'ProofConflictError';
+  }
+}
+
+export class ProofNotModifiedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ProofNotModifiedError';
   }
 }
 
