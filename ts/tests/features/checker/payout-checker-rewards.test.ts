@@ -351,7 +351,7 @@ async function verifyNoLockedTokensForAddress(
 }
 
 async function getTreasuryConfig(lite: LiteDepin): Promise<{ address: Address; data: TreasuryConfigAccount }> {
-    const cfg = await TreasuryConfigAccount.readFromState((addr) => lite.getAccountData(addr));
+    const cfg = await TreasuryConfigAccount.readFromState(async (addr) => lite.getAccountData(addr));
     if (!cfg) throw new Error('TreasuryConfig not found');
     return cfg;
 }
