@@ -29,6 +29,6 @@ These examples can be adapted for web applications. Replace the console-based in
 - Use a Solana wallet adapter (e.g., `@solana/wallet-adapter-react`) to get the user's public key and signer
 - Replace `createClient()` logic to use wallet connection instead of stdin secret key input
 
-We'using @solana/kit (gill) for blockchain interactions so make sure you use approprate packages. See: https://www.npmjs.com/package/@solana/react
+We'using `@solana/kit` (gill) for blockchain interactions so make sure you use approprate packages. See: https://www.npmjs.com/package/@solana/react
 
 NOTE: We're also using UMI framework because Bubblegum's SDKs use UMI, but only for read operations.
