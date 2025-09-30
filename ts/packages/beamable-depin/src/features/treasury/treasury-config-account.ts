@@ -55,10 +55,10 @@ export class TreasuryConfigAccount {
     }
 
     public static async readFromState(
-        getAccountData: (address: Address) => ArrayLike<number> | Base58EncodedBytes | null
+        getAccountData: (address: Address) => ArrayLike<number> | Base58EncodedBytes | null | Promise<ArrayLike<number> | Base58EncodedBytes | null>
     ): Promise<{ address: Address; data: TreasuryConfigAccount } | null> {
         const [addr] = await this.findTreasuryConfigPDA();
-        const raw = getAccountData(addr);
+        const raw = await getAccountData(addr);
         if (!raw) return null;
         const decoded = (typeof raw === 'string')
             ? this.deserializeFrom(raw as Base58EncodedBytes)

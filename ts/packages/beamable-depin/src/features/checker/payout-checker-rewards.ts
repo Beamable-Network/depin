@@ -66,7 +66,7 @@ export class PayoutCheckerRewards {
         if (!currentPeriod) {
             currentPeriod = getCurrentPeriod();
         }
-        console.log("PayoutCheckerRewards.getInstruction currentPeriod", currentPeriod);
+
         // Read lock duration from provided TreasuryConfig account
         const lockDays = treasuryConfig.data.checkerRewardsLockDays;
         const lockedTokensPda = await LockedTokensAccount.findLockedTokensPDA(
