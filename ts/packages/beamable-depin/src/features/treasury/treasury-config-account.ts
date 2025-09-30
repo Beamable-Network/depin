@@ -55,7 +55,7 @@ export class TreasuryConfigAccount {
     }
 
     public static async readFromState(
-        getAccountData: (address: Address) => ArrayLike<number> | Base58EncodedBytes | null | Promise<ArrayLike<number> | Base58EncodedBytes | null>
+        getAccountData: (address: Address) => ArrayLike<number> | Base58EncodedBytes | null | Promise<ArrayLike<number> | Promise<Base58EncodedBytes> | null>
     ): Promise<{ address: Address; data: TreasuryConfigAccount } | null> {
         const [addr] = await this.findTreasuryConfigPDA();
         const raw = await getAccountData(addr);
