@@ -289,7 +289,7 @@ export class LiteDepin {
             metadata: metadata,
         })
             .setBlockhash(this.svm.latestBlockhash())
-            .buildAndSign(umiCtx); // TODO: ovo nije dobro
+            .buildAndSign(umiCtx);
 
         const mintLeafWeb3Tx = toWeb3JsTransaction(mintTx);
         const mintResult = this.svm.sendTransaction(mintLeafWeb3Tx);

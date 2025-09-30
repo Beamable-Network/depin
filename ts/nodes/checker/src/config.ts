@@ -1,15 +1,16 @@
 import dotenv from 'dotenv';
+import { isAddress } from 'gill';
 import { dirname, join } from 'path';
 
 const checkerDir = dirname(import.meta.dirname);
 const envPath = join(checkerDir, '.env');
 dotenv.config({ path: envPath });
 
-export class CheckerConfig {  
+export class CheckerConfig {
   public readonly solanaNetwork: "mainnet" | "devnet";
   public readonly heliusApiKey: string;
   public readonly checkerPrivateKey: string;
-  public readonly checkerLicense: string;
+  public readonly checkerLicenses: string[];
   public readonly skipBrand: boolean;
 
   private _checkerPrivateKeyBytes?: Uint8Array;
@@ -18,7 +19,7 @@ export class CheckerConfig {
     const solanaNetwork = process.env.SOLANA_NETWORK;
     const heliusApiKey = process.env.HELIUS_API_KEY;
     const checkerPrivateKey = process.env.CHECKER_PRIVATE_KEY;
-    const checkerLicense = process.env.CHECKER_LICENSE;
+    const checkerLicenses = process.env.CHECKER_LICENSES || '';
     const skipBrand = process.env.SKIP_BRAND;
 
     if (!solanaNetwork) {
@@ -37,13 +38,14 @@ export class CheckerConfig {
       throw new Error('CHECKER_PRIVATE_KEY environment variable is required');
     }
 
-    if (!checkerLicense) {
-      throw new Error('CHECKER_LICENSE environment variable is required');
-    }
-
     this.solanaNetwork = solanaNetwork;
     this.checkerPrivateKey = checkerPrivateKey;
-    this.checkerLicense = checkerLicense;
+    
+    this.checkerLicenses = checkerLicenses.split(',').map(l => l.trim()).filter(l => l.length > 0);
+    if (this.checkerLicenses.length > 0 && this.checkerLicenses.some(l => !isAddress(l))) {
+      throw new Error('One or more CHECKER_LICENSES are not valid Solana addresses');
+    }
+
     this.heliusApiKey = heliusApiKey;
     this.skipBrand = skipBrand === 'true' || skipBrand === '1';
   }

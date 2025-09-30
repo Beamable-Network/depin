@@ -1,8 +1,8 @@
-import { ProgramAccount, WorkerDiscoveryDocument, WorkerMetadataAccount, sleep, SignedPayload, WorkerHealthCheckRequestPayloadSchema, WorkerProofPayloadSchema } from '@beamable-network/depin';
+import { ProgramAccount, SignedPayload, WorkerDiscoveryDocument, WorkerHealthCheckRequestPayloadSchema, WorkerMetadataAccount, WorkerProofPayloadSchema, sleep } from '@beamable-network/depin';
 import pLimit from 'p-limit';
 import { Agent, request } from 'undici';
-import { getLogger } from '../logger.js';
 import { CheckerNode } from '../checker.js';
+import { getLogger } from '../logger.js';
 import { withRetry } from '../utils/retry.js';
 
 const logger = getLogger('HealthCheckService');
@@ -72,8 +72,8 @@ export class HealthCheckManager {
       ...defaultSessionOptions(options.periodEndAt!),
       ...options,
     };
-    logger.debug({ 
-      worker: target.discovery.worker.address, 
+    logger.debug({
+      worker: target.discovery.worker.address,
       period: target.period,
       periodEndAt: new Date(fullOptions.periodEndAt).toISOString(),
       minIntervalMs: fullOptions.minIntervalMs,
@@ -168,13 +168,13 @@ class HealthCheckSession {
 
     const sessionCutoffAt = this.calculateSessionCutoff();
     const sessionDurationMs = sessionCutoffAt - Date.now();
-    logger.debug({ 
-      ...this.logContext, 
+    logger.debug({
+      ...this.logContext,
       sessionCutoffAt: new Date(sessionCutoffAt).toISOString(),
       sessionDurationMs,
       sessionDurationMinutes: Math.round(sessionDurationMs / 60_000)
     }, 'Health check session timing calculated');
-    
+
     try {
       await this.runHealthCheckLoop(sessionCutoffAt, signal);
     } finally {
@@ -190,12 +190,12 @@ class HealthCheckSession {
     // This spreads out checker submissions to prevent network congestion
     const earlyTimeRange = Math.max(0, HealthCheckSession.MAX_EARLY_MS - HealthCheckSession.MIN_EARLY_MS);
     const randomEarlyOffset = HealthCheckSession.MIN_EARLY_MS + Math.floor(Math.random() * (earlyTimeRange + 1));
-    
+
     // Set boundaries for when the session can end
     const latestAllowedCutoff = periodEndAt - HealthCheckSession.MIN_EARLY_MS; // Never later than 30 min before period end
     const randomizedCutoff = periodEndAt - randomEarlyOffset; // The randomly calculated cutoff time
     const earliestAllowedCutoff = Date.now() + minRunWindow; // Must run for at least minRunWindow duration
-    
+
     // Apply constraints: ensure we run for minimum time, but never past the safety boundary
     // If checker starts late, it will be forced to end at latestAllowedCutoff
     return Math.min(
@@ -206,7 +206,7 @@ class HealthCheckSession {
 
   private async runHealthCheckLoop(cutoffAt: number, signal?: AbortSignal): Promise<void> {
     logger.debug({ ...this.logContext, cutoffAt: new Date(cutoffAt).toISOString() }, 'Starting health check loop');
-    
+
     const executeHealthCheck = async () => {
       signal?.throwIfAborted();
       await this.limit(async () => this.performCheck(signal).catch(err => {
@@ -249,12 +249,12 @@ class HealthCheckSession {
   private async performCheck(signal?: AbortSignal): Promise<void> {
     const { discovery } = this.target;
     const url = discovery.endpoints.health;
-    
+
     try {
       // Create signed health check request
       const signedRequest = await SignedPayload.create<typeof WorkerHealthCheckRequestPayloadSchema>(
         {
-          checker: this.checker.getAddress(),
+          checker: this.checker.licenseAddress,
           timestamp: Date.now(),
         },
         this.checker.getSigner()
@@ -279,19 +279,19 @@ class HealthCheckSession {
       const latency = Date.now() - start;
       const isSuccess = res.statusCode === 200;
       this.metrics.update(latency, isSuccess);
-      
-      logger.info({ 
-        ...this.logContext, 
-        statusCode: res.statusCode, 
-        latencyMs: latency, 
+
+      logger.info({
+        ...this.logContext,
+        statusCode: res.statusCode,
+        latencyMs: latency,
         success: isSuccess,
         url
       }, 'Health check completed');
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') throw err;
       this.metrics.update(0, false);
-      logger.debug({ 
-        ...this.logContext, 
+      logger.debug({
+        ...this.logContext,
         err: err instanceof Error ? err.message : String(err),
         url
       }, 'Health check failed with exception');
@@ -300,13 +300,13 @@ class HealthCheckSession {
 
   private async buildAndSendSignedProof(): Promise<void> {
     const metricsSnapshot = this.metrics.toJSON();
-    
+
     if (metricsSnapshot.samples === 0) {
       logger.warn({ ...this.logContext }, 'No health check samples collected; skipping proof');
       return;
     }
 
-    const checkerLicense = this.checker.getLicense();
+    const checkerLicense = this.checker.licenseAddress;
     if (!checkerLicense) {
       logger.warn({ ...this.logContext }, 'No checker license available; skipping proof');
       return;
@@ -318,18 +318,18 @@ class HealthCheckSession {
       return;
     }
 
-    logger.debug({ 
-      ...this.logContext, 
+    logger.debug({
+      ...this.logContext,
       ...metricsSnapshot,
       proofEndpoint
     }, 'Building signed proof from health check metrics');
-    
+
     try {
       // Construct signed proof
       const signedProof = await SignedPayload.create<typeof WorkerProofPayloadSchema>(
         {
           checker: this.checker.getAddress(),
-          checkerLicense: checkerLicense.rpcAsset.id,
+          checkerLicense: checkerLicense,
           worker: this.target.discovery.worker.address,
           period: this.target.period,
           metrics: {
@@ -354,10 +354,10 @@ class HealthCheckSession {
         });
 
         const responseText = await res.body.text().catch(() => 'Unable to read response body');
-        
+
         if (res.statusCode === 200) {
-          logger.info({ 
-            ...this.logContext, 
+          logger.info({
+            ...this.logContext,
             latency: Math.round(metricsSnapshot.avgLatencyMs),
             uptime: Math.round(metricsSnapshot.uptimePercent * 100) / 100,
             samples: metricsSnapshot.samples,
@@ -367,8 +367,8 @@ class HealthCheckSession {
         } else {
           // Throw error to trigger retry
           const error = new Error(`HTTP ${res.statusCode}: ${responseText}`);
-          logger.warn({ 
-            ...this.logContext, 
+          logger.warn({
+            ...this.logContext,
             statusCode: res.statusCode,
             response: responseText,
             attempt
@@ -380,14 +380,14 @@ class HealthCheckSession {
         baseDelayMs: 2000,
         exponentialBackoff: false
       }).catch(err => {
-        logger.warn({ 
-          ...this.logContext, 
+        logger.warn({
+          ...this.logContext,
           err: err instanceof Error ? err.message : String(err)
         }, 'Failed to submit proof to worker after all retries');
       });
     } catch (err) {
-      logger.warn({ 
-        ...this.logContext, 
+      logger.warn({
+        ...this.logContext,
         err: err instanceof Error ? err.message : String(err)
       }, 'Error submitting proof to worker');
     }

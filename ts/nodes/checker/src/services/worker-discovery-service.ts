@@ -1,5 +1,5 @@
-import { DEPIN_PROGRAM, DepinAccountType, ProgramAccount, sleep, WorkerDiscoveryDocument, WorkerMetadataAccount } from '@beamable-network/depin';
-import { address, getBase58Codec, getBase64Codec, getU8Codec, isNone } from 'gill';
+import { DEPIN_PROGRAM, DepinAccountType, getDepinAccountFilter, ProgramAccount, sleep, WorkerDiscoveryDocument, WorkerMetadataAccount } from '@beamable-network/depin';
+import { address, getBase58Codec, getU8Codec, isNone } from 'gill';
 import { GetProgramAccountsV2Config } from 'helius-sdk/types/types';
 import pLimit from 'p-limit';
 import { Agent, request } from 'undici';
@@ -32,7 +32,7 @@ export class WorkerDiscoveryService {
 
   async fetchActiveWorkerAccounts(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {
     const network = this.checker.getNetwork();
-    
+
     if (network === 'devnet') {
       return this.fetchActiveWorkerAccountsV1();
     } else {
@@ -40,7 +40,7 @@ export class WorkerDiscoveryService {
     }
   }
 
-  private async fetchActiveWorkerAccountsV2(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {    
+  private async fetchActiveWorkerAccountsV2(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {
     const helius = this.checker.getRpcClient().helius;
 
     const activeWorkerAccounts: Array<ProgramAccount<WorkerMetadataAccount>> = [];
@@ -63,14 +63,14 @@ export class WorkerDiscoveryService {
       if (paginationKey) {
         requestOptions.paginationKey = paginationKey;
       }
-
       const res = await helius.getProgramAccountsV2([DEPIN_PROGRAM, requestOptions]);
 
       for (const account of res.accounts) {
         const dataField = account.account.data;
         if (dataField == null) continue;
         try {
-          const workerAccount = WorkerMetadataAccount.deserializeFrom(getBase64Codec().encode(account.account.data));
+          const accountData = Buffer.from(account.account.data, 'base64');
+          const workerAccount = WorkerMetadataAccount.deserializeFrom(accountData);
           if (isNone(workerAccount.suspendedAt) && workerAccount.discoveryUri.trim().length > 0) {
             activeWorkerAccounts.push({
               address: address(account.pubkey),
@@ -89,36 +89,30 @@ export class WorkerDiscoveryService {
   }
 
   private async fetchActiveWorkerAccountsV1(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {
-    const helius = this.checker.getRpcClient().helius;
-    
+    const rpc = this.checker.getRpcClient();
+
     const activeWorkerAccounts: Array<ProgramAccount<WorkerMetadataAccount>> = [];
 
-    const requestOptions = {
-      encoding: 'base64' as const,
-      filters: [
-        {
-          memcmp: {
-            bytes: getBase58Codec().decode(getU8Codec().encode(DepinAccountType.WorkerMetadata)),
-            offset: 0,
-          },
-        },
-      ],
-    };
+    const filters = [
+      getDepinAccountFilter(DepinAccountType.WorkerMetadata)
+    ];
 
-    const res = await helius.getProgramAccounts(DEPIN_PROGRAM, requestOptions);
+    const res = await rpc.getProgramAccounts(DEPIN_PROGRAM, filters);
 
     for (const account of res) {
       const dataField = account.account.data;
       if (dataField == null) continue;
       try {
-        const workerAccount = WorkerMetadataAccount.deserializeFrom(getBase64Codec().encode(account.account.data[0]));
+        const workerAccount = typeof account.account.data === 'string'
+          ? WorkerMetadataAccount.deserializeFrom(account.account.data)
+          : WorkerMetadataAccount.deserializeFrom(account.account.data);
         if (isNone(workerAccount.suspendedAt) && workerAccount.discoveryUri.trim().length > 0) {
           activeWorkerAccounts.push({
             address: address(account.pubkey),
             data: workerAccount
           });
         }
-      } catch(err) {
+      } catch (err) {
         const x = err;
         // Ignore invalid accounts
       }

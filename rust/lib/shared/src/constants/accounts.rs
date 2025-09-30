@@ -8,8 +8,8 @@ pub const USDC_MINT: Pubkey = Pubkey::new_from_array([
 ]);
 
 pub const BMB_MINT: Pubkey = Pubkey::new_from_array([
-    153, 192, 122, 187, 148, 94, 104, 128, 108, 133, 23, 34, 49, 58, 40, 110, 172, 110, 182, 155,
-    220, 96, 107, 65, 0, 44, 6, 76, 143, 209, 251, 230,
+    153, 192, 121, 178, 225, 181, 57, 31, 129, 126, 167, 33, 175, 97, 38, 208, 52, 71, 86, 247,
+    139, 178, 22, 172, 220, 117, 204, 108, 93, 56, 50, 103,
 ]);
 
 pub const BMB_LICENSE_ADMIN: Pubkey = Pubkey::new_from_array([

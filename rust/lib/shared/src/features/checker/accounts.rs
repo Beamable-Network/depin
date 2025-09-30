@@ -6,10 +6,11 @@ use crate::{constants::seeds::{CHECKER_SEED, LICENSE_SEED, METADATA_SEED}, types
 pub struct CheckerMetadata {
     pub suspended_at: Option<u64>,
     pub delegated_to: Pubkey,
+    pub license_index: u32,
 }
 
 impl CheckerMetadata {
-    pub const LEN: usize = 1 + 9 + 32;
+    pub const LEN: usize = 1 + 9 + 32 + 4;
 
     pub fn find_pda(program_id: &Pubkey, checker_license: &Pubkey, checker: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[CHECKER_SEED, METADATA_SEED, checker_license.as_ref(), checker.as_ref()], program_id)

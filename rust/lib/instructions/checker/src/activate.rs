@@ -81,6 +81,7 @@ pub fn process_activate_checker<'info>(
     let metadata = CheckerMetadata {
         suspended_at: None,
         delegated_to: input.delegated_to,
+        license_index: license.index,
     };
 
     // Check if CheckerMetadata already exists (upsert logic)

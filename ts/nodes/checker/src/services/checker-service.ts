@@ -1,10 +1,10 @@
-import { BMBStateAccount, getCurrentPeriod, getPeriodEndMs, getRemainingTimeInPeriodMs, ProgramAccount, runBrand, WorkerDiscoveryDocument, WorkerMetadataAccount } from '@beamable-network/depin';
+import { BMBStateAccount, getCurrentPeriod, getPeriodEndMs, getRemainingTimeInPeriodMs, ProgramAccount, runBrand, WorkerMetadataAccount } from '@beamable-network/depin';
 import { publicKey } from '@metaplex-foundation/umi';
+import { promiseStateAsync } from 'p-state';
 import { CheckerNode } from '../checker.js';
 import { getLogger } from '../logger.js';
-import { ResolvedWorkerDiscovery, WorkerDiscoveryService } from './worker-discovery-service.js';
 import { HealthCheckManager } from './health-check-service.js';
-import { promiseStateAsync } from 'p-state';
+import { ResolvedWorkerDiscovery, WorkerDiscoveryService } from './worker-discovery-service.js';
 
 const logger = getLogger('CheckerService');
 
@@ -31,10 +31,6 @@ export class CheckerService {
       return;
     }
 
-    if (this.checker.getLicense() === undefined) {
-      throw new Error('Checker license is not set. Cannot start CheckerService.');
-    }
-
     this.isRunning = true;
     logger.info('Starting CheckerService');
 
@@ -50,7 +46,7 @@ export class CheckerService {
         this.currentPeriod = period;
 
         const remainingMs = getRemainingTimeInPeriodMs(period);
-        
+
         if (remainingMs < CheckerService.PERIOD_SKIP_THRESHOLD_MS) {
           logger.warn({ period, remainingMs }, 'Skipping period tasks due to insufficient remaining time');
           const sleepTime = remainingMs + CheckerService.BUFFER_SLEEP_MS;
@@ -118,10 +114,7 @@ export class CheckerService {
       throw new Error(`No checker count found for period ${period}`);
     }
 
-    const myLicenseIndex = this.checker.getLicense()?.index;
-    if (myLicenseIndex === undefined) {
-      throw new Error('Checker license not available, check checker license configuration');
-    }
+    const myLicenseIndex = this.checker.licenseIndex;
 
     const activeWorkerAccounts = await this.discoveryService.fetchActiveWorkerAccounts();
     logger.info({ period, activeWorkers: activeWorkerAccounts.length }, 'Fetched active worker accounts');
@@ -181,7 +174,7 @@ export class CheckerService {
     }
   }
 
-  private async resolveWorkers(eligibleWorkers: ProgramAccount<WorkerMetadataAccount>[], period: number, onResolved: (entry: ResolvedWorkerDiscovery) => void): Promise<void> {    
+  private async resolveWorkers(eligibleWorkers: ProgramAccount<WorkerMetadataAccount>[], period: number, onResolved: (entry: ResolvedWorkerDiscovery) => void): Promise<void> {
     const discoveryAc = new AbortController();
 
     const remainingTimeMs = getRemainingTimeInPeriodMs(period);
@@ -198,7 +191,7 @@ export class CheckerService {
       if (state === 'pending') {
         logger.fatal({ period }, 'Worker resolution taking too long, aborting');
         discoveryAc.abort('Aborting worker resolution due to period ending soon');
-      }      
+      }
     }, Math.max(0, remainingTimeMs - CheckerService.PERIOD_SKIP_THRESHOLD_MS)); // Abort worker resolution if less than PERIOD_SKIP_THRESHOLD_MS remains in the period
 
     try {
@@ -208,7 +201,7 @@ export class CheckerService {
     }
   }
 
-  
+
 
   private isWorkerEligible(myLicenseIndex: number, worker: WorkerMetadataAccount, period: number, periodCheckers: number): boolean {
     const brandOutput = runBrand(worker.license, period, periodCheckers);

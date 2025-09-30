@@ -2,7 +2,7 @@ import { dasApi, DasApiInterface } from "@metaplex-foundation/digital-asset-stan
 import { mplBubblegum } from "@metaplex-foundation/mpl-bubblegum";
 import { createSignerFromKeypair, RpcInterface, signerIdentity, Umi } from "@metaplex-foundation/umi";
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { appendTransactionMessageInstructions, BaseTransactionMessage, createSolanaRpc, createSolanaRpcSubscriptions, createTransactionMessage, getSignatureFromTransaction, MessageSigner, pipe, Rpc, sendAndConfirmTransactionFactory, setTransactionMessageFeePayerSigner, setTransactionMessageLifetimeUsingBlockhash, Signature, signTransactionMessageWithSigners, SolanaError, SolanaRpcApi, TransactionSigner } from "gill";
+import { appendTransactionMessageInstructions, Base58EncodedBytes, BaseTransactionMessage, createSolanaRpc, createSolanaRpcSubscriptions, createTransactionMessage, GetProgramAccountsMemcmpFilter, getSignatureFromTransaction, KeyPairSigner, MessageSigner, pipe, Rpc, sendAndConfirmTransactionFactory, setTransactionMessageFeePayerSigner, setTransactionMessageLifetimeUsingBlockhash, Signature, signTransactionMessageWithSigners, SolanaError, SolanaRpcApi, TransactionSigner } from "gill";
 import { createHelius, HeliusClient } from "helius-sdk";
 import { CheckerConfig } from '../config.js';
 import { getLogger } from '../logger.js';
@@ -13,6 +13,7 @@ export interface RpcClient {
     helius: HeliusClient;
     umi: Umi & { rpc: DasApiInterface; };
     buildAndSendTransaction: (instructions: ReadonlyArray<BaseTransactionMessage['instructions'][number]>, commitment?: "processed" | "confirmed" | "finalized") => Promise<{ signature: Signature; logs: readonly string[] | null }>;
+    getProgramAccounts: (programAddress: string, filters: GetProgramAccountsMemcmpFilter[]) => Promise<Array<{ pubkey: string; account: { data: ArrayLike<number> | Base58EncodedBytes } }>>;
 }
 
 function createUmiClient(config: CheckerConfig): Umi & { rpc: DasApiInterface; } {
@@ -72,7 +73,7 @@ function createBuildAndSendTransactionFn(params: {
     };
 }
 
-export function createRpcClient(signer: TransactionSigner & MessageSigner, config: CheckerConfig): RpcClient {
+export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): RpcClient {
     const helius = createHelius({ apiKey: config.heliusApiKey, network: config.solanaNetwork });
 
     // Create Gill RPC clients for transaction handling
@@ -87,7 +88,31 @@ export function createRpcClient(signer: TransactionSigner & MessageSigner, confi
         sendAndConfirmTransaction
     });
 
-    return { helius, umi: createUmiClient(config), buildAndSendTransaction };
+    const getProgramAccounts = async (
+        programAddress: string,
+        filters: GetProgramAccountsMemcmpFilter[]
+    ): Promise<Array<{ pubkey: string; account: { data: ArrayLike<number> | Base58EncodedBytes } }>> => {
+        const result = await helius.getProgramAccountsV2([programAddress, {
+            filters: filters.map(f => ({
+                memcmp: {
+                    offset: Number(f.memcmp.offset),
+                    bytes: f.memcmp.bytes,
+                    encoding: f.memcmp.encoding
+                }
+            })),
+            encoding: 'base64'
+        }]);
+
+        // Convert base64 data to Buffer (ArrayLike<number>)
+        return result.accounts.map(acc => ({
+            pubkey: acc.pubkey,
+            account: {
+                data: Buffer.from(acc.account.data, 'base64')
+            }
+        }));
+    };
+
+    return { helius, umi: createUmiClient(config), buildAndSendTransaction, getProgramAccounts };
 }
 
 function getErrorMessage(error: unknown): string {

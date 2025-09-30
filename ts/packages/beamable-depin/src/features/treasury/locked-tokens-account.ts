@@ -8,6 +8,7 @@ import {
     getBase58Codec,
     getI64Codec,
     getOptionCodec,
+    GetProgramAccountsMemcmpFilter,
     getProgramDerivedAddress,
     getStructCodec,
     getU16Codec,
@@ -98,11 +99,11 @@ export class LockedTokensAccount {
     }
 
     public static async getLockedTokens(
-        getProgramAccounts: (programAddress: Address, config?: { filters: any[] }) => Promise<Array<{ pubkey: string; account: { data: ArrayLike<number> | Base58EncodedBytes } }>>,
+        getProgramAccounts: (programAddress: Address, filters: GetProgramAccountsMemcmpFilter[]) => Promise<Array<{ pubkey: string; account: { data: ArrayLike<number> | Base58EncodedBytes } }>>,
         owner: Address
     ): Promise<Array<{ address: Address; data: LockedTokensAccount }>> {
-        const accounts = await getProgramAccounts(DEPIN_PROGRAM, {
-            filters: [
+        const accounts = await getProgramAccounts(DEPIN_PROGRAM,
+           [
                 getDepinAccountFilter(DepinAccountType.LockedTokens),
                 {
                     memcmp: {
@@ -119,7 +120,7 @@ export class LockedTokensAccount {
                     }
                 }
             ]
-        });
+        );
 
         const lockedAccounts: Array<{ address: Address; data: LockedTokensAccount }> = [];
 
