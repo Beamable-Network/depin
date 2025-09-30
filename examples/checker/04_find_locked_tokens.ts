@@ -1,5 +1,4 @@
 import { LockedTokensAccount } from "@beamable-network/depin";
-import { address } from "gill";
 import { createClient } from "../client";
 
 // Initialize Solana client
@@ -11,7 +10,7 @@ const lockedTokenAccounts = await LockedTokensAccount.getLockedTokens(
         const resp = await client.rpcClient.rpc.getProgramAccounts(program, config).send();
         return resp.map(({ pubkey, account }) => ({ pubkey, account }));
     },
-    address(client.umiSigner.publicKey)
+    client.signer.address
 );
 
 console.log('Found locked token accounts:', lockedTokenAccounts.length);

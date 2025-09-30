@@ -3,7 +3,6 @@ import { getAssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 import { publicKey } from '@metaplex-foundation/umi';
 import {
     address,
-    createKeyPairSignerFromPrivateKeyBytes,
     createTransaction,
     getExplorerLink,
     setTransactionMessageLifetimeUsingBlockhash,
@@ -29,7 +28,7 @@ const activation = new ActivateChecker({
 // Build and sign transaction
 const tx = createTransaction({
     instructions: [await activation.getInstruction()],
-    feePayer: await createKeyPairSignerFromPrivateKeyBytes(client.umiSigner.secretKey)
+    feePayer: client.signer
 });
 
 const { value: latestBlockhash } = await client.rpcClient.rpc.getLatestBlockhash().send();

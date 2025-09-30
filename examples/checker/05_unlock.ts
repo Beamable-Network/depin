@@ -1,9 +1,7 @@
 import { BMB_MINT, LockedTokensAccount, Unlock } from "@beamable-network/depin";
 import { findAssociatedTokenPda, getCreateAssociatedTokenIdempotentInstruction, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import {
-    address,
     appendTransactionMessageInstruction,
-    createKeyPairSignerFromPrivateKeyBytes,
     createTransactionMessage,
     getExplorerLink,
     getSignatureFromTransaction,
@@ -18,13 +16,13 @@ import { createClient } from "../client";
 const client = await createClient('devnet');
 
 // Fetch all locked token accounts for the current user
-console.log("Finding locked token accounts for:", client.umiSigner.publicKey);
+console.log("Finding locked token accounts for:", client.signer.address);
 const lockedTokenAccounts = await LockedTokensAccount.getLockedTokens(
     async (program, config) => {
         const resp = await client.rpcClient.rpc.getProgramAccounts(program, config).send();
         return resp.map(({ pubkey, account }) => ({ pubkey, account }));
     },
-    address(client.umiSigner.publicKey)
+    client.signer.address
 );
 
 console.log('Found locked token accounts:', lockedTokenAccounts.length);
@@ -63,17 +61,16 @@ if (lockedTokenAccounts.length > 0) {
     // Build transaction with conditional ATA creation
     console.log('Creating and Sending Transaction');
     const { value: latestBlockhash } = await client.rpcClient.rpc.getLatestBlockhash().send();
-    const signer = await createKeyPairSignerFromPrivateKeyBytes(client.umiSigner.secretKey);
 
     const transactionMessage = pipe(
         createTransactionMessage({ version: 0 }),
-        (tx) => setTransactionMessageFeePayerSigner(signer, tx),
+        (tx) => setTransactionMessageFeePayerSigner(client.signer, tx),
         (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
         (tx) => {
             if (needsDestinationAccount) {
                 return appendTransactionMessageInstruction(
                     getCreateAssociatedTokenIdempotentInstruction({
-                        payer: signer,
+                        payer: client.signer,
                         ata: destinationTokenAccount,
                         owner: unlock.owner,
                         mint: BMB_MINT,
@@ -88,7 +85,7 @@ if (lockedTokenAccounts.length > 0) {
 
     // Sign and send transaction
     const signedTransaction = await signTransactionMessageWithSigners(transactionMessage);
-    await client.rpcClient.sendAndConfirmTransaction(signedTransaction, { 
+    await client.rpcClient.sendAndConfirmTransaction(signedTransaction, {
         commitment: 'confirmed',
         maxRetries: 5n
     });

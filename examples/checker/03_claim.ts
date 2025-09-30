@@ -2,8 +2,6 @@ import { PayoutCheckerRewards, TreasuryConfigAccount } from "@beamable-network/d
 import { getAssetWithProof } from "@metaplex-foundation/mpl-bubblegum";
 import { publicKey } from "@metaplex-foundation/umi";
 import {
-    address,
-    createKeyPairSignerFromPrivateKeyBytes,
     createTransaction,
     getExplorerLink,
     setTransactionMessageLifetimeUsingBlockhash,
@@ -21,7 +19,7 @@ const license = await getAssetWithProof(client.umi, publicKey(licenseAddress));
 
 // Create payout instruction
 const payout = new PayoutCheckerRewards({
-    signer: address(client.umiSigner.publicKey),
+    signer: client.signer.address,
     checker_license: license
 });
 
@@ -39,7 +37,7 @@ if (!cfg) {
 // Build and sign transaction
 const tx = createTransaction({
     instructions: [await payout.getInstruction(cfg)],
-    feePayer: await createKeyPairSignerFromPrivateKeyBytes(client.umiSigner.secretKey)
+    feePayer: client.signer
 });
 
 const { value: latestBlockhash } = await client.rpcClient.rpc.getLatestBlockhash().send();
