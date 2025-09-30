@@ -100,6 +100,7 @@ export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): R
                     encoding: f.memcmp.encoding
                 }
             })),
+            limit: 10000,
             encoding: 'base64'
         }]);
 
