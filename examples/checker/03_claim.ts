@@ -13,7 +13,7 @@ import { askForInput } from "utils";
 import { createClient } from "../client";
 
 // Initialize Solana client
-const client = await createClient('mainnet');
+const client = await createClient('devnet');
 
 // Get checker license from user
 const licenseAddress = await askForInput("Enter checker license");

@@ -3,7 +3,7 @@ import { address } from "gill";
 import { createClient } from "../client";
 
 // Initialize Solana client
-const client = await createClient('mainnet');
+const client = await createClient('devnet');
 
 // Fetch all locked token accounts for the current user
 const lockedTokenAccounts = await LockedTokensAccount.getLockedTokens(

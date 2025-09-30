@@ -15,7 +15,7 @@ import {
 import { createClient } from "../client";
 
 // Initialize Solana client
-const client = await createClient('mainnet');
+const client = await createClient('devnet');
 
 // Fetch all locked token accounts for the current user
 console.log("Finding locked token accounts for:", client.umiSigner.publicKey);
