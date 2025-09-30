@@ -16,7 +16,7 @@ process.on('uncaughtException', (error) => {
 async function main() {
   logger.info({ version: packageJson.version }, 'Starting Beamable.Network DePIN Worker Node');
   const config = new WorkerConfig();
-  logger.debug({ env: config.environment, host: config.host, port: config.port, externalUrl: config.externalUrl }, 'Loaded configuration');
+  logger.debug({ host: config.host, port: config.port, externalUrl: config.externalUrl }, 'Loaded configuration');
   const server = await WorkerServer.create(config);
 
   const shutdown = async () => {

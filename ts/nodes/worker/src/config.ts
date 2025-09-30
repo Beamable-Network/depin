@@ -12,7 +12,6 @@ export class WorkerConfig {
   public readonly workerPrivateKey: string;
   public readonly workerLicense: string;
   public readonly externalUrl: string;
-  public readonly environment: 'development' | 'production' | 'testing';
   public readonly s3Config: {
     bucketName: string;
     region: string;
