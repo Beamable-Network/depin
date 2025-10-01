@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
 # Build script for the Worker Docker image
-# Usage: ./scripts/build-docker.sh [tag]
+# Usage: ./scripts/build-docker.sh [image-name]
+# Example: ./scripts/build-docker.sh dpatekar/worker
 
 set -euo pipefail
 
-TAG="${1:-beamable-network/worker:latest}"
+IMAGE_NAME="${1:-beamable-network/worker}"
 
 # Find the ts workspace root (look for pnpm-workspace.yaml)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,17 +17,25 @@ if [[ ! -f "$WORKSPACE_ROOT/pnpm-workspace.yaml" ]]; then
   exit 1
 fi
 
+# Extract version from package.json
+VERSION=$(node -p "require('$WORKSPACE_ROOT/nodes/worker/package.json').version")
+
 DOCKERFILE_PATH="nodes/worker/Dockerfile"
 
-echo "Building DePIN Worker Docker image: $TAG"
+echo "Building DePIN Worker Docker image"
 echo " - Workspace: $WORKSPACE_ROOT"
 echo " - Dockerfile: $DOCKERFILE_PATH"
+echo " - Version: $VERSION"
+echo " - Tags: ${IMAGE_NAME}:${VERSION}, ${IMAGE_NAME}:latest"
 
 cd "$WORKSPACE_ROOT"
 
 docker build \
   -f "$DOCKERFILE_PATH" \
-  -t "$TAG" \
+  -t "${IMAGE_NAME}:${VERSION}" \
+  -t "${IMAGE_NAME}:latest" \
   .
 
-echo "✓ Build complete: $TAG"
+echo "✓ Build complete:"
+echo "  - ${IMAGE_NAME}:${VERSION}"
+echo "  - ${IMAGE_NAME}:latest"
