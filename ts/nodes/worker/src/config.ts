@@ -14,6 +14,7 @@ export class WorkerConfig {
   public readonly externalUrl: string;
   public readonly s3Config: {
     bucketName: string;
+    bucketPath: string;
     region: string;
     accessKeyId?: string;
     secretAccessKey?: string;
@@ -60,6 +61,7 @@ export class WorkerConfig {
     this.externalUrl = externalUrl;
     this.s3Config = {
       bucketName: s3BucketName,
+      bucketPath: process.env.S3_BUCKET_PATH || '',
       region: s3Region,
       accessKeyId: process.env.S3_ACCESS_KEY_ID,
       secretAccessKey: process.env.S3_SECRET_ACCESS_KEY

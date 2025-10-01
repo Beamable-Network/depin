@@ -66,6 +66,7 @@ docker run -p 3000:3000 --env-file nodes/worker/.env beamable-worker
 | `WORKER_LICENSE` | Worker license identifier | *required* |
 | `EXTERNAL_URL` | External URL where this worker can be reached | *required* |
 | `S3_BUCKET_NAME` | S3 bucket name for storing proofs | *required* |
+| `S3_BUCKET_PATH` | S3 bucket path prefix for storing proofs | `` (root) |
 | `S3_REGION` | S3 bucket region | *required* |
 | `S3_ACCESS_KEY_ID` | S3 access key ID (optional if using IAM roles) | *optional* |
 | `S3_SECRET_ACCESS_KEY` | S3 secret access key (optional if using IAM roles) | *optional* |

@@ -8,6 +8,7 @@ const logger = getLogger('ProofStorage');
 export class ProofStorageService {
   private s3Client: S3Client;
   private bucketName: string;
+  private bucketPath: string;
 
   constructor(config: WorkerConfig) {
     const s3Config: any = {
@@ -23,11 +24,19 @@ export class ProofStorageService {
 
     this.s3Client = new S3Client(s3Config);
     this.bucketName = config.s3Config.bucketName;
+    this.bucketPath = config.s3Config.bucketPath;
+  }
+
+  private getKey(path: string): string {
+    if (this.bucketPath) {
+      return `${this.bucketPath}/${path}`;
+    }
+    return path;
   }
 
   async storeProof(checkerLicenseIndex: number, proof: SignedPayload<typeof WorkerProofPayloadSchema>): Promise<void> {
     const period = proof.payload.period;
-    const key = `${period}/${checkerLicenseIndex}`;
+    const key = this.getKey(`${period}/${checkerLicenseIndex}`);
     const proofJson = JSON.stringify(proof);
 
     try {
@@ -77,7 +86,7 @@ export class ProofStorageService {
   }
 
   async listProofsByPeriod(period: number): Promise<WorkerProofListResponse> {
-    const prefix = `${period}/`;
+    const prefix = this.getKey(`${period}/`);
 
     const proofs: WorkerProofListResponse = [];
     let continuationToken: string | undefined = undefined;
