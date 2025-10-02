@@ -3,7 +3,7 @@ import cors from '@fastify/cors';
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import Fastify from 'fastify';
+import Fastify, { FastifyInstance } from 'fastify';
 import { WorkerConfig } from './config.js';
 import { registerRoutes } from './routes/index.js';
 import { WorkerNode } from './worker.js';
@@ -14,7 +14,7 @@ const logger = getLogger('WorkerServer');
 
 export class WorkerServer {
   private constructor(
-    private readonly fastify: ReturnType<typeof Fastify>,
+    private readonly fastify: FastifyInstance,
     private readonly worker: WorkerNode,
     private readonly config: WorkerConfig,
     private submitService: ProofSubmitService
@@ -41,7 +41,7 @@ export class WorkerServer {
     await server.setupSwagger();
     await server.setupRoutes();
     return server;
-  }
+  }  
 
   private async setupSwagger() {
     // Register schemas that are referenced by other schemas
@@ -58,16 +58,27 @@ export class WorkerServer {
     });
 
     await this.fastify.register(fastifySwaggerUi, {
-      routePrefix: '/documentation'
+      routePrefix: `${this.config.basePath}/documentation`
     });
-    logger.debug('Swagger and Swagger UI registered');
+    logger.debug(`Swagger and Swagger UI registered at ${this.config.basePath}/documentation`);
   }
 
   private async setupRoutes() {
     await this.fastify.register(cors, {
       origin: true
     });
+
+    // Register routes without prefix
     await registerRoutes(this.fastify, this.worker, this.config);
+
+    // Also register routes with base path
+    if (this.config.basePath && this.config.basePath !== '/') {
+      logger.info(`Also registering routes with base path: ${this.config.basePath}`);
+      await this.fastify.register(async (instance) => {
+        await registerRoutes(instance, this.worker, this.config);
+      }, { prefix: this.config.basePath });
+    }
+
     logger.debug('Routes registered');
   }
 

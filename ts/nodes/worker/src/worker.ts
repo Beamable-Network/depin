@@ -64,6 +64,10 @@ export class WorkerNode {
     return this.proofStorage;
   }
 
+  getConfig(): WorkerConfig {
+    return this.config;
+  }
+
   async getBalance(): Promise<bigint> {
     const balanceResponse = await this.rpc.umi.rpc.getBalance(publicKey(this.signer.address));
     return balanceResponse.basisPoints;
@@ -106,7 +110,7 @@ export class WorkerNode {
     }
 
     logger.info({ license: this.license }, 'Fetching worker license');
-    const license = await getAssetWithProof(this.rpc.umi, publicKey(this.license));
+    const license = await getAssetWithProof(this.rpc.umi, publicKey(this.license), { truncateCanopy: true });
     logger.info({ licenseIndex: license.index, licenseOwner: license.leafOwner }, 'Worker license');
 
     const workerMetadataPda = await WorkerMetadataAccount.findWorkerMetadataPDA(this.license, workerAddress);

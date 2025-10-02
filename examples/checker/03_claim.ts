@@ -15,7 +15,7 @@ const client = await createClient('devnet');
 
 // Get checker license from user
 const licenseAddress = await askForInput("Enter checker license");
-const license = await getAssetWithProof(client.umi, publicKey(licenseAddress));
+const license = await getAssetWithProof(client.umi, publicKey(licenseAddress), { truncateCanopy: true });
 
 // Create payout instruction
 const payout = new PayoutCheckerRewards({

@@ -45,7 +45,7 @@ if (lockedTokenAccounts.length > 0) {
     let needsDestinationAccount = false;
     try {
         await client.rpcClient.rpc.getAccountInfo(destinationTokenAccount).send();
-    } catch (error) {
+    } catch (err) {
         needsDestinationAccount = true;
     }
 

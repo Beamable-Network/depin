@@ -13,33 +13,31 @@ export async function rootRoutes(fastify: FastifyInstance, { worker }: { worker:
     }
   }, async (request: FastifyRequest, reply: FastifyReply): Promise<WorkerDiscoveryDocument> => {
     const address = worker.getAddress();
-    const host = request.headers.host || 'localhost';
-    const protocol = request.headers['x-forwarded-proto'] || (request.protocol === 'https' ? 'https' : 'http');
-    const baseUrl = `${protocol}://${host}`;
+    const basePath = worker.getConfig().basePath;
 
     return {
       version: packageJson.version,
       worker: {
         address,
         license: worker.getLicense(),
-        discoveryUri: `${baseUrl}/`,
-        openApi: `${baseUrl}/documentation`,
-        region: 'us-east-1',
+        discoveryUri: `${basePath}/`,
+        openApi: `${basePath}/documentation`,
+        region: worker.getConfig().s3Config.region,
         capabilities: ['compute', 'storage', 'containers']
       },
       endpoints: {
-        health: `${baseUrl}/health`,
+        health: `${basePath}/health`,
         proofs: {
-          submit: `${baseUrl}/proof`,
-          listByPeriod: `${baseUrl}/proofs/:period`
+          submit: `${basePath}/proof`,
+          listByPeriod: `${basePath}/proofs/:period`
         },
         sla: {
-          negotiate: `${baseUrl}/sla/negotiate`,
-          manage: `${baseUrl}/sla/manage`
+          negotiate: `${basePath}/sla/negotiate`,
+          manage: `${basePath}/sla/manage`
         },
         resources: {
-          query: `${baseUrl}/resources`,
-          provision: `${baseUrl}/resources/provision`
+          query: `${basePath}/resources`,
+          provision: `${basePath}/resources/provision`
         }
       },
       offerings: [
@@ -53,7 +51,7 @@ export async function rootRoutes(fastify: FastifyInstance, { worker }: { worker:
         },
         compliance: {
           certifications: ['SOC2'],
-          region: 'us-east-1',
+          region: worker.getConfig().s3Config.region,
           dataResidency: 'us'
         }
       }

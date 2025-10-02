@@ -117,7 +117,7 @@ export class ProofSubmitService {
   private async submitProof(period: number, proof: AggregatedProof): Promise<void> {
     logger.info({ period }, 'Submitting proof');
 
-    const licenseAsset = await getAssetWithProof(this.worker.getUmi(), publicKey(this.worker.getLicense()));
+    const licenseAsset = await getAssetWithProof(this.worker.getUmi(), publicKey(this.worker.getLicense()), { truncateCanopy: true });
 
     const instruction = new SubmitWorkerProof({
       payer: this.worker.getSigner(),

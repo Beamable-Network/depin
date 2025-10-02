@@ -40,4 +40,7 @@ USER worker
 
 EXPOSE 3000
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=5 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
 CMD ["node", "--require", "dd-trace/init", "dist/src/index.js"]

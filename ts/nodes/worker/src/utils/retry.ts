@@ -53,23 +53,23 @@ export async function withRetry<T>(
             }
 
             return result;
-        } catch (error) {
-            lastError = error;
+        } catch (err) {
+            lastError = err;
             const isLastAttempt = attempt === config.maxRetries;
 
             // Check if we should retry this error
-            if (!config.shouldRetry(error)) {
-                logger.warn({ error, attempt }, 'Error marked as non-retryable, aborting');
-                throw error;
+            if (!config.shouldRetry(err)) {
+                logger.warn({ err, attempt }, 'Error marked as non-retryable, aborting');
+                throw err;
             }
 
-            logger.error({ error, attempt, maxRetries: config.maxRetries },
+            logger.error({ err, attempt, maxRetries: config.maxRetries },
                 `Operation failed (attempt ${attempt}/${config.maxRetries})`);
 
             if (isLastAttempt) {
                 logger.error({ maxRetries: config.maxRetries },
                     `Operation failed after ${config.maxRetries} attempts`);
-                throw error;
+                throw err;
             }
 
             // Calculate delay with exponential backoff

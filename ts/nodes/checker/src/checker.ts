@@ -74,7 +74,7 @@ export class CheckerNode {
       logger.info({ licenseIndex: this.licenseIndex, licenseAddress: this.licenseAddress }, 'Fetching checker license');
       let license: AssetWithProof;
       try {
-        license = await getAssetWithProof(this.rpc.umi, publicKey(this.licenseAddress));
+        license = await getAssetWithProof(this.rpc.umi, publicKey(this.licenseAddress), { truncateCanopy: true });
         logger.info({ licenseIndex: this.licenseIndex, assetIndex: license.index, licenseOwner: license.leafOwner }, 'Checker license');
       }
       catch (err) {

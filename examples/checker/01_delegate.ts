@@ -16,7 +16,7 @@ const client = await createClient('devnet');
 
 // Get checker license address from user
 const licenseAddress = await askForInput("Enter checker license");
-const licenseProof = await getAssetWithProof(client.umi, publicKey(licenseAddress));
+const licenseProof = await getAssetWithProof(client.umi, publicKey(licenseAddress), { truncateCanopy: true });
 
 // Activate checker license and set delegate
 const activation = new ActivateChecker({
