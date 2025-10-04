@@ -4,16 +4,6 @@ import { isAddress } from 'gill';
 import { WorkerNode } from '../worker.js';
 
 export async function healthRoutes(fastify: FastifyInstance, { worker }: { worker: WorkerNode }) {
-  fastify.get('/health', {
-    schema: {
-      response: {
-        200: {}
-      }
-    }
-  }, async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    reply.code(200).send();
-  });
-
   fastify.post('/health', {
     schema: {
       body: WorkerHealthCheckRequestSchema,

@@ -1,11 +1,11 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { WorkerNode } from '../worker.js';
 import { WorkerDiscoveryDocument, WorkerDiscoveryDocumentSchema } from '@beamable-network/depin';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { WorkerNode } from '../worker.js';
 
 import packageJson from '../../package.json' with { type: 'json' };
 
 export async function rootRoutes(fastify: FastifyInstance, { worker }: { worker: WorkerNode }) {
-  fastify.get('/', {
+  fastify.get('', {
     schema: {
       response: {
         200: WorkerDiscoveryDocumentSchema
@@ -20,24 +20,24 @@ export async function rootRoutes(fastify: FastifyInstance, { worker }: { worker:
       worker: {
         address,
         license: worker.getLicense(),
-        discoveryUri: `${basePath}/`,
-        openApi: `${basePath}/documentation`,
+        discoveryUri: `${basePath}`,
+        openApi: `${basePath}documentation`,
         region: worker.getConfig().s3Config.region,
         capabilities: ['compute', 'storage', 'containers']
       },
       endpoints: {
-        health: `${basePath}/health`,
+        health: `${basePath}health`,
         proofs: {
-          submit: `${basePath}/proof`,
-          listByPeriod: `${basePath}/proofs/:period`
+          submit: `${basePath}proof`,
+          listByPeriod: `${basePath}proofs/:period`
         },
         sla: {
-          negotiate: `${basePath}/sla/negotiate`,
-          manage: `${basePath}/sla/manage`
+          negotiate: `${basePath}sla/negotiate`,
+          manage: `${basePath}sla/manage`
         },
         resources: {
-          query: `${basePath}/resources`,
-          provision: `${basePath}/resources/provision`
+          query: `${basePath}resources`,
+          provision: `${basePath}resources/provision`
         }
       },
       offerings: [

@@ -3,12 +3,12 @@ import cors from '@fastify/cors';
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import Fastify, { FastifyInstance } from 'fastify';
+import Fastify, { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { WorkerConfig } from './config.js';
-import { registerRoutes } from './routes/index.js';
-import { WorkerNode } from './worker.js';
-import { ProofSubmitService } from './services/proof-submit-service.js';
 import { createLoggerOptions, getLogger } from './logger.js';
+import { registerRoutes } from './routes/index.js';
+import { ProofSubmitService } from './services/proof-submit-service.js';
+import { WorkerNode } from './worker.js';
 
 const logger = getLogger('WorkerServer');
 
@@ -38,10 +38,11 @@ export class WorkerServer {
     });
 
     const server = new WorkerServer(fastify, worker, config, new ProofSubmitService(worker));
+    await server.setupHealthCheck();
     await server.setupSwagger();
     await server.setupRoutes();
     return server;
-  }  
+  }
 
   private async setupSwagger() {
     // Register schemas that are referenced by other schemas
@@ -58,9 +59,24 @@ export class WorkerServer {
     });
 
     await this.fastify.register(fastifySwaggerUi, {
-      routePrefix: `${this.config.basePath}/documentation`
+      routePrefix: `${this.config.basePath}documentation`
     });
-    logger.debug(`Swagger and Swagger UI registered at ${this.config.basePath}/documentation`);
+    logger.debug(`Swagger and Swagger UI registered at ${this.config.basePath}documentation`);
+  }
+
+  private async setupHealthCheck() {
+    await this.fastify.register(async (instance) => {
+      instance.get('/health', {
+        schema: {
+          response: {
+            200: {}
+          }
+        }
+      }, async (_request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+        reply.code(200).send();
+      });
+    });
+    logger.debug('Health check route registered');
   }
 
   private async setupRoutes() {
@@ -68,17 +84,10 @@ export class WorkerServer {
       origin: true
     });
 
-    // Register routes without prefix
-    await registerRoutes(this.fastify, this.worker, this.config);
-
-    // Also register routes with base path
-    if (this.config.basePath && this.config.basePath !== '/') {
-      logger.info(`Also registering routes with base path: ${this.config.basePath}`);
-      await this.fastify.register(async (instance) => {
-        await registerRoutes(instance, this.worker, this.config);
-      }, { prefix: this.config.basePath });
-    }
-
+    // Register routes
+    await this.fastify.register(async (instance) => {
+      await registerRoutes(instance, this.worker, this.config);
+    }, { prefix: this.config.basePath });
     logger.debug('Routes registered');
   }
 

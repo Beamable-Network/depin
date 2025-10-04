@@ -60,7 +60,7 @@ export class WorkerConfig {
     this.workerPrivateKey = workerPrivateKey;
     this.workerLicense = workerLicense;
     this.externalUrl = externalUrl;
-    this.basePath = new URL(externalUrl).pathname.replace(/\/$/, '');
+    this.basePath = new URL(externalUrl).pathname;
     this.s3Config = {
       bucketName: s3BucketName,
       bucketPath: process.env.S3_BUCKET_PATH || '',
