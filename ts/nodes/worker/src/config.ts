@@ -12,7 +12,7 @@ export class WorkerConfig {
   public readonly workerPrivateKey: string;
   public readonly workerLicense: string;
   public readonly externalUrl: string;
-  public readonly basePath: string;
+  public readonly basePath: URL;
   public readonly s3Config: {
     bucketName: string;
     bucketPath: string;
@@ -60,7 +60,7 @@ export class WorkerConfig {
     this.workerPrivateKey = workerPrivateKey;
     this.workerLicense = workerLicense;
     this.externalUrl = externalUrl;
-    this.basePath = new URL(externalUrl).pathname;
+    this.basePath = new URL(externalUrl);
     this.s3Config = {
       bucketName: s3BucketName,
       bucketPath: process.env.S3_BUCKET_PATH || '',
@@ -68,6 +68,10 @@ export class WorkerConfig {
       accessKeyId: process.env.S3_ACCESS_KEY_ID,
       secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
     };
+  }
+
+  urlPath(relative: string): string {
+    return join(this.basePath.pathname, relative);
   }
 
   get workerPrivateKeyBytes(): Uint8Array {

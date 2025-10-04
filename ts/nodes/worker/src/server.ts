@@ -25,7 +25,10 @@ export class WorkerServer {
     // Use our fastify logger configuration
     const fastify = Fastify({
       logger: createLoggerOptions('Fastify'),
-      disableRequestLogging: true
+      disableRequestLogging: true,
+      routerOptions: {
+        ignoreTrailingSlash: true
+      }
     }).withTypeProvider<TypeBoxTypeProvider>();
 
     // Global BigInt serializer
@@ -59,9 +62,9 @@ export class WorkerServer {
     });
 
     await this.fastify.register(fastifySwaggerUi, {
-      routePrefix: `${this.config.basePath}documentation`
+      routePrefix: this.config.urlPath('documentation')
     });
-    logger.debug(`Swagger and Swagger UI registered at ${this.config.basePath}documentation`);
+    logger.debug(`Swagger and Swagger UI registered at ${this.config.urlPath('documentation')}`);
   }
 
   private async setupHealthCheck() {
@@ -87,7 +90,7 @@ export class WorkerServer {
     // Register routes
     await this.fastify.register(async (instance) => {
       await registerRoutes(instance, this.worker, this.config);
-    }, { prefix: this.config.basePath });
+    }, { prefix: this.config.basePath.pathname });
     logger.debug('Routes registered');
   }
 

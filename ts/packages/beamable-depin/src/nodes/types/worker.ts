@@ -119,8 +119,7 @@ export const WorkerDiscoveryDocumentSchema = Type.Object({
     })),
     compliance: Type.Optional(Type.Object({
       certifications: Type.Optional(Type.Array(Type.String(), { description: 'Compliance certifications' })),
-      region: Type.Optional(Type.String({ description: 'Compliance region' })),
-      dataResidency: Type.Optional(Type.String({ description: 'Data residency location' })),
+      region: Type.Optional(Type.String({ description: 'Compliance region' }))
     })),
   }),
 });

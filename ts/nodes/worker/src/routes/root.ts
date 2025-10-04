@@ -13,31 +13,31 @@ export async function rootRoutes(fastify: FastifyInstance, { worker }: { worker:
     }
   }, async (request: FastifyRequest, reply: FastifyReply): Promise<WorkerDiscoveryDocument> => {
     const address = worker.getAddress();
-    const basePath = worker.getConfig().basePath;
+    const config = worker.getConfig();
 
     return {
       version: packageJson.version,
       worker: {
         address,
         license: worker.getLicense(),
-        discoveryUri: `${basePath}`,
-        openApi: `${basePath}documentation`,
+        discoveryUri: `${config.urlPath('')}`,
+        openApi: `${config.urlPath('documentation')}`,
         region: worker.getConfig().s3Config.region,
         capabilities: ['compute', 'storage', 'containers']
       },
       endpoints: {
-        health: `${basePath}health`,
+        health: `${config.urlPath('health')}`,
         proofs: {
-          submit: `${basePath}proof`,
-          listByPeriod: `${basePath}proofs/:period`
+          submit: `${config.urlPath('proof')}`,
+          listByPeriod: `${config.urlPath('proofs/:period')}`
         },
         sla: {
-          negotiate: `${basePath}sla/negotiate`,
-          manage: `${basePath}sla/manage`
+          negotiate: `${config.urlPath('sla/negotiate')}`,
+          manage: `${config.urlPath('sla/manage')}`
         },
         resources: {
-          query: `${basePath}resources`,
-          provision: `${basePath}resources/provision`
+          query: `${config.urlPath('resources')}`,
+          provision: `${config.urlPath('resources/provision')}`
         }
       },
       offerings: [
@@ -51,8 +51,7 @@ export async function rootRoutes(fastify: FastifyInstance, { worker }: { worker:
         },
         compliance: {
           certifications: ['SOC2'],
-          region: worker.getConfig().s3Config.region,
-          dataResidency: 'us'
+          region: worker.getConfig().s3Config.region
         }
       }
     };
