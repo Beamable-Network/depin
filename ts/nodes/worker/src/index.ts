@@ -1,3 +1,7 @@
+// OTEL must be initialized before any other imports to ensure auto-instrumentation works
+import { initializeOTEL } from './otel.js';
+initializeOTEL();
+
 import { WorkerConfig } from './config.js';
 import { WorkerServer } from './server.js';
 import { getLogger } from './logger.js';
