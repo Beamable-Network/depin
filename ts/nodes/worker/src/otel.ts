@@ -50,6 +50,10 @@ export function initializeOTEL(): NodeSDK | null {
         '@opentelemetry/instrumentation-fastify': {
           enabled: true,
         },
+        '@opentelemetry/instrumentation-aws-sdk': {
+          enabled: true,
+          suppressInternalInstrumentation: false,
+        },
       }),
     ],
   });

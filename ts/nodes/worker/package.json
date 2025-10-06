@@ -1,6 +1,6 @@
 {
   "name": "@beamable/depin-worker",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "description": "DePIN Worker Node - Infrastructure provider service",
   "main": "dist/index.js",
   "type": "module",
@@ -39,6 +39,7 @@
     "@opentelemetry/auto-instrumentations-node": "^0.64.6",
     "@opentelemetry/exporter-logs-otlp-proto": "^0.205.0",
     "@opentelemetry/exporter-trace-otlp-proto": "^0.205.0",
+    "@opentelemetry/instrumentation-aws-sdk": "^0.61.2",
     "@opentelemetry/resources": "^2.1.0",
     "@opentelemetry/sdk-logs": "^0.205.0",
     "@opentelemetry/sdk-node": "^0.205.0",
