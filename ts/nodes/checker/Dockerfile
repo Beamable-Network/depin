@@ -37,5 +37,5 @@ COPY --from=builder /app .
 
 USER checker
 
-CMD ["node", "--require", "dd-trace/init", "dist/src/index.js"]
+CMD ["node", "dist/src/index.js"]
 
