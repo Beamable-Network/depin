@@ -6,12 +6,6 @@ const checkerDir = dirname(import.meta.dirname);
 const envPath = join(checkerDir, '.env');
 dotenv.config({ path: envPath });
 
-const levelFromEnv = (raw?: string): string => {
-  const map: Record<number, string> = { 0: 'trace', 1: 'trace', 2: 'debug', 3: 'info', 4: 'warn', 5: 'error', 6: 'fatal' };
-  if (raw && /^\d+$/.test(raw)) return map[parseInt(raw, 10)] ?? 'info';
-  return (raw?.toLowerCase() as LoggerOptions['level']) || 'info';
-};
-
 const isJsonFormat = () => process.env.LOG_FORMAT === 'json';
 
 const prettyOptions = {
@@ -24,7 +18,7 @@ const prettyOptions = {
 let rootLogger: Logger | null = null;
 
 export function createLoggerOptions(name?: string): LoggerOptions {
-  const level = levelFromEnv(process.env.LOG_LEVEL);
+  const level = process.env.LOG_LEVEL || 'info';
   const options: LoggerOptions = { level };
   if (name) {
     (options as any).base = { name };

@@ -70,21 +70,6 @@ docker run -p 3000:3000 --env-file nodes/worker/.env beamable-worker
 | `S3_REGION` | S3 bucket region | *required* |
 | `S3_ACCESS_KEY_ID` | S3 access key ID (optional if using IAM roles) | *optional* |
 | `S3_SECRET_ACCESS_KEY` | S3 secret access key (optional if using IAM roles) | *optional* |
-| `LOG_LEVEL` | Logging level (0=trace, 1=trace, 2=debug, 3=info, 4=warn, 5=error, 6=fatal) | `3` (info) |
+| `LOG_LEVEL` | Logging level (trace, debug, info, warn, error, fatal) | `info` |
 | `LOG_FORMAT` | Log output format (`pretty` for human-readable, `json` for structured) | `pretty` |
-
-## Logging
-
-The worker uses [pino](https://getpino.io/) for fast, structured logging with context-aware loggers.
-
-### Log Levels
-
-Configure logging verbosity with the `LOG_LEVEL` environment variable:
-
-- `0` (trace) - Everything including trace data
-- `1` (trace) - Detailed execution flow
-- `2` (debug) - Debug information
-- `3` (info) - General information (default)
-- `4` (warn) - Warning messages only
-- `5` (error) - Error messages only
-- `6` (fatal) - Fatal errors only
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTEL GRPC configuration | *optional* |

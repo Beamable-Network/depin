@@ -1,66 +1,91 @@
+import { createAddHookMessageChannel } from 'import-in-the-middle';
+import { register } from 'module';
+
+import { FastifyOtelInstrumentation } from "@fastify/otel";
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-proto';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
+import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-grpc';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
+import { resourceFromAttributes } from '@opentelemetry/resources';
+import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
 import { NodeSDK } from '@opentelemetry/sdk-node';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 
 import packageJson from '../package.json' with { type: 'json' };
 
+import dotenv from 'dotenv';
+import { dirname, join } from 'path';
+
+const workerDir = dirname(import.meta.dirname);
+const envPath = join(workerDir, '.env');
+dotenv.config({ path: envPath });
+
+const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+
+const { registerOptions, waitForAllMessagesAcknowledged } = createAddHookMessageChannel();
+register('import-in-the-middle/hook.mjs', import.meta.url, registerOptions);
+
 /**
  * Initialize OpenTelemetry instrumentation.
- * This function will only activate OTEL if the required environment variables are set.
+ * This function will only activate OTEL if the required environment variable is set.
  *
- * Required environment variables:
- * - OTEL_EXPORTER_OTLP_ENDPOINT: The OTLP collector endpoint (e.g., http://localhost:4318)
- *
- * Optional environment variables:
- * - OTEL_EXPORTER_OTLP_HEADERS: Additional headers for the OTLP exporter
+ * Required environment variable:
+ * - OTEL_EXPORTER_OTLP_ENDPOINT: The GRPC OTLP collector endpoint (e.g., http://localhost:4317)
  */
-export function initializeOTEL(): NodeSDK | null {
-  const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
-
+function initializeOTEL(): NodeSDK | null {
   // If OTEL endpoint is not configured, skip initialization
   if (!endpoint) {
     return null;
   }
 
   const serviceName = packageJson.name;
+  const serviceVersion = packageJson.version;
 
-  // Initialize the SDK with auto-instrumentation
-  const sdk = new NodeSDK({
-    serviceName,
-    traceExporter: new OTLPTraceExporter({
-      url: `${endpoint}/v1/traces`,
-    }),
-    logRecordProcessor: new BatchLogRecordProcessor(new OTLPLogExporter({
-      url: `${endpoint}/v1/logs`,
-    })),
-    instrumentations: [
-      getNodeAutoInstrumentations({
-        // Automatically instrument Fastify, Pino, HTTP, and other Node.js libraries
-        '@opentelemetry/instrumentation-fs': {
-          enabled: false, // File system instrumentation can be very noisy
-        },
-        '@opentelemetry/instrumentation-pino': {
-          enabled: true,
-        },
-        '@opentelemetry/instrumentation-http': {
-          enabled: true,
-        },
-        '@opentelemetry/instrumentation-fastify': {
-          enabled: true,
-        },
-        '@opentelemetry/instrumentation-aws-sdk': {
-          enabled: true,
-          suppressInternalInstrumentation: false,
-        },
-      }),
-    ],
+  const instrumentations = [...getNodeAutoInstrumentations({
+    "@opentelemetry/instrumentation-pino": {
+      disableLogSending: false,
+      disableLogCorrelation: false
+    },
+    "@opentelemetry/instrumentation-http": {
+      enabled: true,
+      ignoreIncomingRequestHook: (request) => {
+        return request.method === 'GET' && (request.url === '/health' || request.url === '/favicon.ico');
+      }
+    },
+    "@opentelemetry/instrumentation-fastify": {
+      enabled: false // DEPRECATED
+    }
+  }), new FastifyOtelInstrumentation({
+    enabled: true,
+    registerOnInitialization: true,
+    ignorePaths: (request) => {
+      return request.method === 'GET' && (request.url === '/health' || request.url === '/favicon.ico');
+    }
+  })
+  ];
+
+  const resource = resourceFromAttributes({
+    [ATTR_SERVICE_NAME]: serviceName,
+    [ATTR_SERVICE_VERSION]: serviceVersion,
   });
 
-  sdk.start();
+  const sdk = new NodeSDK({
+    resource,
+    logRecordProcessors: [
+      new BatchLogRecordProcessor(new OTLPLogExporter({ url: endpoint, })),
+      //new SimpleLogRecordProcessor(new ConsoleLogRecordExporter())
+    ],
+    spanProcessors: [
+      new BatchSpanProcessor(new OTLPTraceExporter({ url: endpoint })),
+      //new SimpleSpanProcessor(new ConsoleSpanExporter()),
+    ],
+    instrumentations
+  });
 
-  // Graceful shutdown
+  console.log(`OTEL: Starting with service name "${serviceName}", exporting to ${endpoint}`);
+  sdk.start();
+  console.log('OTEL: Started');
+
   process.on('SIGTERM', async () => {
     try {
       await sdk.shutdown();
@@ -71,3 +96,7 @@ export function initializeOTEL(): NodeSDK | null {
 
   return sdk;
 }
+
+initializeOTEL();
+
+await waitForAllMessagesAcknowledged();
