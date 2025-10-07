@@ -37,5 +37,5 @@ COPY --from=builder /app .
 
 USER checker
 
-CMD ["node", "dist/src/index.js"]
+CMD ["node", "--import=./dist/src/otel.js", "dist/src/index.js"]
 

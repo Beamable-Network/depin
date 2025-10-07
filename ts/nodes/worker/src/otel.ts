@@ -16,8 +16,8 @@ import packageJson from '../package.json' with { type: 'json' };
 import dotenv from 'dotenv';
 import { dirname, join } from 'path';
 
-const workerDir = dirname(import.meta.dirname);
-const envPath = join(workerDir, '.env');
+const moduleDir = dirname(import.meta.dirname);
+const envPath = join(moduleDir, '.env');
 dotenv.config({ path: envPath });
 
 const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;

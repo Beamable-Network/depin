@@ -1,7 +1,3 @@
-// OTEL must be initialized before any other imports to ensure auto-instrumentation works
-import { initializeOTEL } from './otel.js';
-initializeOTEL();
-
 import { CheckerNode } from './checker.js';
 import { CheckerConfig } from './config.js';
 import { getLogger } from './logger.js';

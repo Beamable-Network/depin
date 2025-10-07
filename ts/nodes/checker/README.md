@@ -55,7 +55,8 @@ docker run --env-file nodes/checker/.env beamable-checker
 | `CHECKER_PRIVATE_KEY` | JSON array of 64 numbers from solana-keygen grind | required |
 | `CHECKER_LICENSES` | Comma-separated list of checker license addresses | optional |
 | `SKIP_BRAND` | Skip BRAND eligibility checks (NOT recommended for production) | `false` |
-| `LOG_LEVEL` | Logging level (trace, debug, info, warn, error, fatal) | `info` |
+| `LOG_LEVEL` | Logging level ("trace", "debug", "info", "warn", "error", "fatal") | `info` |
 | `LOG_FORMAT` | `pretty` or `json` | `pretty` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTEL GRPC endpoint | optional |
 
 **Note:** The checker node supports running multiple licenses simultaneously. Each license will run as an independent checker instance using the same wallet (`CHECKER_PRIVATE_KEY`). Simply provide multiple license addresses separated by commas in `CHECKER_LICENSES`. If you don't provide a license, the checker will fetch all active licenses that are delegated to this checker and use them.

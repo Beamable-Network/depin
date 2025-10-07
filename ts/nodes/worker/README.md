@@ -70,6 +70,6 @@ docker run -p 3000:3000 --env-file nodes/worker/.env beamable-worker
 | `S3_REGION` | S3 bucket region | *required* |
 | `S3_ACCESS_KEY_ID` | S3 access key ID (optional if using IAM roles) | *optional* |
 | `S3_SECRET_ACCESS_KEY` | S3 secret access key (optional if using IAM roles) | *optional* |
-| `LOG_LEVEL` | Logging level (trace, debug, info, warn, error, fatal) | `info` |
+| `LOG_LEVEL` | Logging level ("trace", "debug", "info", "warn", "error", "fatal") | `info` |
 | `LOG_FORMAT` | Log output format (`pretty` for human-readable, `json` for structured) | `pretty` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTEL GRPC configuration | *optional* |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTEL GRPC endpoint | *optional* |
