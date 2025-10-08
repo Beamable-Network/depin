@@ -51,7 +51,7 @@ export class CheckerNode {
   }
 
   async start(): Promise<void> {
-    const checkerAddress = this.licenseAddress;
+    const checkerAddress = this.signer.address;
     logger.info({ checkerAddress, licenseIndex: this.licenseIndex, licenseAddress: this.licenseAddress }, 'Checker node starting');
 
     if (this.skipBrand()) {
@@ -82,7 +82,7 @@ export class CheckerNode {
         throw new Error(`Failed to fetch checker license ${this.licenseAddress}: ${errorMessage}`);
       }
 
-      const checkerMetadataPda = await CheckerMetadataAccount.findCheckerMetadataPDA(address(license.rpcAsset.id), checkerAddress);
+      const checkerMetadataPda = await CheckerMetadataAccount.findCheckerMetadataPDA(address(license.rpcAsset.id), address(license.leafOwner));
       const checkerMetadataAccount = await this.rpc.helius.getAccountInfo(checkerMetadataPda[0]);
 
       if (checkerMetadataAccount.value == null && address(license.leafOwner) != checkerAddress) {
