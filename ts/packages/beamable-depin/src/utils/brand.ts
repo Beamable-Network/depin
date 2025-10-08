@@ -42,10 +42,12 @@ export function runBrand(
   max_val: number | bigint
 ): number[] {
   const maxBig = BigInt(max_val);
+  const targetCount = maxBig < BRAND_COUNT ? Number(maxBig) : BRAND_COUNT;
+  
   const result = new Set<number>();
   let current_seed = createSeed(pubkey, epoch);
 
-  while (result.size < BRAND_COUNT) {
+  while (result.size < targetCount) {
     current_seed = splitmix64(current_seed);
     const v = current_seed % maxBig;
 

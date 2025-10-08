@@ -24,13 +24,15 @@ pub fn generate_numbers(
     count: usize,
     max_val: u64,
 ) -> Vec<u32> {
-    let mut result = Vec::with_capacity(count);
+    // Cap the target count at max_val to prevent infinite loops
+    let target_count = count.min(max_val as usize);
+    let mut result = Vec::with_capacity(target_count);
     let mut current_seed = create_seed(pubkey, epoch);
     
     let bitmap_size = (max_val as usize + 63) >> 6;
     let mut bitmap = vec![0u64; bitmap_size];
     
-    while result.len() < count {
+    while result.len() < target_count {
         current_seed = splitmix64(current_seed);
         let v = (current_seed % max_val) as u32;
         
