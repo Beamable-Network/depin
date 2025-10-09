@@ -3,6 +3,7 @@ import pLimit from 'p-limit';
 import { Agent, request } from 'undici';
 import { CheckerNode } from '../checker.js';
 import { getLogger } from '../logger.js';
+import { fetchExternalIp, resolveHostnameToIp } from '../utils/network.js';
 import { withRetry } from '../utils/retry.js';
 
 const logger = getLogger('HealthCheckService');
@@ -344,9 +345,32 @@ class HealthCheckSession {
       return;
     }
 
+    // Fetch external IP address
+    const checkerIp = await fetchExternalIp({
+      agent: this.agent,
+      timeoutMs: HealthCheckManager.DEFAULT_CONFIG.httpTimeoutMs,
+      logContext: this.logContext
+    });
+    if (!checkerIp) {
+      logger.warn({ ...this.logContext }, 'Failed to fetch external IP; skipping proof');
+      return;
+    }
+
+    // Resolve worker IP from hostname
+    const workerHostname = this.target.baseUri.hostname;
+    const workerIp = await resolveHostnameToIp(workerHostname, {
+      logContext: this.logContext
+    });
+    if (!workerIp) {
+      logger.warn({ ...this.logContext, workerHostname }, 'Failed to resolve worker hostname; skipping proof');
+      return;
+    }
+
     logger.debug({
       ...this.logContext,
       ...metricsSnapshot,
+      checkerIp,
+      workerIp,
       proofEndpoint
     }, 'Building signed proof from health check metrics');
 
@@ -356,7 +380,9 @@ class HealthCheckSession {
         {
           checker: this.checker.getAddress(),
           checkerLicense: checkerLicense,
+          checkerIp: checkerIp,
           worker: this.target.discovery.worker.address,
+          workerIp: workerIp,
           period: this.target.period,
           metrics: {
             latency: Math.round(metricsSnapshot.avgLatencyMs),

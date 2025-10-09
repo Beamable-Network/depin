@@ -4,6 +4,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { Address, isAddress, isSome } from 'gill';
 import { WorkerNode } from '../worker.js';
 import { ProofConflictError, ProofNotModifiedError } from '../services/proof-storage.js';
+import { resolveHostnameToIps } from '../utils/network.js';
 
 export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker: WorkerNode }) {
     fastify.get('/proofs/:period', {
@@ -101,6 +102,48 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
             return reply.code(400).send({
                 error: 'invalid_checker_license',
                 message: 'The checker license field must be a valid Solana wallet address',
+                timestamp: Date.now()
+            });
+        }
+
+        // Verify checker IP matches request source IP
+        const requestSourceIp = request.ip || request.socket.remoteAddress;
+        if (!requestSourceIp || proof.payload.checkerIp !== requestSourceIp) {
+            log.warn({
+                checkerIpInProof: proof.payload.checkerIp,
+                requestSourceIp: requestSourceIp
+            }, 'Checker IP mismatch');
+            return reply.code(400).send({
+                error: 'checker_ip_mismatch',
+                message: 'The checker IP in the proof does not match the request source IP',
+                timestamp: Date.now()
+            });
+        }
+
+        // Verify worker IP is in the set of resolved IPs from worker's hostname
+        const workerHostname = worker.getConfig().basePath.hostname;
+        const resolvedWorkerIps = await resolveHostnameToIps(workerHostname, {
+            logContext: { checker: proof.payload.checker }
+        });
+
+        if (!resolvedWorkerIps || resolvedWorkerIps.length === 0) {
+            log.warn({ workerHostname }, 'Failed to resolve worker hostname');
+            return reply.code(400).send({
+                error: 'worker_ip_resolution_failed',
+                message: 'Failed to resolve worker hostname to IP addresses',
+                timestamp: Date.now()
+            });
+        }
+
+        if (!resolvedWorkerIps.includes(proof.payload.workerIp)) {
+            log.warn({
+                workerIpInProof: proof.payload.workerIp,
+                resolvedWorkerIps: resolvedWorkerIps,
+                workerHostname: workerHostname
+            }, 'Worker IP mismatch');
+            return reply.code(400).send({
+                error: 'worker_ip_mismatch',
+                message: 'The worker IP in the proof is not in the set of resolved IPs from worker hostname',
                 timestamp: Date.now()
             });
         }

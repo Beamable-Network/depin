@@ -175,7 +175,9 @@ export type WorkerErrorResponse = Static<typeof WorkerErrorResponseSchema>;
 export const WorkerProofPayloadSchema = Type.Object({
   checker: Type.String({ description: 'Checker wallet address' }),
   checkerLicense: Type.String({ description: 'Wallet address' }),
+  checkerIp: Type.String({ description: 'Checker external IP address' }),
   worker: Type.String({ description: 'Worker wallet address' }),
+  workerIp: Type.String({ description: 'Worker IP address' }),
   period: Type.Number({ description: 'Depin period' }),
   metrics: Type.Object({
     latency: Type.Number({ description: 'Response time in ms' }),
