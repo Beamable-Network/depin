@@ -58,17 +58,6 @@ export class CheckerNode {
       logger.warn({ licenseIndex: this.licenseIndex }, 'Skipping BRAND eligibility checks as per configuration. This is NOT recommended for production environments.');
     }
 
-    // Fetch and log the current balance
-    try {
-      const balance = await this.getBalance();
-      logger.info({ licenseIndex: this.licenseIndex, balanceLamports: balance, balanceSol: lamportsToSol(balance) }, 'Current balance');
-      if (balance === 0n) {
-        logger.warn({ licenseIndex: this.licenseIndex }, 'Checker has zero balance. Please fund the checker account to pay for transaction fees.');
-      }
-    } catch (err) {
-      logger.warn({ err, licenseIndex: this.licenseIndex }, 'Could not fetch balance');
-    }
-
     if (!this.licenseValidated) {
       // Fetch and validate the checker license
       logger.info({ licenseIndex: this.licenseIndex, licenseAddress: this.licenseAddress }, 'Fetching checker license');

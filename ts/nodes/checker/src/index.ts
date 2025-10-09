@@ -8,8 +8,13 @@ import { address, Address, createKeyPairSignerFromBytes } from 'gill';
 import packageJson from '../package.json' with { type: 'json' };
 import { createRpcClient } from './utils/rpc-client.js';
 import { publicKey } from '@metaplex-foundation/umi';
+import { trace } from '@opentelemetry/api';
 
 const logger = getLogger('main');
+
+function getTracer() {
+    return trace.getTracer('index');
+}
 
 process.on('unhandledRejection', (err) => {
   logger.error(err, 'Unhandled promise rejection');
@@ -40,10 +45,15 @@ async function main() {
   else {
     // No licenses provided, find all activated licenses where I'm the delegate
     logger.debug('No checker licenses provided, searching for activated licenses where I\'m the delegate...');
-    const checkerAccounts = await CheckerMetadataAccount.getActiveAccountsByDelegate(
-      rpc.getProgramAccounts,
-      signer.address
-    );
+    const checkerAccounts = await getTracer().startActiveSpan("find-my-licenses", async span => {
+      span.setAttribute('delegate', signer.address);
+      const accounts = await CheckerMetadataAccount.getActiveAccountsByDelegate(
+        rpc.getProgramAccounts,
+        signer.address
+      );
+      span.end();
+      return accounts;
+    });
     if (!checkerAccounts.length) {
       logger.fatal('No active checker licenses found where I\'m the delegate, exiting...');
       process.exit(0);

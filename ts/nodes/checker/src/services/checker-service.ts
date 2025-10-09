@@ -3,7 +3,7 @@ import { publicKey } from '@metaplex-foundation/umi';
 import { promiseStateAsync } from 'p-state';
 import { CheckerNode } from '../checker.js';
 import { getLogger } from '../logger.js';
-import { HealthCheckManager } from './health-check-service.js';
+import { HealthCheckManager, HealthCheckTarget } from './health-check-service.js';
 import { ResolvedWorkerDiscovery, WorkerDiscoveryService } from './worker-discovery-service.js';
 
 const logger = getLogger('CheckerService');
@@ -138,14 +138,17 @@ export class CheckerService {
       await this.resolveWorkers(eligibleWorkers, period, (entry) => {
         logger.info({ period, worker: entry.discovery.worker.address, license: entry.workerAccount.data.license, discoveryUri: entry.workerAccount.data.discoveryUri }, 'Worker resolved');
         // Start health check session for this worker
-        healthManager.startSession({
-          workerAccount: entry.workerAccount,
-          discovery: entry.discovery,
-          period,
-        }, {
-          periodEndAt,
-          signal: healthAc.signal,
-        });
+        healthManager.startSession(
+          new HealthCheckTarget({
+            workerAccount: entry.workerAccount,
+            discovery: entry.discovery,
+            period,
+          }),
+          {
+            periodEndAt,
+            signal: healthAc.signal,
+          }
+        );
       });
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') {

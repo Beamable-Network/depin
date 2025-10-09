@@ -4,12 +4,17 @@ import pLimit from 'p-limit';
 import { Agent, request } from 'undici';
 import { CheckerNode } from '../checker.js';
 import { getLogger } from '../logger.js';
+import { trace } from '@opentelemetry/api';
 
 const logger = getLogger('WorkerDiscoveryService');
 
 export interface ResolvedWorkerDiscovery {
   workerAccount: ProgramAccount<WorkerMetadataAccount>;
   discovery: WorkerDiscoveryDocument;
+}
+
+function getTracer() {
+  return trace.getTracer('worker-discovery-service');
 }
 
 export class WorkerDiscoveryService {
@@ -32,16 +37,22 @@ export class WorkerDiscoveryService {
   async fetchActiveWorkerAccounts(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {
     const rpcClient = this.checker.getRpcClient();
 
-    const accounts = await rpcClient.getProgramAccounts(DEPIN_PROGRAM, [
-      getDepinAccountFilter(DepinAccountType.WorkerMetadata)
-    ]);
+    const accounts = await getTracer().startActiveSpan("fetch-active-workers", async span => {
+      span.setAttribute('checker', this.checker.getAddress());
+      const accounts = await rpcClient.getProgramAccounts(DEPIN_PROGRAM, [
+        getDepinAccountFilter(DepinAccountType.WorkerMetadata)
+      ]);
+      span.end();
+      return accounts;
+    });
 
     const activeWorkerAccounts: Array<ProgramAccount<WorkerMetadataAccount>> = [];
 
     for (const account of accounts) {
       try {
         const workerAccount = WorkerMetadataAccount.deserializeFrom(account.account.data);
-        if (isNone(workerAccount.suspendedAt) && workerAccount.discoveryUri.trim().length > 0) {
+        const discoveryUri = workerAccount.discoveryUri.trim();
+        if (isNone(workerAccount.suspendedAt) && discoveryUri.length > 0) {
           activeWorkerAccounts.push({
             address: address(account.pubkey),
             data: workerAccount
@@ -79,7 +90,13 @@ export class WorkerDiscoveryService {
             const uri = (workerAccount.data.discoveryUri ?? '').trim();
             const doc = await this.tryFetchDiscoveryUri(uri, period, signal);
 
-            if (doc) {
+            if (doc?.worker.address !== workerAccount.data.delegatedTo) {
+              logger.trace({ uri, delegatedTo: workerAccount.data.delegatedTo, period }, 'Discovery document has invalid worker address; ignoring');
+            }
+            else if (doc?.worker.license !== workerAccount.data.license) {
+              logger.trace({ uri, license: workerAccount.data.license, period }, 'Discovery document has invalid worker license; ignoring');
+            }
+            else if (doc) {
               try {
                 onResolved({ workerAccount, discovery: doc });
               } finally {
@@ -91,7 +108,7 @@ export class WorkerDiscoveryService {
       );
 
       if (pending.size > 0) {
-        logger.info({ remaining: pending.size, period }, 'Discovery unresolved; retrying later');
+        logger.trace({ remaining: pending.size, period }, 'Discovery unresolved; retrying later');
         await sleep(WorkerDiscoveryService.RETRY_INTERVAL_MS, signal);
       }
     }
@@ -109,7 +126,7 @@ export class WorkerDiscoveryService {
       });
 
       if (res.statusCode !== 200) {
-        logger.warn({ status: res.statusCode, uri, period }, 'Discovery fetch failed');
+        logger.trace({ status: res.statusCode, uri, period }, 'Discovery fetch failed');
         return null;
       }
 
@@ -121,7 +138,7 @@ export class WorkerDiscoveryService {
       if (signal?.aborted || (err as Error)?.name === 'AbortError') {
         throw err;
       }
-      logger.warn({ err, uri, period }, 'Discovery request error');
+      logger.trace({ err, uri, period }, 'Discovery request error');
       return null;
     }
   }

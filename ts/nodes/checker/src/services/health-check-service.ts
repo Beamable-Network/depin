@@ -7,10 +7,28 @@ import { withRetry } from '../utils/retry.js';
 
 const logger = getLogger('HealthCheckService');
 
-export interface HealthCheckTarget {
+export class HealthCheckTarget {
   workerAccount: ProgramAccount<WorkerMetadataAccount>;
   discovery: WorkerDiscoveryDocument;
   period: number;
+
+  constructor(params: { workerAccount: ProgramAccount<WorkerMetadataAccount>; discovery: WorkerDiscoveryDocument; period: number }) {
+    this.workerAccount = params.workerAccount;
+    this.discovery = params.discovery;
+    this.period = params.period;
+  }
+
+  get baseUri(): URL {
+    return new URL(this.workerAccount.data.discoveryUri);
+  }
+
+  get proofEndpoint(): URL {
+    return new URL(this.discovery.endpoints.proofs.submit, this.baseUri);
+  }
+
+  get healthEndpoint(): URL {
+    return new URL(this.discovery.endpoints.health, this.baseUri);
+  }
 }
 
 export interface IHealthCheckMetrics {
@@ -30,8 +48,8 @@ export interface StartSessionOptions {
 
 export const defaultSessionOptions = (periodEndAt: number): StartSessionOptions => ({
   periodEndAt,
-  minIntervalMs: 10 * 60_000, // 10 minutes
-  maxIntervalMs: 30 * 60_000, // 30 minutes
+  minIntervalMs: 1 * 60_000, // 1 minute
+  maxIntervalMs: 10 * 60_000, // 10 minutes
 });
 
 export interface HealthCheckConfig {
@@ -74,6 +92,7 @@ export class HealthCheckManager {
     };
     logger.debug({
       worker: target.discovery.worker.address,
+      license: target.workerAccount.data.license,
       period: target.period,
       periodEndAt: new Date(fullOptions.periodEndAt).toISOString(),
       minIntervalMs: fullOptions.minIntervalMs,
@@ -205,7 +224,7 @@ class HealthCheckSession {
   }
 
   private async runHealthCheckLoop(cutoffAt: number, signal?: AbortSignal): Promise<void> {
-    logger.debug({ ...this.logContext, cutoffAt: new Date(cutoffAt).toISOString() }, 'Starting health check loop');
+    logger.trace({ ...this.logContext, cutoffAt: new Date(cutoffAt).toISOString() }, 'Starting health check loop');
 
     const executeHealthCheck = async () => {
       signal?.throwIfAborted();
@@ -247,14 +266,13 @@ class HealthCheckSession {
   }
 
   private async performCheck(signal?: AbortSignal): Promise<void> {
-    const { discovery } = this.target;
-    const url = discovery.endpoints.health;
+    const url = this.target.healthEndpoint;
 
     try {
       // Create signed health check request
       const signedRequest = await SignedPayload.create<typeof WorkerHealthCheckRequestPayloadSchema>(
         {
-          checker: this.checker.licenseAddress,
+          checker: this.checker.getAddress(),
           timestamp: Date.now(),
         },
         this.checker.getSigner()
@@ -273,20 +291,28 @@ class HealthCheckSession {
         bodyTimeout: HealthCheckManager.DEFAULT_CONFIG.httpTimeoutMs,
         signal,
       });
-      await res.body.text().catch(err => {
-        logger.debug({ ...this.logContext, err }, 'Failed to read response body; ignoring');
-      });
+      const resBody = await res.body.text();
       const latency = Date.now() - start;
       const isSuccess = res.statusCode === 200;
       this.metrics.update(latency, isSuccess);
 
-      logger.info({
-        ...this.logContext,
-        statusCode: res.statusCode,
-        latencyMs: latency,
-        success: isSuccess,
-        url
-      }, 'Health check completed');
+      if (isSuccess) {
+        logger.info({
+          ...this.logContext,
+          statusCode: res.statusCode,
+          latencyMs: latency,
+          success: isSuccess,
+          url
+        }, 'Health check completed');
+      }
+      else {
+        logger.warn({
+          ...this.logContext,
+          statusCode: res.statusCode,
+          response: resBody,
+          url
+        }, 'Health check failed');
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') throw err;
       this.metrics.update(0, false);
@@ -312,8 +338,8 @@ class HealthCheckSession {
       return;
     }
 
-    const proofEndpoint = this.target.discovery.endpoints.proofs.submit;
-    if (!proofEndpoint?.trim()) {
+    const proofEndpoint = this.target.proofEndpoint;
+    if (!proofEndpoint) {
       logger.warn({ ...this.logContext }, 'No proof submission endpoint; skipping proof');
       return;
     }

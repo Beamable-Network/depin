@@ -2,13 +2,18 @@ import { dasApi, DasApiInterface } from "@metaplex-foundation/digital-asset-stan
 import { mplBubblegum } from "@metaplex-foundation/mpl-bubblegum";
 import { createSignerFromKeypair, RpcInterface, signerIdentity, Umi } from "@metaplex-foundation/umi";
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { appendTransactionMessageInstructions, Base58EncodedBytes, BaseTransactionMessage, createSolanaRpc, createSolanaRpcSubscriptions, createTransactionMessage, GetProgramAccountsMemcmpFilter, getSignatureFromTransaction, KeyPairSigner, MessageSigner, pipe, Rpc, sendAndConfirmTransactionFactory, setTransactionMessageFeePayerSigner, setTransactionMessageLifetimeUsingBlockhash, Signature, signTransactionMessageWithSigners, SolanaError, SolanaRpcApi, TransactionSigner } from "gill";
+import { appendTransactionMessageInstructions, BaseTransactionMessage, createSolanaRpc, createSolanaRpcSubscriptions, createTransactionMessage, GetProgramAccountsMemcmpFilter, getSignatureFromTransaction, KeyPairSigner, MessageSigner, pipe, Rpc, sendAndConfirmTransactionFactory, setTransactionMessageFeePayerSigner, setTransactionMessageLifetimeUsingBlockhash, Signature, signTransactionMessageWithSigners, SolanaError, SolanaRpcApi, TransactionSigner } from "gill";
 import { createHelius, HeliusClient } from "helius-sdk";
 import { GetProgramAccountsV2Config } from 'helius-sdk/types/types';
+import { trace } from "@opentelemetry/api";
 import { CheckerConfig } from '../config.js';
 import { getLogger } from '../logger.js';
 
 const logger = getLogger('RpcClient');
+
+function getTracer() {
+    return trace.getTracer('rpc-client');
+}
 
 export interface RpcClient {
     helius: HeliusClient;
@@ -96,39 +101,46 @@ export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): R
         const allAccounts: Array<{ pubkey: string; account: { data: ArrayLike<number> } }> = [];
         let paginationKey: string | null = null;
 
-        do {
-            const requestOptions: GetProgramAccountsV2Config = {
-                encoding: 'base64',
-                limit: 1000,
-                filters: filters.map(f => ({
-                    memcmp: {
-                        offset: Number(f.memcmp.offset),
-                        bytes: f.memcmp.bytes,
-                        encoding: f.memcmp.encoding
+        return await getTracer().startActiveSpan('getProgramAccounts', async (span) => {
+            try {
+                do {
+                    const requestOptions: GetProgramAccountsV2Config = {
+                        encoding: 'base64',
+                        limit: 1000,
+                        filters: filters.map(f => ({
+                            memcmp: {
+                                offset: Number(f.memcmp.offset),
+                                bytes: f.memcmp.bytes,
+                                encoding: f.memcmp.encoding
+                            }
+                        })),
+                    };
+
+                    if (paginationKey) {
+                        requestOptions.paginationKey = paginationKey;
                     }
-                })),
-            };
 
-            if (paginationKey) {
-                requestOptions.paginationKey = paginationKey;
-            }
+                    const result = await helius.getProgramAccountsV2([programAddress, requestOptions]);
 
-            const result = await helius.getProgramAccountsV2([programAddress, requestOptions]);
-
-            // Convert base64 data to Buffer (ArrayLike<number>)
-            for (const acc of result.accounts) {
-                allAccounts.push({
-                    pubkey: acc.pubkey,
-                    account: {
-                        data: Buffer.from(acc.account.data[0], 'base64')
+                    // Convert base64 data to Buffer (ArrayLike<number>)
+                    for (const acc of result.accounts) {
+                        allAccounts.push({
+                            pubkey: acc.pubkey,
+                            account: {
+                                data: Buffer.from(acc.account.data[0], 'base64')
+                            }
+                        });
                     }
-                });
+
+                    paginationKey = result.paginationKey || null;
+                } while (paginationKey);
+
+                return allAccounts;
             }
-
-            paginationKey = result.paginationKey || null;
-        } while (paginationKey);
-
-        return allAccounts;
+            finally {
+                span.end();
+            }
+        });
     };
 
     return { helius, umi: createUmiClient(config), buildAndSendTransaction, getProgramAccounts };
