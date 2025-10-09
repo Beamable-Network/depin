@@ -4,6 +4,7 @@ import { createSignerFromKeypair, RpcInterface, signerIdentity, Umi } from "@met
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { appendTransactionMessageInstructions, Base58EncodedBytes, BaseTransactionMessage, createSolanaRpc, createSolanaRpcSubscriptions, createTransactionMessage, GetProgramAccountsMemcmpFilter, getSignatureFromTransaction, KeyPairSigner, MessageSigner, pipe, Rpc, sendAndConfirmTransactionFactory, setTransactionMessageFeePayerSigner, setTransactionMessageLifetimeUsingBlockhash, Signature, signTransactionMessageWithSigners, SolanaError, SolanaRpcApi, TransactionSigner } from "gill";
 import { createHelius, HeliusClient } from "helius-sdk";
+import { GetProgramAccountsV2Config } from 'helius-sdk/types/types';
 import { CheckerConfig } from '../config.js';
 import { getLogger } from '../logger.js';
 
@@ -13,7 +14,7 @@ export interface RpcClient {
     helius: HeliusClient;
     umi: Umi & { rpc: DasApiInterface; };
     buildAndSendTransaction: (instructions: ReadonlyArray<BaseTransactionMessage['instructions'][number]>, commitment?: "processed" | "confirmed" | "finalized") => Promise<{ signature: Signature; logs: readonly string[] | null }>;
-    getProgramAccounts: (programAddress: string, filters: GetProgramAccountsMemcmpFilter[]) => Promise<Array<{ pubkey: string; account: { data: ArrayLike<number> | Base58EncodedBytes } }>>;
+    getProgramAccounts: (programAddress: string, filters: GetProgramAccountsMemcmpFilter[]) => Promise<Array<{ pubkey: string; account: { data: ArrayLike<number> } }>>;
 }
 
 function createUmiClient(config: CheckerConfig): Umi & { rpc: DasApiInterface; } {
@@ -91,26 +92,43 @@ export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): R
     const getProgramAccounts = async (
         programAddress: string,
         filters: GetProgramAccountsMemcmpFilter[]
-    ): Promise<Array<{ pubkey: string; account: { data: ArrayLike<number> | Base58EncodedBytes } }>> => {
-        const result = await helius.getProgramAccountsV2([programAddress, {
-            filters: filters.map(f => ({
-                memcmp: {
-                    offset: Number(f.memcmp.offset),
-                    bytes: f.memcmp.bytes,
-                    encoding: f.memcmp.encoding
-                }
-            })),
-            limit: 10000,
-            encoding: 'base64'
-        }]);
+    ): Promise<Array<{ pubkey: string; account: { data: ArrayLike<number> } }>> => {
+        const allAccounts: Array<{ pubkey: string; account: { data: ArrayLike<number> } }> = [];
+        let paginationKey: string | null = null;
 
-        // Convert base64 data to Buffer (ArrayLike<number>)
-        return result.accounts.map(acc => ({
-            pubkey: acc.pubkey,
-            account: {
-                data: Buffer.from(acc.account.data, 'base64')
+        do {
+            const requestOptions: GetProgramAccountsV2Config = {
+                encoding: 'base64',
+                limit: 1000,
+                filters: filters.map(f => ({
+                    memcmp: {
+                        offset: Number(f.memcmp.offset),
+                        bytes: f.memcmp.bytes,
+                        encoding: f.memcmp.encoding
+                    }
+                })),
+            };
+
+            if (paginationKey) {
+                requestOptions.paginationKey = paginationKey;
             }
-        }));
+
+            const result = await helius.getProgramAccountsV2([programAddress, requestOptions]);
+
+            // Convert base64 data to Buffer (ArrayLike<number>)
+            for (const acc of result.accounts) {
+                allAccounts.push({
+                    pubkey: acc.pubkey,
+                    account: {
+                        data: Buffer.from(acc.account.data[0], 'base64')
+                    }
+                });
+            }
+
+            paginationKey = result.paginationKey || null;
+        } while (paginationKey);
+
+        return allAccounts;
     };
 
     return { helius, umi: createUmiClient(config), buildAndSendTransaction, getProgramAccounts };

@@ -1,6 +1,5 @@
 import { DEPIN_PROGRAM, DepinAccountType, getDepinAccountFilter, ProgramAccount, sleep, WorkerDiscoveryDocument, WorkerMetadataAccount } from '@beamable-network/depin';
-import { address, getBase58Codec, getU8Codec, isNone } from 'gill';
-import { GetProgramAccountsV2Config } from 'helius-sdk/types/types';
+import { address, isNone } from 'gill';
 import pLimit from 'p-limit';
 import { Agent, request } from 'undici';
 import { CheckerNode } from '../checker.js';
@@ -31,89 +30,24 @@ export class WorkerDiscoveryService {
   }
 
   async fetchActiveWorkerAccounts(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {
-    const network = this.checker.getNetwork();
+    const rpcClient = this.checker.getRpcClient();
 
-    if (network === 'devnet') {
-      return this.fetchActiveWorkerAccountsV1();
-    } else {
-      return this.fetchActiveWorkerAccountsV2();
-    }
-  }
-
-  private async fetchActiveWorkerAccountsV2(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {
-    const helius = this.checker.getRpcClient().helius;
-
-    const activeWorkerAccounts: Array<ProgramAccount<WorkerMetadataAccount>> = [];
-    let paginationKey: string | null = null;
-
-    do {
-      const requestOptions: GetProgramAccountsV2Config = {
-        encoding: 'base64',
-        limit: 1000,
-        filters: [
-          {
-            memcmp: {
-              bytes: getBase58Codec().decode(getU8Codec().encode(DepinAccountType.WorkerMetadata)),
-              offset: 0,
-            },
-          },
-        ],
-      };
-
-      if (paginationKey) {
-        requestOptions.paginationKey = paginationKey;
-      }
-      const res = await helius.getProgramAccountsV2([DEPIN_PROGRAM, requestOptions]);
-
-      for (const account of res.accounts) {
-        const dataField = account.account.data;
-        if (dataField == null) continue;
-        try {
-          const accountData = Buffer.from(account.account.data, 'base64');
-          const workerAccount = WorkerMetadataAccount.deserializeFrom(accountData);
-          if (isNone(workerAccount.suspendedAt) && workerAccount.discoveryUri.trim().length > 0) {
-            activeWorkerAccounts.push({
-              address: address(account.pubkey),
-              data: workerAccount
-            });
-          }
-        } catch {
-          // Ignore invalid accounts
-        }
-      }
-
-      paginationKey = res.paginationKey || null;
-    } while (paginationKey);
-
-    return activeWorkerAccounts;
-  }
-
-  private async fetchActiveWorkerAccountsV1(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {
-    const rpc = this.checker.getRpcClient();
-
-    const activeWorkerAccounts: Array<ProgramAccount<WorkerMetadataAccount>> = [];
-
-    const filters = [
+    const accounts = await rpcClient.getProgramAccounts(DEPIN_PROGRAM, [
       getDepinAccountFilter(DepinAccountType.WorkerMetadata)
-    ];
+    ]);
 
-    const res = await rpc.getProgramAccounts(DEPIN_PROGRAM, filters);
+    const activeWorkerAccounts: Array<ProgramAccount<WorkerMetadataAccount>> = [];
 
-    for (const account of res) {
-      const dataField = account.account.data;
-      if (dataField == null) continue;
+    for (const account of accounts) {
       try {
-        const workerAccount = typeof account.account.data === 'string'
-          ? WorkerMetadataAccount.deserializeFrom(account.account.data)
-          : WorkerMetadataAccount.deserializeFrom(account.account.data);
+        const workerAccount = WorkerMetadataAccount.deserializeFrom(account.account.data);
         if (isNone(workerAccount.suspendedAt) && workerAccount.discoveryUri.trim().length > 0) {
           activeWorkerAccounts.push({
             address: address(account.pubkey),
             data: workerAccount
           });
         }
-      } catch (err) {
-        const x = err;
+      } catch {
         // Ignore invalid accounts
       }
     }
