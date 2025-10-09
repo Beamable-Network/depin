@@ -15,7 +15,7 @@ export async function healthRoutes(fastify: FastifyInstance, { worker }: { worke
   }, async (request: FastifyRequest<{ Body: WorkerHealthCheckRequest }>, reply: FastifyReply): Promise<WorkerHealthCheckResponse> => {
     const healtcheck = new SignedPayload<typeof WorkerHealthCheckRequestPayloadSchema>(request.body);
     const log = request.log;
-    log.info({ checker: healtcheck.payload.checker, timestamp: healtcheck.payload.timestamp }, 'Health check request received');
+    log.trace({ checker: healtcheck.payload.checker, timestamp: healtcheck.payload.timestamp }, 'Health check request received');
 
     // Verify signature
     if (!await healtcheck.verify()) {
