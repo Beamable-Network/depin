@@ -25,6 +25,7 @@ export class WorkerServer {
     // Use our fastify logger configuration
     const fastify = Fastify({
       logger: createLoggerOptions('Fastify'),
+      trustProxy: true,
       disableRequestLogging: true,
       routerOptions: {
         ignoreTrailingSlash: true
