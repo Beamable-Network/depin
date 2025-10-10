@@ -192,7 +192,7 @@ export class CheckerService {
     const timer = setTimeout(async () => {
       const state = await promiseStateAsync(resolvePromise);
       if (state === 'pending') {
-        logger.fatal({ period }, 'Worker resolution taking too long, aborting');
+        logger.debug({ period }, 'Worker resolution taking too long, aborting');
         discoveryAc.abort('Aborting worker resolution due to period ending soon');
       }
     }, Math.max(0, remainingTimeMs - CheckerService.PERIOD_SKIP_THRESHOLD_MS)); // Abort worker resolution if less than PERIOD_SKIP_THRESHOLD_MS remains in the period
