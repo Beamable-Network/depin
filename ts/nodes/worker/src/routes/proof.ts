@@ -4,7 +4,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { Address, isAddress, isSome } from 'gill';
 import { WorkerNode } from '../worker.js';
 import { ProofConflictError, ProofNotModifiedError } from '../services/proof-storage.js';
-import { resolveHostnameToIps } from '../utils/network.js';
+import { isPrivateIP, resolveHostnameToIps } from '../utils/network.js';
 
 export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker: WorkerNode }) {
     fastify.get('/proofs/:period', {
@@ -106,8 +106,24 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
             });
         }
 
-        // Verify checker IP matches request source IP
+        // Verify checker IP
         const requestSourceIp = request.ip || request.socket.remoteAddress;
+        if (!requestSourceIp) {
+            log.warn('Request source IP is unavailable');
+            return reply.code(400).send({
+                error: 'invalid_request_source_ip',
+                message: 'The request source IP is unavailable',
+                timestamp: Date.now()
+            });
+        }
+        if (isPrivateIP(requestSourceIp)) {
+            log.warn({ requestSourceIp }, 'Request source IP is private, cannot verify checker IP. Make sure your proxy sets the x-forwarded-for if behind a proxy.');
+            return reply.code(400).send({
+                error: 'invalid_request_source_ip',
+                message: 'The request source IP is private, cannot verify checker IP',
+                timestamp: Date.now()
+            });
+        }
         if (!requestSourceIp || proof.payload.checkerIp !== requestSourceIp) {
             log.warn({
                 checkerIpInProof: proof.payload.checkerIp,

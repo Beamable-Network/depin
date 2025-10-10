@@ -19,7 +19,7 @@ export async function healthRoutes(fastify: FastifyInstance, { worker }: { worke
 
     // Verify signature
     if (!await healtcheck.verify()) {
-      log.warn('Health check signature verification failed');
+      log.debug({ request: request.body }, 'Health check signature verification failed');
       return reply.code(400).send({
         error: 'invalid_signature',
         message: 'The provided signature is not valid for the given payload',
