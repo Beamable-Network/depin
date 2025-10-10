@@ -81,7 +81,7 @@ export async function healthRoutes(fastify: FastifyInstance, { worker }: { worke
       worker.getSigner()
     );
 
-    log.debug({ checker, worker: worker.getAddress() }, 'Health check successful');
+    log.debug({ checker, checkerIp: request.ip, worker: worker.getAddress() }, 'Health check successful');
     return {
       ...health,
       receipt
