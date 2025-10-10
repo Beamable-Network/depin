@@ -106,6 +106,30 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
             });
         }
 
+        // Verify worker license address is a valid Solana address
+        if (!isAddress(proof.payload.workerLicense)) {
+            log.warn({ workerLicense: proof.payload.workerLicense }, 'Invalid worker license address');
+            return reply.code(400).send({
+                error: 'invalid_worker_license',
+                message: 'The worker license field must be a valid Solana wallet address',
+                timestamp: Date.now()
+            });
+        }
+
+        // Verify worker license matches the worker's actual license
+        const workerLicense = worker.getLicense();
+        if (proof.payload.workerLicense !== workerLicense) {
+            log.warn({
+                workerLicenseInProof: proof.payload.workerLicense,
+                actualWorkerLicense: workerLicense
+            }, 'Worker license mismatch');
+            return reply.code(400).send({
+                error: 'worker_license_mismatch',
+                message: 'The worker license in the proof does not match the worker\'s actual license',
+                timestamp: Date.now()
+            });
+        }
+
         // Verify checker IP
         const requestSourceIp = request.ip || request.socket.remoteAddress;
         if (!requestSourceIp) {

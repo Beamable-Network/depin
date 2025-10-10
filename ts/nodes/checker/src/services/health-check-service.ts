@@ -382,6 +382,7 @@ class HealthCheckSession {
           checkerLicense: checkerLicense,
           checkerIp: checkerIp,
           worker: this.target.discovery.worker.address,
+          workerLicense: this.target.discovery.worker.license,
           workerIp: workerIp,
           period: this.target.period,
           metrics: {
