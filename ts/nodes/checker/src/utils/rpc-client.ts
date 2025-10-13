@@ -1,6 +1,6 @@
 import { dasApi, DasApiInterface } from "@metaplex-foundation/digital-asset-standard-api";
-import { mplBubblegum } from "@metaplex-foundation/mpl-bubblegum";
-import { createSignerFromKeypair, RpcInterface, signerIdentity, Umi } from "@metaplex-foundation/umi";
+import { getAssetWithProof, mplBubblegum } from "@metaplex-foundation/mpl-bubblegum";
+import { createSignerFromKeypair, publicKey, RpcInterface, signerIdentity, Umi } from "@metaplex-foundation/umi";
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { appendTransactionMessageInstructions, BaseTransactionMessage, createSolanaRpc, createSolanaRpcSubscriptions, createTransactionMessage, GetProgramAccountsMemcmpFilter, getSignatureFromTransaction, KeyPairSigner, MessageSigner, pipe, Rpc, sendAndConfirmTransactionFactory, setTransactionMessageFeePayerSigner, setTransactionMessageLifetimeUsingBlockhash, Signature, signTransactionMessageWithSigners, SolanaError, SolanaRpcApi, TransactionSigner } from "gill";
 import { createHelius, HeliusClient } from "helius-sdk";
@@ -21,6 +21,7 @@ export interface RpcClient {
     umi: Umi & { rpc: DasApiInterface; };
     buildAndSendTransaction: (instructions: ReadonlyArray<BaseTransactionMessage['instructions'][number]>, commitment?: "processed" | "confirmed" | "finalized") => Promise<{ signature: Signature; logs: readonly string[] | null }>;
     getProgramAccounts: (programAddress: string, filters: GetProgramAccountsMemcmpFilter[]) => Promise<Array<{ pubkey: string; account: { data: ArrayLike<number> } }>>;
+    getLicenseWithProof: (assetId: string) => Promise<Awaited<ReturnType<typeof getAssetWithProof>>>;
 }
 
 function createUmiClient(config: CheckerConfig): Umi & { rpc: DasApiInterface; } {
@@ -89,8 +90,11 @@ export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): R
 
     const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions });
 
-    // Throttle sendAndConfirmTransaction to max 1 call per 1100ms
-    const sendAndConfirmTransactionThrottled = pThrottle({ limit: 1, interval: 1100 })(sendAndConfirmTransaction);
+    // Throttle sendAndConfirmTransaction using config
+    const sendAndConfirmTransactionThrottled = pThrottle({
+        limit: config.throttle.sendTransaction.limit,
+        interval: config.throttle.sendTransaction.interval
+    })(sendAndConfirmTransaction);
 
     const buildAndSendTransaction = createBuildAndSendTransactionFn({
         rpc,
@@ -98,8 +102,11 @@ export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): R
         sendAndConfirmTransaction: sendAndConfirmTransactionThrottled
     });
 
-    // Throttle getProgramAccountsV2 to max 5 calls per 1100ms
-    const getProgramAccountsV2Throttled = pThrottle({ limit: 5, interval: 1100 })(
+    // Throttle getProgramAccountsV2 using config
+    const getProgramAccountsV2Throttled = pThrottle({
+        limit: config.throttle.getProgramAccounts.limit,
+        interval: config.throttle.getProgramAccounts.interval
+    })(
         async (programAddress: string, requestOptions: GetProgramAccountsV2Config) => {
             return await helius.getProgramAccountsV2([programAddress, requestOptions]);
         }
@@ -154,7 +161,16 @@ export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): R
         });
     };
 
-    return { helius, umi: createUmiClient(config), buildAndSendTransaction, getProgramAccounts };
+    // Throttle getAssetWithProof using config
+    const getLicenseWithProof = pThrottle({
+        limit: config.throttle.getAssetWithProof.limit,
+        interval: config.throttle.getAssetWithProof.interval
+    })(async (assetId: string) => {
+        const umi = createUmiClient(config);
+        return await getAssetWithProof(umi, publicKey(assetId), { truncateCanopy: true });
+    });
+
+    return { helius, umi: createUmiClient(config), buildAndSendTransaction, getProgramAccounts, getLicenseWithProof };
 }
 
 function getErrorMessage(error: unknown): string {

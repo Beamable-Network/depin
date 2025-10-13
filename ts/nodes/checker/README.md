@@ -59,4 +59,17 @@ docker run --env-file nodes/checker/.env beamable-checker
 | `LOG_FORMAT` | `pretty` or `json` | `pretty` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTEL GRPC endpoint | optional |
 
+### Rate Limiting / Throttle Configuration (Optional)
+
+These settings control how often RPC operations are made to respect rate limits. All have sensible defaults.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `THROTTLE_SEND_TX_LIMIT` | Max concurrent transaction sends | `1` |
+| `THROTTLE_SEND_TX_INTERVAL` | Minimum milliseconds between transaction sends | `1100` |
+| `THROTTLE_GET_ACCOUNTS_LIMIT` | Max concurrent getProgramAccounts calls | `5` |
+| `THROTTLE_GET_ACCOUNTS_INTERVAL` | Minimum milliseconds between getProgramAccounts calls | `1100` |
+| `THROTTLE_GET_ASSET_LIMIT` | Max concurrent asset metadata fetches | `1` |
+| `THROTTLE_GET_ASSET_INTERVAL` | Minimum milliseconds between asset fetches | `600` |
+
 **Note:** The checker node supports running multiple licenses simultaneously. Each license will run as an independent checker instance using the same wallet (`CHECKER_PRIVATE_KEY`). Simply provide multiple license addresses separated by commas in `CHECKER_LICENSES`. If you don't provide a license, the checker will fetch all active licenses that are delegated to this checker and use them.

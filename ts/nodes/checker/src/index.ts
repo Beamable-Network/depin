@@ -3,11 +3,10 @@ import { CheckerConfig } from './config.js';
 import { getLogger } from './logger.js';
 
 import { ActivateChecker, CheckerMetadataAccount, getCheckerTree } from '@beamable-network/depin';
-import { findLeafAssetIdPda, getAssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
+import { findLeafAssetIdPda } from '@metaplex-foundation/mpl-bubblegum';
 import { publicKey } from '@metaplex-foundation/umi';
 import { trace } from '@opentelemetry/api';
 import { address, Address, createKeyPairSignerFromBytes, KeyPairSigner } from 'gill';
-import pThrottle from 'p-throttle';
 import packageJson from '../package.json' with { type: 'json' };
 import { createRpcClient, RpcClient } from './utils/rpc-client.js';
 
@@ -32,13 +31,12 @@ process.on('uncaughtException', (err) => {
 async function validateAndActivateLicense(
   licenseAddress: string,
   signer: KeyPairSigner,
-  rpc: RpcClient,
-  getAssetWithProofThrottled: (assetId: string) => Promise<Awaited<ReturnType<typeof getAssetWithProof>>>
+  rpc: RpcClient
 ): Promise<CheckerLicenseContext | null> {
   logger.debug({ licenseAddress }, 'Validating license...');
   
   try {
-    const licenseAsset = await getAssetWithProofThrottled(licenseAddress);
+    const licenseAsset = await rpc.getLicenseWithProof(licenseAddress);
     const licenseOwner = address(licenseAsset.leafOwner);
 
     // Check if license needs activation
@@ -126,8 +124,7 @@ async function validateAndActivateLicense(
 async function discoverLicensesFromConfig(
   config: CheckerConfig,
   signer: KeyPairSigner,
-  rpc: RpcClient,
-  getAssetWithProofThrottled: (assetId: string) => Promise<Awaited<ReturnType<typeof getAssetWithProof>>>
+  rpc: RpcClient
 ): Promise<Array<{ index: number; address: Address }>> {
   const totalCount = config.checkerLicenses.length;
   logger.info(
@@ -145,7 +142,7 @@ async function discoverLicensesFromConfig(
       'Processing license'
     );
     
-    const license = await validateAndActivateLicense(licenseAddress, signer, rpc, getAssetWithProofThrottled);
+    const license = await validateAndActivateLicense(licenseAddress, signer, rpc);
     if (license) {
       licenses.push(license);
       logger.info(
@@ -327,16 +324,9 @@ async function main() {
   
   const rpc = createRpcClient(signer, config);
 
-  // Throttle asset fetching to respect rate limits
-  const getAssetWithProofThrottled = pThrottle({ limit: 1, interval: 600 })(
-    async (assetId: string) => {
-      return await getAssetWithProof(rpc.umi, publicKey(assetId), { truncateCanopy: true });
-    }
-  );
-
   // Discover licenses (from config or on-chain)
   const licenses = config.checkerLicenses.length > 0
-    ? await discoverLicensesFromConfig(config, signer, rpc, getAssetWithProofThrottled)
+    ? await discoverLicensesFromConfig(config, signer, rpc)
     : await discoverLicensesFromChain(config, signer, rpc);
 
   if (!licenses.length) {

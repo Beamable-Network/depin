@@ -6,12 +6,22 @@ const checkerDir = dirname(import.meta.dirname);
 const envPath = join(checkerDir, '.env');
 dotenv.config({ path: envPath });
 
+export interface ThrottleConfig {
+  limit: number;
+  interval: number;
+}
+
 export class CheckerConfig {
   public readonly solanaNetwork: "mainnet" | "devnet";
   public readonly heliusApiKey: string;
   public readonly checkerPrivateKey: string;
   public readonly checkerLicenses: string[];
   public readonly skipBrand: boolean;
+  public readonly throttle: {
+    sendTransaction: ThrottleConfig;
+    getProgramAccounts: ThrottleConfig;
+    getAssetWithProof: ThrottleConfig;
+  };
 
   private _checkerPrivateKeyBytes?: Uint8Array;
 
@@ -48,6 +58,34 @@ export class CheckerConfig {
 
     this.heliusApiKey = heliusApiKey;
     this.skipBrand = skipBrand === 'true' || skipBrand === '1';
+
+    // Throttle configuration with defaults
+    this.throttle = {
+      sendTransaction: {
+        limit: this.parseEnvInt('THROTTLE_SEND_TX_LIMIT', 1),
+        interval: this.parseEnvInt('THROTTLE_SEND_TX_INTERVAL', 1100)
+      },
+      getProgramAccounts: {
+        limit: this.parseEnvInt('THROTTLE_GET_ACCOUNTS_LIMIT', 5),
+        interval: this.parseEnvInt('THROTTLE_GET_ACCOUNTS_INTERVAL', 1100)
+      },
+      getAssetWithProof: {
+        limit: this.parseEnvInt('THROTTLE_GET_ASSET_LIMIT', 1),
+        interval: this.parseEnvInt('THROTTLE_GET_ASSET_INTERVAL', 600)
+      }
+    };
+  }
+
+  private parseEnvInt(key: string, defaultValue: number): number {
+    const value = process.env[key];
+    if (!value) {
+      return defaultValue;
+    }
+    const parsed = parseInt(value, 10);
+    if (isNaN(parsed) || parsed <= 0) {
+      throw new Error(`${key} must be a positive integer, got: ${value}`);
+    }
+    return parsed;
   }
 
   get checkerPrivateKeyBytes(): Uint8Array {
