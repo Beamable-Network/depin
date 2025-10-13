@@ -103,8 +103,7 @@ export class CheckerService {
     logger.info({ period }, 'Running checker tasks');
 
     const bmbState = await BMBStateAccount.readFromState(async (address) => {
-      const accountData = await this.checker.getRpcClient().umi.rpc.getAccount(publicKey(address));
-      const accountDataBytes = accountData.exists ? accountData.data : null;
+      const accountDataBytes = await this.checker.getRpcClient().getAccount(address);
       if (!accountDataBytes) return null;
       return accountDataBytes;
     });

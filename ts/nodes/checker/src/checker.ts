@@ -50,11 +50,6 @@ export class CheckerNode {
   getRpcClient(): RpcClient { return this.rpc; }
   skipBrand(): boolean { return this.config.skipBrand; }
 
-  async getBalance(): Promise<bigint> {
-    const balanceResponse = await this.rpc.helius.getBalance(this.signer.address);
-    return balanceResponse.value;
-  }
-
   async start(): Promise<void> {
     logger.info(this.logContext, 'Checker node starting');
 

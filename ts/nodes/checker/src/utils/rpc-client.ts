@@ -2,10 +2,10 @@ import { dasApi, DasApiInterface } from "@metaplex-foundation/digital-asset-stan
 import { getAssetWithProof, mplBubblegum } from "@metaplex-foundation/mpl-bubblegum";
 import { createSignerFromKeypair, publicKey, RpcInterface, signerIdentity, Umi } from "@metaplex-foundation/umi";
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { appendTransactionMessageInstructions, BaseTransactionMessage, createSolanaRpc, createSolanaRpcSubscriptions, createTransactionMessage, GetProgramAccountsMemcmpFilter, getSignatureFromTransaction, KeyPairSigner, MessageSigner, pipe, Rpc, sendAndConfirmTransactionFactory, setTransactionMessageFeePayerSigner, setTransactionMessageLifetimeUsingBlockhash, Signature, signTransactionMessageWithSigners, SolanaError, SolanaRpcApi, TransactionSigner } from "gill";
-import { createHelius, HeliusClient } from "helius-sdk";
-import { GetProgramAccountsV2Config } from 'helius-sdk/types/types';
 import { trace } from "@opentelemetry/api";
+import { appendTransactionMessageInstructions, BaseTransactionMessage, createSolanaRpc, createSolanaRpcSubscriptions, createTransactionMessage, GetProgramAccountsMemcmpFilter, getSignatureFromTransaction, KeyPairSigner, MessageSigner, pipe, Rpc, sendAndConfirmTransactionFactory, setTransactionMessageFeePayerSigner, setTransactionMessageLifetimeUsingBlockhash, Signature, signTransactionMessageWithSigners, SolanaError, SolanaRpcApi, TransactionSigner } from "gill";
+import { createHelius } from "helius-sdk";
+import { GetProgramAccountsV2Config } from 'helius-sdk/types/types';
 import pThrottle from 'p-throttle';
 import { CheckerConfig } from '../config.js';
 import { getLogger } from '../logger.js';
@@ -17,11 +17,11 @@ function getTracer() {
 }
 
 export interface RpcClient {
-    helius: HeliusClient;
     umi: Umi & { rpc: DasApiInterface; };
     buildAndSendTransaction: (instructions: ReadonlyArray<BaseTransactionMessage['instructions'][number]>, commitment?: "processed" | "confirmed" | "finalized") => Promise<{ signature: Signature; logs: readonly string[] | null }>;
     getProgramAccounts: (programAddress: string, filters: GetProgramAccountsMemcmpFilter[]) => Promise<Array<{ pubkey: string; account: { data: ArrayLike<number> } }>>;
     getLicenseWithProof: (assetId: string) => Promise<Awaited<ReturnType<typeof getAssetWithProof>>>;
+    getAccount: (address: string) => Promise<Uint8Array | null>;
 }
 
 function createUmiClient(config: CheckerConfig): Umi & { rpc: DasApiInterface; } {
@@ -83,6 +83,9 @@ function createBuildAndSendTransactionFn(params: {
 
 export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): RpcClient {
     const helius = createHelius({ apiKey: config.heliusApiKey, network: config.solanaNetwork });
+
+    // Create shared UMI instance
+    const umi = createUmiClient(config);
 
     // Create Gill RPC clients for transaction handling
     const rpc = createSolanaRpc(config.getSolanaRpcUrl());
@@ -166,11 +169,19 @@ export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): R
         limit: config.throttle.getAssetWithProof.limit,
         interval: config.throttle.getAssetWithProof.interval
     })(async (assetId: string) => {
-        const umi = createUmiClient(config);
         return await getAssetWithProof(umi, publicKey(assetId), { truncateCanopy: true });
     });
 
-    return { helius, umi: createUmiClient(config), buildAndSendTransaction, getProgramAccounts, getLicenseWithProof };
+    // Throttle getAccount using config
+    const getAccount = pThrottle({
+        limit: config.throttle.getAccount.limit,
+        interval: config.throttle.getAccount.interval
+    })(async (address: string) => {
+        const accountData = await umi.rpc.getAccount(publicKey(address));
+        return accountData.exists ? accountData.data : null;
+    });
+
+    return { umi, buildAndSendTransaction, getProgramAccounts, getLicenseWithProof, getAccount };
 }
 
 function getErrorMessage(error: unknown): string {

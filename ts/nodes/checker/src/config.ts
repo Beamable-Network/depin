@@ -21,6 +21,7 @@ export class CheckerConfig {
     sendTransaction: ThrottleConfig;
     getProgramAccounts: ThrottleConfig;
     getAssetWithProof: ThrottleConfig;
+    getAccount: ThrottleConfig;
   };
 
   private _checkerPrivateKeyBytes?: Uint8Array;
@@ -72,6 +73,10 @@ export class CheckerConfig {
       getAssetWithProof: {
         limit: this.parseEnvInt('THROTTLE_GET_ASSET_LIMIT', 1),
         interval: this.parseEnvInt('THROTTLE_GET_ASSET_INTERVAL', 600)
+      },
+      getAccount: {
+        limit: this.parseEnvInt('THROTTLE_GET_ACCOUNT_LIMIT', 8),
+        interval: this.parseEnvInt('THROTTLE_GET_ACCOUNT_INTERVAL', 1100)
       }
     };
   }

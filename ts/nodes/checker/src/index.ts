@@ -44,10 +44,10 @@ async function validateAndActivateLicense(
       address(licenseAddress),
       licenseOwner
     );
-    const checkerMetadataAccount = await rpc.helius.getAccountInfo(checkerMetadataPda[0]);
+    const checkerMetadataAccount = await rpc.getAccount(checkerMetadataPda[0]);
 
     // Validate ownership
-    if (!checkerMetadataAccount.value && licenseOwner !== signer.address) {
+    if (checkerMetadataAccount == null && licenseOwner !== signer.address) {
       logger.error(
         { 
           licenseAddress, 
@@ -61,7 +61,7 @@ async function validateAndActivateLicense(
     }
 
     // Activate if needed
-    if (!checkerMetadataAccount.value) {
+    if (checkerMetadataAccount == null) {
       logger.info(
         { licenseAddress, licenseIndex: licenseAsset.index, checkerAddress: signer.address }, 
         'Activating checker license...'
@@ -85,7 +85,7 @@ async function validateAndActivateLicense(
       );
     } else {
       // Validate delegation
-      const checkerMetadata = CheckerMetadataAccount.deserializeFrom(checkerMetadataAccount.value.data);
+      const checkerMetadata = CheckerMetadataAccount.deserializeFrom(checkerMetadataAccount);
       if (checkerMetadata.delegatedTo !== signer.address) {
         logger.error(
           { 

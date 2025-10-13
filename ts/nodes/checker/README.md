@@ -71,5 +71,7 @@ These settings control how often RPC operations are made to respect rate limits.
 | `THROTTLE_GET_ACCOUNTS_INTERVAL` | Minimum milliseconds between getProgramAccounts calls | `1100` |
 | `THROTTLE_GET_ASSET_LIMIT` | Max concurrent asset metadata fetches | `1` |
 | `THROTTLE_GET_ASSET_INTERVAL` | Minimum milliseconds between asset fetches | `600` |
+| `THROTTLE_GET_ACCOUNT_LIMIT` | Max concurrent getAccount calls | `8` |
+| `THROTTLE_GET_ACCOUNT_INTERVAL` | Minimum milliseconds between getAccount calls | `1100` |
 
 **Note:** The checker node supports running multiple licenses simultaneously. Each license will run as an independent checker instance using the same wallet (`CHECKER_PRIVATE_KEY`). Simply provide multiple license addresses separated by commas in `CHECKER_LICENSES`. If you don't provide a license, the checker will fetch all active licenses that are delegated to this checker and use them.
