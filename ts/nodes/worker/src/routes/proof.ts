@@ -1,10 +1,11 @@
 import { BMBStateAccount, CheckerLicenseMetadataAccount, CheckerMetadataAccount, getCurrentPeriod, SignedPayload, WorkerErrorResponseSchema, WorkerProofListResponseSchema, WorkerProofPayloadSchema, WorkerProofReceiptPayloadSchema, WorkerProofRequest, WorkerProofRequestSchema, WorkerProofResponse, WorkerProofResponseSchema } from '@beamable-network/depin';
+import { DasApiAsset } from '@metaplex-foundation/digital-asset-standard-api';
 import { publicKey } from '@metaplex-foundation/umi';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { Address, isAddress, isSome } from 'gill';
-import { WorkerNode } from '../worker.js';
+import { address, Address, isAddress, isSome } from 'gill';
 import { ProofConflictError, ProofNotModifiedError } from '../services/proof-storage.js';
 import { isPrivateIP, resolveHostnameToIps } from '../utils/network.js';
+import { WorkerNode } from '../worker.js';
 
 export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker: WorkerNode }) {
     fastify.get('/proofs/:period', {
@@ -333,7 +334,15 @@ function validateMetrics(metrics: { latency: number; uptime: number }): { error:
 }
 
 async function validateCheckerLicense(worker: WorkerNode, checkerLicense: Address, checker: Address): Promise<{ error: string; message: string } | null> {
-    const checkerMetadataPda = await CheckerMetadataAccount.findCheckerMetadataPDA(checkerLicense, checker);
+    let licenseAsset: DasApiAsset;
+    try {
+        licenseAsset = await worker.getUmi().rpc.getAsset(publicKey(checkerLicense));
+    }
+    catch (err) {
+        return { error: 'invalid_checker_license', message: 'Can\'t fetch checker license asset' };
+    }
+
+    const checkerMetadataPda = await CheckerMetadataAccount.findCheckerMetadataPDA(checkerLicense, address(licenseAsset.ownership.owner));
     const checkerMetadataAccount = await worker.getUmi().rpc.getAccount(publicKey(checkerMetadataPda[0]));
     if (!checkerMetadataAccount.exists) {
         return { error: 'invalid_checker_license', message: 'The provided checker license is not activated' };

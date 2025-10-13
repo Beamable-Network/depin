@@ -49,10 +49,10 @@ export class CheckerMetadataAccount {
         return result;
     }
 
-    public static async findCheckerMetadataPDA(checkerLicense: Address, checker: Address): Promise<ProgramDerivedAddress> {
+    public static async findCheckerMetadataPDA(checkerLicense: Address, licenseOwner: Address): Promise<ProgramDerivedAddress> {
         const pda = await getProgramDerivedAddress({
             programAddress: DEPIN_PROGRAM,
-            seeds: [CHECKER_SEED, METADATA_SEED, addressEncoder.encode(checkerLicense), addressEncoder.encode(checker)]
+            seeds: [CHECKER_SEED, METADATA_SEED, addressEncoder.encode(checkerLicense), addressEncoder.encode(licenseOwner)]
         });
         return pda;
     }
