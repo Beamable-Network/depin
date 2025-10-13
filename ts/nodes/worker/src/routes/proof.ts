@@ -243,7 +243,7 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
                 });
             }
 
-            if (licenseAsset.compression.leaf_id > checkerCount) {
+            if (licenseAsset.compression.leaf_id >= checkerCount) {
                 return reply.code(400).send({
                     error: 'invalid_checker_license',
                     message: 'The provided checker license is not activated in BMBState',
