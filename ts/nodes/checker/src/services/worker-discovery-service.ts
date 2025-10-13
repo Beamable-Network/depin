@@ -1,12 +1,19 @@
-import { DEPIN_PROGRAM, DepinAccountType, getDepinAccountFilter, ProgramAccount, sleep, WorkerDiscoveryDocument, WorkerMetadataAccount } from '@beamable-network/depin';
+import { DEPIN_PROGRAM, DepinAccountType, getDepinAccountFilter, getCurrentPeriod, ProgramAccount, sleep, WorkerDiscoveryDocument, WorkerMetadataAccount } from '@beamable-network/depin';
 import { address, isNone } from 'gill';
 import pLimit from 'p-limit';
 import { Agent, request } from 'undici';
 import { CheckerNode } from '../checker.js';
 import { getLogger } from '../logger.js';
 import { trace } from '@opentelemetry/api';
+import { AsyncCache } from '../utils/async-cache.js';
 
 const logger = getLogger('WorkerDiscoveryService');
+
+// Global cache for worker accounts with 24h TTL
+const activeWorkersCache = new AsyncCache<string, Array<ProgramAccount<WorkerMetadataAccount>>>({
+  max: 100,
+  ttl: 24 * 60 * 60 * 1000, // 24 hours
+});
 
 export interface ResolvedWorkerDiscovery {
   workerAccount: ProgramAccount<WorkerMetadataAccount>;
@@ -35,6 +42,14 @@ export class WorkerDiscoveryService {
   }
 
   async fetchActiveWorkerAccounts(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {
+    const period = getCurrentPeriod();
+    return activeWorkersCache.get(`activeWorkers-${period}`, () => {
+      logger.debug({ period }, 'Fetching active worker accounts from RPC');
+      return this.fetchActiveWorkerAccountsFromRpc();
+    });
+  }
+
+  private async fetchActiveWorkerAccountsFromRpc(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {
     const rpcClient = this.checker.getRpcClient();
 
     const accounts = await getTracer().startActiveSpan("fetch-active-workers", async span => {

@@ -1,12 +1,18 @@
 import { BMBStateAccount, getCurrentPeriod, getPeriodEndMs, getRemainingTimeInPeriodMs, ProgramAccount, runBrand, WorkerMetadataAccount } from '@beamable-network/depin';
-import { publicKey } from '@metaplex-foundation/umi';
 import { promiseStateAsync } from 'p-state';
 import { CheckerNode } from '../checker.js';
 import { getLogger } from '../logger.js';
+import { AsyncCache } from '../utils/async-cache.js';
 import { HealthCheckManager, HealthCheckTarget } from './health-check-service.js';
 import { ResolvedWorkerDiscovery, WorkerDiscoveryService } from './worker-discovery-service.js';
 
 const logger = getLogger('CheckerService');
+
+// Global cache for BMB state with 24h TTL
+const bmbStateCheckerCountCache = new AsyncCache<string, number>({
+  max: 100,
+  ttl: 24 * 60 * 60 * 1000, // 24 hours
+});
 
 export class CheckerService {
   private static readonly MIN_DELAY_MS = 60_000; // 1 minute
@@ -23,6 +29,25 @@ export class CheckerService {
 
   constructor(private readonly checker: CheckerNode) {
     this.discoveryService = new WorkerDiscoveryService(this.checker);
+  }
+
+  private async getCheckerCount(period: number): Promise<number> {
+    return bmbStateCheckerCountCache.get(`period-${period}`, async () => {
+      logger.debug({ period }, 'Fetching BMB state from RPC');
+      const bmbState = await BMBStateAccount.readFromState(async (address) => {
+        const accountDataBytes = await this.checker.getRpcClient().getAccount(address);
+        if (!accountDataBytes) return null;
+        return accountDataBytes;
+      });
+
+      const count = bmbState?.data.getCheckerCountForPeriod(period);
+
+      if (!count) {
+        throw new Error(`No checker count found for period ${period}`);
+      }
+
+      return count;
+    });
   }
 
   start(): void {
@@ -102,16 +127,7 @@ export class CheckerService {
   private async runPeriodTasks(period: number): Promise<void> {
     logger.info({ period }, 'Running checker tasks');
 
-    const bmbState = await BMBStateAccount.readFromState(async (address) => {
-      const accountDataBytes = await this.checker.getRpcClient().getAccount(address);
-      if (!accountDataBytes) return null;
-      return accountDataBytes;
-    });
-    const checkerCount = bmbState?.data.getCheckerCountForPeriod(period);
-
-    if (!checkerCount) {
-      throw new Error(`No checker count found for period ${period}`);
-    }
+    const checkerCount = await this.getCheckerCount(period);
 
     const myLicenseIndex = this.checker.license.index;
 

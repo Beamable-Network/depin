@@ -1,6 +1,6 @@
 {
   "name": "@beamable/depin-checker",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "DePIN Checker Node - Independent verifier service",
   "main": "dist/index.js",
   "type": "module",
@@ -45,6 +45,7 @@
     "gill": "^0.11.0",
     "helius-sdk": "^2.0.2",
     "import-in-the-middle": "^1.14.4",
+    "lru-cache": "^11.2.1",
     "p-limit": "^7.1.1",
     "p-state": "^3.0.0",
     "p-throttle": "^8.0.0",
