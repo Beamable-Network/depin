@@ -55,22 +55,18 @@ export class CheckerNode {
     return balanceResponse.value;
   }
 
-  getLogContext() {
-    return { checker: this.logContext };
-  }
-
   async start(): Promise<void> {
-    logger.info(this.getLogContext(), 'Checker node starting');
+    logger.info(this.logContext, 'Checker node starting');
 
     if (this.skipBrand()) {
-      logger.warn(this.getLogContext(), 'Skipping BRAND eligibility checks as per configuration. This is NOT recommended for production environments.');
+      logger.warn(this.logContext, 'Skipping BRAND eligibility checks as per configuration. This is NOT recommended for production environments.');
     }
 
     this.checkerService.start();
   }
 
   async stop(): Promise<void> {
-    logger.info(this.getLogContext(), 'Checker node stopping...');
+    logger.info(this.logContext, 'Checker node stopping...');
     this.checkerService.stop();
   }
 }
