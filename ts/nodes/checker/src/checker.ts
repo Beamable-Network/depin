@@ -1,7 +1,4 @@
-import { ActivateChecker, CheckerMetadataAccount } from '@beamable-network/depin';
-import { AssetWithProof, getAssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
-import { publicKey } from '@metaplex-foundation/umi';
-import { address, Address, KeyPairSigner, lamportsToSol } from 'gill';
+import { Address, KeyPairSigner } from 'gill';
 import { CheckerConfig } from './config.js';
 import { getLogger } from './logger.js';
 import { CheckerService } from './services/checker-service.js';
@@ -13,29 +10,37 @@ export interface CheckerNodeProps {
   signer: KeyPairSigner;
   rpc: RpcClient;
   config: CheckerConfig;
+  license: CheckerLicenseContext;
+}
+
+export interface CheckerLogContext {
+  checkerAddress: Address;
   licenseAddress: Address;
-  licenseIndex: number;
-  licenseValidated: boolean;
+}
+
+export interface CheckerLicenseContext {
+  address: Address;
+  index: number;
 }
 
 export class CheckerNode {
   checkerService: CheckerService;
-  license: AssetWithProof | undefined;
+  public readonly license: CheckerLicenseContext;
 
-  public readonly licenseAddress: Address;
-  public readonly licenseIndex: number;
   private readonly signer: KeyPairSigner;
   private readonly rpc: RpcClient;
   private readonly config: CheckerConfig;
-  private licenseValidated: boolean;
+  private readonly logContext: CheckerLogContext;
 
   constructor(props: CheckerNodeProps) {
     this.signer = props.signer;
     this.rpc = props.rpc;
     this.config = props.config;
-    this.licenseAddress = props.licenseAddress;
-    this.licenseIndex = props.licenseIndex;
-    this.licenseValidated = props.licenseValidated;
+    this.license = props.license;
+    this.logContext = {
+      checkerAddress: this.signer.address,
+      licenseAddress: this.license.address
+    };
     this.checkerService = new CheckerService(this);
   }
 
@@ -50,62 +55,22 @@ export class CheckerNode {
     return balanceResponse.value;
   }
 
+  getLogContext() {
+    return { checker: this.logContext };
+  }
+
   async start(): Promise<void> {
-    const checkerAddress = this.signer.address;
-    logger.info({ checkerAddress, licenseIndex: this.licenseIndex, licenseAddress: this.licenseAddress }, 'Checker node starting');
+    logger.info(this.getLogContext(), 'Checker node starting');
 
     if (this.skipBrand()) {
-      logger.warn({ licenseIndex: this.licenseIndex }, 'Skipping BRAND eligibility checks as per configuration. This is NOT recommended for production environments.');
-    }
-
-    if (!this.licenseValidated) {
-      // Fetch and validate the checker license
-      logger.info({ licenseIndex: this.licenseIndex, licenseAddress: this.licenseAddress }, 'Fetching checker license');
-      let license: AssetWithProof;
-      try {
-        license = await getAssetWithProof(this.rpc.umi, publicKey(this.licenseAddress), { truncateCanopy: true });
-        logger.info({ licenseIndex: this.licenseIndex, assetIndex: license.index, licenseOwner: license.leafOwner }, 'Checker license');
-      }
-      catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        throw new Error(`Failed to fetch checker license ${this.licenseAddress}: ${errorMessage}`);
-      }
-
-      const checkerMetadataPda = await CheckerMetadataAccount.findCheckerMetadataPDA(address(license.rpcAsset.id), address(license.leafOwner));
-      const checkerMetadataAccount = await this.rpc.helius.getAccountInfo(checkerMetadataPda[0]);
-
-      if (checkerMetadataAccount.value == null && address(license.leafOwner) != checkerAddress) {
-        throw new Error(`Checker license is owned by ${license.leafOwner}, but checker address is ${checkerAddress}. An activation can only be performed by the license owner.`);
-      }
-
-      if (!checkerMetadataAccount.value) {
-        // Activate the license
-        logger.info({ licenseIndex: this.licenseIndex }, 'Activating checker license...');
-
-        const activate = new ActivateChecker({
-          checker_license: license,
-          delegated_to: checkerAddress,
-          signer: checkerAddress
-        });
-
-        const tx = await this.rpc.buildAndSendTransaction([await activate.getInstruction()], 'finalized')
-        logger.info({ licenseIndex: this.licenseIndex, txSig: tx.signature }, 'Checker license activated');
-      }
-      else {
-        const checkerMetadata = CheckerMetadataAccount.deserializeFrom(checkerMetadataAccount.value.data);
-        if (checkerMetadata.delegatedTo !== checkerAddress) {
-          throw new Error(`Checker license is delegated to ${checkerMetadata.delegatedTo}, but checker address is ${checkerAddress}.`);
-        }
-      }
-
-      this.licenseValidated = true;
+      logger.warn(this.getLogContext(), 'Skipping BRAND eligibility checks as per configuration. This is NOT recommended for production environments.');
     }
 
     this.checkerService.start();
   }
 
   async stop(): Promise<void> {
-    logger.info({ licenseIndex: this.licenseIndex }, 'Checker node stopping...');
+    logger.info(this.getLogContext(), 'Checker node stopping...');
     this.checkerService.stop();
   }
 }

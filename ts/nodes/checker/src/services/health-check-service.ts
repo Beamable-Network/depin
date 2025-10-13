@@ -333,12 +333,6 @@ class HealthCheckSession {
       return;
     }
 
-    const checkerLicense = this.checker.licenseAddress;
-    if (!checkerLicense) {
-      logger.warn({ ...this.logContext }, 'No checker license available; skipping proof');
-      return;
-    }
-
     const proofEndpoint = this.target.proofEndpoint;
     if (!proofEndpoint) {
       logger.warn({ ...this.logContext }, 'No proof submission endpoint; skipping proof');
@@ -379,7 +373,7 @@ class HealthCheckSession {
       const signedProof = await SignedPayload.create<typeof WorkerProofPayloadSchema>(
         {
           checker: this.checker.getAddress(),
-          checkerLicense: checkerLicense,
+          checkerLicense: this.checker.license.address,
           checkerIp: checkerIp,
           worker: this.target.discovery.worker.address,
           workerLicense: this.target.discovery.worker.license,

@@ -6,6 +6,7 @@ import { appendTransactionMessageInstructions, BaseTransactionMessage, createSol
 import { createHelius, HeliusClient } from "helius-sdk";
 import { GetProgramAccountsV2Config } from 'helius-sdk/types/types';
 import { trace } from "@opentelemetry/api";
+import pThrottle from 'p-throttle';
 import { CheckerConfig } from '../config.js';
 import { getLogger } from '../logger.js';
 
@@ -88,11 +89,21 @@ export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): R
 
     const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions });
 
+    // Throttle sendAndConfirmTransaction to max 1 call per 1100ms
+    const sendAndConfirmTransactionThrottled = pThrottle({ limit: 1, interval: 1100 })(sendAndConfirmTransaction);
+
     const buildAndSendTransaction = createBuildAndSendTransactionFn({
         rpc,
         wallet: signer,
-        sendAndConfirmTransaction
+        sendAndConfirmTransaction: sendAndConfirmTransactionThrottled
     });
+
+    // Throttle getProgramAccountsV2 to max 5 calls per 1100ms
+    const getProgramAccountsV2Throttled = pThrottle({ limit: 5, interval: 1100 })(
+        async (programAddress: string, requestOptions: GetProgramAccountsV2Config) => {
+            return await helius.getProgramAccountsV2([programAddress, requestOptions]);
+        }
+    );
 
     const getProgramAccounts = async (
         programAddress: string,
@@ -120,7 +131,7 @@ export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): R
                         requestOptions.paginationKey = paginationKey;
                     }
 
-                    const result = await helius.getProgramAccountsV2([programAddress, requestOptions]);
+                    const result = await getProgramAccountsV2Throttled(programAddress, requestOptions);
 
                     // Convert base64 data to Buffer (ArrayLike<number>)
                     for (const acc of result.accounts) {

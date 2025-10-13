@@ -51,7 +51,7 @@ export class CheckerService {
           logger.warn({ period, remainingMs }, 'Skipping period tasks due to insufficient remaining time');
           const sleepTime = remainingMs + CheckerService.BUFFER_SLEEP_MS;
           logger.info({ sleepTime }, 'Sleeping until next period');
-          this.sleep(sleepTime);
+          await this.sleep(sleepTime);
           continue;
         }
 
@@ -114,7 +114,7 @@ export class CheckerService {
       throw new Error(`No checker count found for period ${period}`);
     }
 
-    const myLicenseIndex = this.checker.licenseIndex;
+    const myLicenseIndex = this.checker.license.index;
 
     const activeWorkerAccounts = await this.discoveryService.fetchActiveWorkerAccounts();
     logger.info({ period, activeWorkers: activeWorkerAccounts.length }, 'Fetched active worker accounts');
