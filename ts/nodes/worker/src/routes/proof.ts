@@ -1,11 +1,12 @@
 import { BMBStateAccount, CheckerLicenseMetadataAccount, CheckerMetadataAccount, getCurrentPeriod, SignedPayload, WorkerErrorResponseSchema, WorkerProofListResponseSchema, WorkerProofPayloadSchema, WorkerProofReceiptPayloadSchema, WorkerProofRequest, WorkerProofRequestSchema, WorkerProofResponse, WorkerProofResponseSchema } from '@beamable-network/depin';
-import { DasApiAsset } from '@metaplex-foundation/digital-asset-standard-api';
+import { DasApiAsset, DasApiError } from '@metaplex-foundation/digital-asset-standard-api';
 import { publicKey } from '@metaplex-foundation/umi';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { address, Address, isAddress, isSome } from 'gill';
 import { ProofConflictError, ProofNotModifiedError } from '../services/proof-storage.js';
 import { isPrivateIP, resolveHostnameToIps } from '../utils/network.js';
 import { WorkerNode } from '../worker.js';
+import { withRetry } from '../utils/retry.js';
 
 export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker: WorkerNode }) {
     fastify.get('/proofs/:period', {
@@ -336,7 +337,17 @@ function validateMetrics(metrics: { latency: number; uptime: number }): { error:
 async function validateCheckerLicense(worker: WorkerNode, checkerLicense: Address, checker: Address): Promise<{ error: string; message: string } | null> {
     let licenseAsset: DasApiAsset;
     try {
-        licenseAsset = await worker.getUmi().rpc.getAsset(publicKey(checkerLicense));
+        licenseAsset = await withRetry(async () => {
+            return await worker.getUmi().rpc.getAsset(publicKey(checkerLicense));
+        }, {
+            maxRetries: 5,
+            baseDelayMs: 500,
+            exponentialBackoff: true,
+            shouldRetry: (err) => {
+                // Don't retry if asset is not found
+                return !(err instanceof DasApiError && (err.message.startsWith('Asset not found')));
+            }
+        });
     }
     catch (err) {
         return { error: 'invalid_checker_license', message: 'Can\'t fetch checker license asset' };
