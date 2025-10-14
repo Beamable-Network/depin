@@ -27,7 +27,7 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Install curl for simple health checks and create non-root user
+# Install curl for healthcheck and create non-root user
 RUN apk add --no-cache curl \
   && addgroup -g 1001 -S nodejs \
   && adduser -S checker -u 1001
@@ -36,6 +36,11 @@ RUN apk add --no-cache curl \
 COPY --from=builder /app .
 
 USER checker
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
+  CMD curl -f http://localhost:3000/health || exit 1
 
 CMD ["node", "--import=./dist/src/otel.js", "dist/src/index.js"]
 

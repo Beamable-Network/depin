@@ -1,6 +1,7 @@
 import { CheckerLicenseContext, CheckerNode } from './checker.js';
 import { CheckerConfig } from './config.js';
 import { getLogger } from './logger.js';
+import { HealthServer } from './health-server.js';
 
 import { ActivateChecker, CheckerMetadataAccount, getCheckerTree } from '@beamable-network/depin';
 import { findLeafAssetIdPda } from '@metaplex-foundation/mpl-bubblegum';
@@ -274,10 +275,12 @@ async function createCheckerNode(
   return checker;
 }
 
-function setupShutdownHandlers(checkers: CheckerNode[]): void {
+function setupShutdownHandlers(checkers: CheckerNode[], healthServer: HealthServer): void {
   const shutdown = async () => {
     logger.info({ activeCheckers: checkers.length }, 'Received shutdown signal, gracefully shutting down...');
-    
+
+    healthServer.stop();
+
     await Promise.all(checkers.map((checker) => {
       logger.debug(
         { licenseIndex: checker.license.index, licenseAddress: checker.license.address },
@@ -285,7 +288,7 @@ function setupShutdownHandlers(checkers: CheckerNode[]): void {
       );
       return checker.stop();
     }));
-    
+
     logger.info(
       { stoppedCheckers: checkers.length },
       'All checker nodes stopped successfully'
@@ -303,17 +306,21 @@ function setupShutdownHandlers(checkers: CheckerNode[]): void {
 
 async function main() {
   logger.info(
-    { version: packageJson.version }, 
+    { version: packageJson.version },
     'Starting Beamable.Network DePIN Checker Node'
   );
+
+  // Initialize health server
+  const healthServer = new HealthServer(3000);
+  healthServer.start();
 
   // Initialize configuration
   const config = new CheckerConfig();
   logger.info(
-    { 
-      network: config.solanaNetwork, 
+    {
+      network: config.solanaNetwork,
       configuredLicenses: config.checkerLicenses.length,
-      skipBrand: config.skipBrand 
+      skipBrand: config.skipBrand
     },
     'Configuration loaded'
   );
@@ -321,7 +328,7 @@ async function main() {
   // Initialize signer and RPC client
   const signer = await createKeyPairSignerFromBytes(config.checkerPrivateKeyBytes);
   logger.info({ checkerAddress: signer.address }, 'Checker identity initialized');
-  
+
   const rpc = createRpcClient(signer, config);
 
   // Discover licenses (from config or on-chain)
@@ -358,17 +365,17 @@ async function main() {
   }
 
   logger.info(
-    { 
+    {
       totalCheckers: checkers.length,
       licenseIndices: licenses.map(l => l.index),
       checkerAddress: signer.address,
       network: config.solanaNetwork
-    }, 
+    },
     'All checker nodes started successfully and ready'
   );
 
   // Setup graceful shutdown
-  setupShutdownHandlers(checkers);
+  setupShutdownHandlers(checkers, healthServer);
 }
 
 // =============================================================================
