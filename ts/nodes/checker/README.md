@@ -65,13 +65,13 @@ These settings control how often RPC operations are made to respect rate limits.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `THROTTLE_SEND_TX_LIMIT` | Max concurrent transaction sends | `1` |
-| `THROTTLE_SEND_TX_INTERVAL` | Minimum milliseconds between transaction sends | `1100` |
-| `THROTTLE_GET_ACCOUNTS_LIMIT` | Max concurrent getProgramAccounts calls | `5` |
-| `THROTTLE_GET_ACCOUNTS_INTERVAL` | Minimum milliseconds between getProgramAccounts calls | `1100` |
-| `THROTTLE_GET_ASSET_LIMIT` | Max concurrent asset metadata fetches | `1` |
-| `THROTTLE_GET_ASSET_INTERVAL` | Minimum milliseconds between asset fetches | `600` |
-| `THROTTLE_GET_ACCOUNT_LIMIT` | Max concurrent getAccount calls | `8` |
-| `THROTTLE_GET_ACCOUNT_INTERVAL` | Minimum milliseconds between getAccount calls | `1100` |
+| `THROTTLE_SEND_TX_LIMIT` | Max transaction sends per interval | `1` |
+| `THROTTLE_SEND_TX_INTERVAL` | Interval window in milliseconds | `1100` |
+| `THROTTLE_GET_ACCOUNTS_LIMIT` | Max getProgramAccounts calls per interval | `5` |
+| `THROTTLE_GET_ACCOUNTS_INTERVAL` | Interval window in milliseconds | `1100` |
+| `THROTTLE_GET_ASSET_LIMIT` | Max asset metadata fetches per interval | `1` |
+| `THROTTLE_GET_ASSET_INTERVAL` | Interval window in milliseconds | `600` |
+| `THROTTLE_GET_ACCOUNT_LIMIT` | Max getAccount calls per interval | `8` |
+| `THROTTLE_GET_ACCOUNT_INTERVAL` | Interval window in milliseconds | `1100` |
 
 **Note:** The checker node supports running multiple licenses simultaneously. Each license will run as an independent checker instance using the same wallet (`CHECKER_PRIVATE_KEY`). Simply provide multiple license addresses separated by commas in `CHECKER_LICENSES`. If you don't provide a license, the checker will fetch all active licenses that are delegated to this checker and use them.
