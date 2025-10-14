@@ -88,7 +88,7 @@ export class CheckerMetadataAccount {
                 },
                 {
                     memcmp: {
-                        offset: BigInt(1 + 9), // discriminator + suspendedAt
+                        offset: BigInt(1 + 1), // discriminator + suspendedAt(none)
                         bytes: addressToBase58EncodedBytes(delegate),
                         encoding: 'base58',
                     }

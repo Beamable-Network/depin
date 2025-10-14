@@ -6,8 +6,7 @@ function toBase58EncodedBytes(data: ReadonlyUint8Array): Base58EncodedBytes {
 }
 
 export function addressToBase58EncodedBytes(address: Address): Base58EncodedBytes {
-    const addressBytes = getAddressEncoder().encode(address);
-    return toBase58EncodedBytes(addressBytes);
+    return address.toString() as Base58EncodedBytes;
 }
 
 export function optionNoneToBase58EncodedBytes(): Base58EncodedBytes {
