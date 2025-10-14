@@ -1,4 +1,4 @@
-import { BMBStateAccount, CheckerLicenseMetadataAccount, CheckerMetadataAccount, getCurrentPeriod, SignedPayload, WorkerErrorResponseSchema, WorkerProofListResponseSchema, WorkerProofPayloadSchema, WorkerProofReceiptPayloadSchema, WorkerProofRequest, WorkerProofRequestSchema, WorkerProofResponse, WorkerProofResponseSchema } from '@beamable-network/depin';
+import { BMBStateAccount, CheckerLicenseMetadataAccount, CheckerMetadataAccount, getCurrentPeriod, SignedPayload, timestampToPeriod, WorkerErrorResponseSchema, WorkerProofListResponseSchema, WorkerProofPayloadSchema, WorkerProofReceiptPayloadSchema, WorkerProofRequest, WorkerProofRequestSchema, WorkerProofResponse, WorkerProofResponseSchema } from '@beamable-network/depin';
 import { DasApiAsset, DasApiError } from '@metaplex-foundation/digital-asset-standard-api';
 import { publicKey } from '@metaplex-foundation/umi';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -94,6 +94,36 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
             return reply.code(400).send({
                 error: 'invalid_checker_address',
                 message: 'The checker field must be a valid Solana wallet address',
+                timestamp: Date.now()
+            });
+        }
+
+        // Verify timestamp is within 60 seconds of current time
+        const now = Date.now();
+        const timeDiff = Math.abs(now - proof.payload.timestamp);
+        const maxAllowedDiff = 60 * 1000; // 60 seconds in milliseconds
+
+        if (timeDiff > maxAllowedDiff) {
+            log.warn({ timeDiffMs: timeDiff }, 'Proof timestamp too far from current time');
+            return reply.code(400).send({
+                error: 'invalid_timestamp',
+                message: `Timestamp is ${Math.round(timeDiff / 1000)}s apart from current time. Maximum allowed is 60s. Check your system clock.`,
+                timestamp: Date.now()
+            });
+        }
+
+        // Validate timestamp: must be in the same period as the proof
+        const timestampPeriod = timestampToPeriod(BigInt(Math.floor(proof.payload.timestamp / 1000)));
+        if (timestampPeriod !== proof.payload.period) {
+            log.warn({
+                checker: proof.payload.checker,
+                proofPeriod: proof.payload.period,
+                timestampPeriod,
+                timestamp: proof.payload.timestamp
+            }, 'Proof timestamp does not match proof period');
+            return reply.code(400).send({
+                error: 'invalid_proof_timestamp',
+                message: `Proof timestamp must be in the same period as the proof (timestamp period: ${timestampPeriod}, proof period: ${proof.payload.period})`,
                 timestamp: Date.now()
             });
         }

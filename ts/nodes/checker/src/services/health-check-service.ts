@@ -379,6 +379,7 @@ class HealthCheckSession {
           workerLicense: this.target.discovery.worker.license,
           workerIp: workerIp,
           period: this.target.period,
+          timestamp: Math.floor(Date.now()),
           metrics: {
             latency: Math.round(metricsSnapshot.avgLatencyMs),
             uptime: Math.round(metricsSnapshot.uptimePercent * 100) / 100, // Round to 2 decimals

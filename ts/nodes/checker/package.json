@@ -1,6 +1,6 @@
 {
   "name": "@beamable/depin-checker",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "description": "DePIN Checker Node - Independent verifier service",
   "main": "dist/index.js",
   "type": "module",

@@ -180,6 +180,7 @@ export const WorkerProofPayloadSchema = Type.Object({
   workerLicense: Type.String({ description: 'Worker license NFT address' }),
   workerIp: Type.String({ description: 'Worker IP address' }),
   period: Type.Number({ description: 'Depin period' }),
+  timestamp: Type.Number({ description: 'Timestamp in epoch milliseconds' }),
   metrics: Type.Object({
     latency: Type.Number({ description: 'Response time in ms' }),
     uptime: Type.Number({ description: 'Uptime in percentage' }),
