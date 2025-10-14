@@ -294,7 +294,7 @@ class HealthCheckSession {
       });
       const resBody = await res.body.text();
       const latency = Date.now() - start;
-      const isSuccess = res.statusCode === 200;
+      const isSuccess = res.statusCode >= 200 && res.statusCode < 300;
       this.metrics.update(latency, isSuccess);
 
       if (isSuccess) {
@@ -402,7 +402,7 @@ class HealthCheckSession {
 
         const responseText = await res.body.text().catch(() => 'Unable to read response body');
 
-        if (res.statusCode === 200) {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
           logger.info({
             ...this.logContext,
             latency: Math.round(metricsSnapshot.avgLatencyMs),
