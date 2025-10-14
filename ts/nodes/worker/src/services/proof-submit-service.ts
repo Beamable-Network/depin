@@ -94,7 +94,7 @@ export class ProofSubmitService {
 
       const proof = await this.proofProvider.getAggregatedProof(period);
       if (!proof) {
-        logger.warn({ period }, `No proof data available for period ${period}`);
+        logger.debug({ period }, `No proof data available for period ${period}`);
         return;
       }
 
