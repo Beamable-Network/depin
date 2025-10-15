@@ -11,6 +11,7 @@ export interface CheckerNodeProps {
   rpc: RpcClient;
   config: CheckerConfig;
   license: CheckerLicenseContext;
+  version: string;
 }
 
 export interface CheckerLogContext {
@@ -28,6 +29,7 @@ export class CheckerNode {
   public readonly license: CheckerLicenseContext;
 
   private readonly signer: KeyPairSigner;
+  private readonly version: string;
   private readonly rpc: RpcClient;
   private readonly config: CheckerConfig;
   private readonly logContext: CheckerLogContext;
@@ -42,8 +44,10 @@ export class CheckerNode {
       licenseAddress: this.license.address
     };
     this.checkerService = new CheckerService(this);
+    this.version = props.version;
   }
 
+  getVersion(): string { return this.version; }
   getAddress(): Address { return this.signer.address; }
   getNetwork(): "mainnet" | "devnet" { return this.config.solanaNetwork; }
   getSigner(): KeyPairSigner { return this.signer; }

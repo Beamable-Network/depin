@@ -191,31 +191,13 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
                 timestamp: Date.now()
             });
         }
-
-        // Verify worker IP is in the set of resolved IPs from worker's hostname
-        const workerHostname = worker.getConfig().basePath.hostname;
-        const resolvedWorkerIps = await resolveHostnameToIps(workerHostname, {
-            logContext: { checker: proof.payload.checker }
-        });
-
-        if (!resolvedWorkerIps || resolvedWorkerIps.length === 0) {
-            log.warn({ workerHostname }, 'Failed to resolve worker hostname');
+        
+        // Verify worker version in proof
+        if (proof.payload.workerVersion !== worker.getVersion()) {
+            log.warn({ workerVersionInProof: proof.payload.workerVersion, actualWorkerVersion: worker.getVersion() }, 'Worker version mismatch');
             return reply.code(400).send({
-                error: 'worker_ip_resolution_failed',
-                message: 'Failed to resolve worker hostname to IP addresses',
-                timestamp: Date.now()
-            });
-        }
-
-        if (!resolvedWorkerIps.includes(proof.payload.workerIp)) {
-            log.warn({
-                workerIpInProof: proof.payload.workerIp,
-                resolvedWorkerIps: resolvedWorkerIps,
-                workerHostname: workerHostname
-            }, 'Worker IP mismatch');
-            return reply.code(400).send({
-                error: 'worker_ip_mismatch',
-                message: 'The worker IP in the proof is not in the set of resolved IPs from worker hostname',
+                error: 'worker_version_mismatch',
+                message: 'The worker version in the proof does not match the worker\'s actual version',
                 timestamp: Date.now()
             });
         }

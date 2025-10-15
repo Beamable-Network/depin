@@ -250,8 +250,9 @@ async function createCheckerNode(
     }, 
     'Creating checker node'
   );
-
+  
   const checker = new CheckerNode({
+    version: packageJson.version,
     signer,
     rpc,
     config,

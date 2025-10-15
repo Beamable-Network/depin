@@ -85,9 +85,9 @@ export const WorkerOfferingSchema = Type.Object({
 export type WorkerOffering = Static<typeof WorkerOfferingSchema>;
 
 export const WorkerDiscoveryDocumentSchema = Type.Object({
-  version: Type.String({ description: 'API version' }),
   worker: Type.Object({
     address: Type.String({ description: 'Worker wallet address' }),
+    version: Type.String({ description: 'Worker software version' }),
     license: Type.String({ description: 'Worker license NFT address' }),
     discoveryUri: Type.String({ description: 'Discovery endpoint URI' }),
     openApi: Type.String({ description: 'OpenAPI documentation URI' }),
@@ -176,9 +176,11 @@ export const WorkerProofPayloadSchema = Type.Object({
   checker: Type.String({ description: 'Checker wallet address' }),
   checkerLicense: Type.String({ description: 'Checker license NFT address' }),
   checkerIp: Type.String({ description: 'Checker external IP address' }),
+  checkerVersion: Type.String({ description: 'Checker software version' }),
   worker: Type.String({ description: 'Worker wallet address' }),
   workerLicense: Type.String({ description: 'Worker license NFT address' }),
   workerIp: Type.String({ description: 'Worker IP address' }),
+  workerVersion: Type.String({ description: 'Worker software version' }),
   period: Type.Number({ description: 'Depin period' }),
   timestamp: Type.Number({ description: 'Timestamp in epoch milliseconds' }),
   metrics: Type.Object({

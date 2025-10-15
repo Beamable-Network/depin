@@ -375,9 +375,11 @@ class HealthCheckSession {
           checker: this.checker.getAddress(),
           checkerLicense: this.checker.license.address,
           checkerIp: checkerIp,
+          checkerVersion: this.checker.getVersion(),
           worker: this.target.discovery.worker.address,
           workerLicense: this.target.discovery.worker.license,
           workerIp: workerIp,
+          workerVersion: this.target.discovery.worker.version,
           period: this.target.period,
           timestamp: Math.floor(Date.now()),
           metrics: {

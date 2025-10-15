@@ -10,10 +10,13 @@ import { createRpcClient, RpcClient } from './utils/rpc-client.js';
 import { getLogger } from './logger.js';
 import { ProofStorageService } from './services/proof-storage.js';
 
+import packageJson from '../package.json' with { type: 'json' };
+
 const logger = getLogger('WorkerNode');
 
 export class WorkerNode {
   private readonly proofStorage: ProofStorageService;
+  private readonly version: string;
 
   private constructor(
     private readonly signer: KeyPairSigner,
@@ -22,6 +25,7 @@ export class WorkerNode {
     private readonly config: WorkerConfig
   ) {
     this.proofStorage = new ProofStorageService(config);
+    this.version = packageJson.version;
   }
 
   static async create(config: WorkerConfig): Promise<WorkerNode> {
@@ -42,6 +46,10 @@ export class WorkerNode {
 
   getLicense(): Address {
     return this.license;
+  }
+
+  getVersion(): string {
+    return this.version;
   }
 
   getUmi(): Umi & { rpc: DasApiInterface; } {

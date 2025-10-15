@@ -2,8 +2,6 @@ import { WorkerDiscoveryDocument, WorkerDiscoveryDocumentSchema } from '@beamabl
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { WorkerNode } from '../worker.js';
 
-import packageJson from '../../package.json' with { type: 'json' };
-
 export async function rootRoutes(fastify: FastifyInstance, { worker }: { worker: WorkerNode }) {
   fastify.get('', {
     schema: {
@@ -16,8 +14,8 @@ export async function rootRoutes(fastify: FastifyInstance, { worker }: { worker:
     const config = worker.getConfig();
 
     return {
-      version: packageJson.version,
       worker: {
+        version: worker.getVersion(),
         address,
         license: worker.getLicense(),
         discoveryUri: `${config.urlPath('')}`,
