@@ -55,7 +55,7 @@ docker run -d \
   -e HELIUS_API_KEY=your_helius_api_key \
   -e CHECKER_PRIVATE_KEY=your_base58_private_key \
   -e CHECKER_LICENSES=your_license_address \
-  beamable-network/checker:latest
+  beamablenetwork/checker:latest
 ```
 
 ### Multiple Licenses Example
@@ -68,7 +68,7 @@ docker run -d \
   -e HELIUS_API_KEY=your_helius_api_key \
   -e CHECKER_PRIVATE_KEY=your_base58_private_key \
   -e CHECKER_LICENSES=license1,license2,license3 \
-  beamable-network/checker:latest
+  beamablenetwork/checker:latest
 ```
 
 ### Auto-Discovery (No License Specified)
@@ -82,7 +82,7 @@ docker run -d \
   -e SOLANA_NETWORK=mainnet \
   -e HELIUS_API_KEY=your_helius_api_key \
   -e CHECKER_PRIVATE_KEY=your_base58_private_key \
-  beamable-network/checker:latest
+  beamablenetwork/checker:latest
 ```
 
 ## Docker Compose
@@ -92,7 +92,7 @@ Create a `docker-compose.yml` file:
 ```yaml
 services:
   checker:
-    image: beamable-network/checker:latest
+    image: beamablenetwork/checker:latest
     container_name: beamable-checker
     restart: unless-stopped
     environment:
@@ -214,7 +214,7 @@ docker run -d --name checker2 -e CHECKER_LICENSES=license2 ...
 
 ```bash
 # Pull the latest image
-docker pull beamable-network/checker:latest
+docker pull beamablenetwork/checker:latest
 
 # Restart your container
 docker-compose down
@@ -230,10 +230,10 @@ For production deployments, consider pinning to specific versions:
 ```yaml
 services:
   checker:
-    image: beamable-network/checker:v1.2.3  # Pin to specific version
+    image: beamablenetwork/checker:v1.2.3  # Pin to specific version
 ```
 
-Check available versions on [Docker Hub](https://hub.docker.com/r/beamable-network/checker).
+Check available versions on [Docker Hub](https://hub.docker.com/r/beamablenetwork/checker).
 
 ## Monitoring Your Checker
 
