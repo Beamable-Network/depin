@@ -62,7 +62,7 @@ docker run -p 3000:3000 --env-file nodes/worker/.env beamable-worker
 | `PORT` | HTTP server port | `3000` |
 | `HOST` | HTTP server host | `0.0.0.0` |
 | `SOLANA_RPC_URL` | DAS-enabled Solana RPC endpoint (we recommend Helius) | required |
-| `WORKER_PRIVATE_KEY` | JSON array of 64 numbers from solana-keygen grind | *required* |
+| `WORKER_PRIVATE_KEY` | Full private key in base58 OR JSON array of 64 numbers from solana-keygen | *required* |
 | `WORKER_LICENSE` | Worker license identifier | *required* |
 | `EXTERNAL_URL` | External URL where this worker can be reached | *required* |
 | `S3_BUCKET_NAME` | S3 bucket name for storing proofs | *required* |

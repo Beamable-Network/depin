@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { dirname, join } from 'path';
+import bs58 from 'bs58';
 
 const workerDir = dirname(import.meta.dirname);
 const envPath = join(workerDir, '.env');
@@ -79,6 +80,20 @@ export class WorkerConfig {
       return this._workerPrivateKeyBytes;
     }
 
+    // Try base58 format first
+    if (!this.workerPrivateKey.startsWith('[')) {
+      try {
+        this._workerPrivateKeyBytes = bs58.decode(this.workerPrivateKey);
+        if (this._workerPrivateKeyBytes.length !== 64) {
+          throw new Error(`Invalid base58 key length: ${this._workerPrivateKeyBytes.length}, expected 64`);
+        }
+        return this._workerPrivateKeyBytes;
+      } catch (err) {
+        throw new Error(`Invalid WORKER_PRIVATE_KEY base58 format. Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    // Try JSON array format
     try {
       const secretKeyArray = JSON.parse(this.workerPrivateKey);
       if (!Array.isArray(secretKeyArray) || secretKeyArray.length !== 64) {
@@ -87,7 +102,7 @@ export class WorkerConfig {
       this._workerPrivateKeyBytes = new Uint8Array(secretKeyArray);
       return this._workerPrivateKeyBytes;
     } catch (err) {
-      throw new Error(`Invalid WORKER_PRIVATE_KEY format. Expected JSON array of 64 numbers from solana-keygen grind. Error: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(`Invalid WORKER_PRIVATE_KEY format. Expected JSON array of 64 numbers from solana-keygen or base58 string. Error: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 }

@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { isAddress } from 'gill';
 import { dirname, join } from 'path';
+import bs58 from 'bs58';
 
 const checkerDir = dirname(import.meta.dirname);
 const envPath = join(checkerDir, '.env');
@@ -98,6 +99,20 @@ export class CheckerConfig {
       return this._checkerPrivateKeyBytes;
     }
 
+    // Try base58 format first
+    if (!this.checkerPrivateKey.startsWith('[')) {
+      try {
+        this._checkerPrivateKeyBytes = bs58.decode(this.checkerPrivateKey);
+        if (this._checkerPrivateKeyBytes.length !== 64) {
+          throw new Error(`Invalid base58 key length: ${this._checkerPrivateKeyBytes.length}, expected 64`);
+        }
+        return this._checkerPrivateKeyBytes;
+      } catch (err) {
+        throw new Error(`Invalid CHECKER_PRIVATE_KEY base58 format. Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    // Try JSON array format
     try {
       const secretKeyArray = JSON.parse(this.checkerPrivateKey);
       if (!Array.isArray(secretKeyArray) || secretKeyArray.length !== 64) {
@@ -106,7 +121,7 @@ export class CheckerConfig {
       this._checkerPrivateKeyBytes = new Uint8Array(secretKeyArray);
       return this._checkerPrivateKeyBytes;
     } catch (err) {
-      throw new Error(`Invalid CHECKER_PRIVATE_KEY format. Expected JSON array of 64 numbers from solana-keygen grind. Error: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(`Invalid CHECKER_PRIVATE_KEY format. Expected JSON array of 64 numbers from solana-keygen or base58 string. Error: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

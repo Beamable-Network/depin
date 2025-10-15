@@ -52,7 +52,7 @@ docker run --env-file nodes/checker/.env beamable-checker
 |----------|-------------|---------|
 | `SOLANA_NETWORK` | Solana network (`mainnet` or `devnet`) | required |
 | `HELIUS_API_KEY` | Helius API key for Solana RPC access | required |
-| `CHECKER_PRIVATE_KEY` | JSON array of 64 numbers from solana-keygen grind | required |
+| `CHECKER_PRIVATE_KEY` | Full private key in base58 OR JSON array of 64 numbers from solana-keygen | required |
 | `CHECKER_LICENSES` | Comma-separated list of checker license addresses | optional |
 | `SKIP_BRAND` | Skip BRAND eligibility checks (NOT recommended for production) | `false` |
 | `LOG_LEVEL` | Logging level ("trace", "debug", "info", "warn", "error", "fatal") | `info` |
