@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-IMAGE_NAME="${1:-beamable-network/worker}"
+IMAGE_NAME="${1:-beamablenetwork/worker}"
 
 # Find the ts workspace root (look for pnpm-workspace.yaml)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
