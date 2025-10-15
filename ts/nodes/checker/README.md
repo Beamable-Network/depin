@@ -12,7 +12,7 @@ The Beamable Network Checker Node is a critical component of the Beamable.Networ
 4. **Proof Storage**: Workers store signed proofs from all checkers and make them publicly available
 5. **On-Chain Settlement**: When the period ends, workers submit metrics on-chain along with a bitmap of all checkers that sent proofs - this translates to checker activity rewards
 
-**Every license you run will generate network rewards**, which are visible and claimable through the [Beamable Network Portal](https://portal.beamable.network).
+**Every license you run will generate network rewards**, which are visible and claimable through the <u>Beamable Network Portal</u> (comming soon).
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ The Beamable Network Checker Node is a critical component of the Beamable.Networ
 
 - Every checker license you own can be run to generate rewards
 - Multiple licenses can run in a single checker instance
-- Licenses must be **activated** via the [Beamable Network Portal](https://portal.beamable.network)
+- Licenses must be **activated** via the <u>Beamable Network Portal</u> (comming soon)
 - License activation includes setting a delegate wallet (the wallet that will run the checker)
 - If you run the checker with the license owner wallet, licenses will automatically activate and set the delegate to self
 
@@ -259,7 +259,7 @@ docker inspect beamable-checker
 
 ### Claim Rewards
 
-View and claim your checker rewards at the [Beamable Network Portal](https://portal.beamable.network).
+View and claim your checker rewards at the <u>Beamable Network Portal</u> (comming soon).
 
 ## Troubleshooting
 
@@ -283,7 +283,7 @@ THROTTLE_GET_ACCOUNTS_LIMIT=20
 ### License Not Found
 
 If the checker can't find your license:
-1. Verify the license is activated in the [Beamable Network Portal](https://portal.beamable.network)
+1. Verify the license is activated in the <u>Beamable Network Portal</u> (comming soon)
 2. Ensure the license delegate is set to your checker wallet
 3. Check the license address is correct
 4. Wait a few minutes for on-chain state to propagate
@@ -291,6 +291,6 @@ If the checker can't find your license:
 ## Support
 
 For issues, questions, or feature requests:
-- Visit the [Beamable Network Portal](https://portal.beamable.network)
+- Visit the <u>Beamable Network Portal</u> (comming soon)
 - Join the community Discord
 - Open an issue on GitHub
