@@ -29,7 +29,7 @@ function createUmiClient(config: CheckerConfig): Umi & { rpc: DasApiInterface; }
         .use(mplBubblegum())
         .use(dasApi());
 
-    const signer = createSignerFromKeypair(umi, umi.eddsa.createKeypairFromSecretKey(config.checkerPrivateKeyBytes));
+    const signer = createSignerFromKeypair(umi, umi.eddsa.createKeypairFromSecretKey(new Uint8Array(config.checkerPrivateKeyBytes)));
 
     umi.use(signerIdentity(signer));
 

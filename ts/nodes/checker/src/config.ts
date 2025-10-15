@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
-import { isAddress } from 'gill';
+import { isAddress, ReadonlyUint8Array } from 'gill';
 import { dirname, join } from 'path';
-import bs58 from 'bs58';
+import { getBase58Codec } from 'gill';
 
 const checkerDir = dirname(import.meta.dirname);
 const envPath = join(checkerDir, '.env');
@@ -25,7 +25,7 @@ export class CheckerConfig {
     getAccount: ThrottleConfig;
   };
 
-  private _checkerPrivateKeyBytes?: Uint8Array;
+  private _checkerPrivateKeyBytes?: ReadonlyUint8Array;
 
   constructor() {
     const solanaNetwork = process.env.SOLANA_NETWORK;
@@ -94,7 +94,7 @@ export class CheckerConfig {
     return parsed;
   }
 
-  get checkerPrivateKeyBytes(): Uint8Array {
+  get checkerPrivateKeyBytes(): ReadonlyUint8Array {
     if (this._checkerPrivateKeyBytes) {
       return this._checkerPrivateKeyBytes;
     }
@@ -102,7 +102,7 @@ export class CheckerConfig {
     // Try base58 format first
     if (!this.checkerPrivateKey.startsWith('[')) {
       try {
-        this._checkerPrivateKeyBytes = bs58.decode(this.checkerPrivateKey);
+        this._checkerPrivateKeyBytes = getBase58Codec().encode(this.checkerPrivateKey);
         if (this._checkerPrivateKeyBytes.length !== 64) {
           throw new Error(`Invalid base58 key length: ${this._checkerPrivateKeyBytes.length}, expected 64`);
         }
