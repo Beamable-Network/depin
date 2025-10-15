@@ -189,6 +189,9 @@ importers:
       import-in-the-middle:
         specifier: ^1.14.4
         version: 1.14.4
+      lru-cache:
+        specifier: ^11.2.1
+        version: 11.2.1
       pino:
         specifier: ^9.5.0
         version: 9.10.0

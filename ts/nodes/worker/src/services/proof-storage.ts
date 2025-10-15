@@ -1,7 +1,8 @@
 import { GetObjectCommand, type GetObjectCommandOutput, HeadObjectCommand, ListObjectsV2Command, type ListObjectsV2CommandOutput, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { SignedPayload, WorkerProofPayloadSchema, type WorkerProofListResponse } from '@beamable-network/depin';
+import { SignedPayload, WorkerProofPayloadSchema, type WorkerProofListResponse, getCurrentPeriod } from '@beamable-network/depin';
 import { WorkerConfig } from '../config.js';
 import { getLogger } from '../logger.js';
+import { AsyncCache } from '../utils/async-cache.js';
 
 const logger = getLogger('ProofStorage');
 
@@ -9,8 +10,15 @@ export class ProofStorageService {
   private s3Client: S3Client;
   private bucketName: string;
   private bucketPath: string;
+  private cache: AsyncCache<number, WorkerProofListResponse>;
 
   constructor(config: WorkerConfig) {
+    // Cache last 10 periods with 30 min TTL
+    this.cache = new AsyncCache({
+      max: 10,
+      ttl: 30 * 60 * 1000, // 30 minutes in milliseconds
+      ttlAutopurge: true
+    });
     const s3Config: any = {
       region: config.s3Config.region,
     };
@@ -80,12 +88,29 @@ export class ProofStorageService {
         ContentType: 'application/json'
       }));
       logger.debug({ key, period, checkerLicenseIndex }, 'Proof stored');
+      
+      // Clear cache for this period since new proof was added
+      this.cache.delete(period);
     } catch (err) {
       throw new Error(`Failed to store proof to S3: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
   async listProofsByPeriod(period: number): Promise<WorkerProofListResponse> {
+    // Only cache last 10 periods
+    const currentPeriod = getCurrentPeriod();
+    const shouldCache = period >= currentPeriod - 9 && period <= currentPeriod;
+
+    if (!shouldCache) {
+      // Don't cache old periods, fetch directly
+      return this.fetchProofsFromS3(period);
+    }
+
+    // Use cache with automatic deduplication for concurrent requests
+    return this.cache.get(period, () => this.fetchProofsFromS3(period));
+  }
+
+  private async fetchProofsFromS3(period: number): Promise<WorkerProofListResponse> {
     const prefix = this.getKey(`${period}/`);
 
     const proofs: WorkerProofListResponse = [];

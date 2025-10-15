@@ -52,6 +52,7 @@
     "fastify": "^5.6.1",
     "gill": "^0.11.0",
     "import-in-the-middle": "^1.14.4",
+    "lru-cache": "^11.2.1",
     "pino": "^9.5.0",
     "pino-pretty": "^13.1.1",
     "undici": "^7.13.0"
