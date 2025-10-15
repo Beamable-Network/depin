@@ -149,7 +149,7 @@ docker-compose up -d
 | `SKIP_BRAND` | Skip BRAND eligibility checks (for testing only) | `false` |
 | `LOG_LEVEL` | Logging verbosity: `trace`, `debug`, `info`, `warn`, `error`, `fatal` | `info` |
 | `LOG_FORMAT` | Output format: `pretty` (colored, human-readable) or `json` (structured) | `pretty` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OpenTelemetry OTLP endpoint for metrics/traces | (disabled) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OpenTelemetry GRPC endpoint for logs and traces | (disabled) |
 
 ### Rate Limiting / Throttle Configuration
 
