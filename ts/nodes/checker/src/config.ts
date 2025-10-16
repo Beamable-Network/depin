@@ -31,7 +31,7 @@ export class CheckerConfig {
     const solanaNetwork = process.env.SOLANA_NETWORK;
     const heliusApiKey = process.env.HELIUS_API_KEY;
     const checkerPrivateKey = process.env.CHECKER_PRIVATE_KEY;
-    const checkerLicenses = process.env.CHECKER_LICENSES || '';
+    const checkerLicenses = process.env.CHECKER_LICENSES;
     const skipBrand = process.env.SKIP_BRAND;
 
     if (!solanaNetwork) {
@@ -50,11 +50,20 @@ export class CheckerConfig {
       throw new Error('CHECKER_PRIVATE_KEY environment variable is required');
     }
 
+    if (!checkerLicenses) {
+      throw new Error('CHECKER_LICENSES environment variable is required');
+    }
+
     this.solanaNetwork = solanaNetwork;
     this.checkerPrivateKey = checkerPrivateKey;
-    
+
     this.checkerLicenses = checkerLicenses.split(',').map(l => l.trim()).filter(l => l.length > 0);
-    if (this.checkerLicenses.length > 0 && this.checkerLicenses.some(l => !isAddress(l))) {
+
+    if (this.checkerLicenses.length === 0) {
+      throw new Error('CHECKER_LICENSES cannot be empty');
+    }
+
+    if (this.checkerLicenses.some(l => !isAddress(l))) {
       throw new Error('One or more CHECKER_LICENSES are not valid Solana addresses');
     }
 

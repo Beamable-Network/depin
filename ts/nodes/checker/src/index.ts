@@ -3,10 +3,7 @@ import { CheckerConfig } from './config.js';
 import { getLogger } from './logger.js';
 import { HealthServer } from './health-server.js';
 
-import { ActivateChecker, CheckerMetadataAccount, getCheckerTree } from '@beamable-network/depin';
-import { findLeafAssetIdPda } from '@metaplex-foundation/mpl-bubblegum';
-import { publicKey } from '@metaplex-foundation/umi';
-import { trace } from '@opentelemetry/api';
+import { ActivateChecker, CheckerMetadataAccount } from '@beamable-network/depin';
 import { address, Address, createKeyPairSignerFromBytes, KeyPairSigner } from 'gill';
 import packageJson from '../package.json' with { type: 'json' };
 import { createRpcClient, RpcClient } from './utils/rpc-client.js';
@@ -166,71 +163,6 @@ async function discoverLicensesFromConfig(
   return licenses;
 }
 
-async function discoverLicensesFromChain(
-  config: CheckerConfig,
-  signer: KeyPairSigner,
-  rpc: RpcClient
-): Promise<Array<{ index: number; address: Address }>> {
-  logger.info(
-    { checkerAddress: signer.address, network: config.solanaNetwork }, 
-    'No licenses configured, searching for activated licenses on-chain...'
-  );
-
-  const tracer = trace.getTracer('index');
-  const checkerAccounts = await tracer.startActiveSpan('find-my-licenses', async (span) => {
-    span.setAttribute('delegate', signer.address);
-    const accounts = await CheckerMetadataAccount.getActiveAccountsByDelegate(
-      rpc.getProgramAccounts,
-      signer.address
-    );
-    span.end();
-    return accounts;
-  });
-
-  if (!checkerAccounts.length) {
-    logger.fatal(
-      { checkerAddress: signer.address },
-      'No active checker licenses found where I\'m the delegate'
-    );
-    return [];
-  }
-
-  logger.info(
-    { 
-      foundLicenses: checkerAccounts.length, 
-      checkerAddress: signer.address
-    }, 
-    'Found active checker licenses on-chain'
-  );
-
-  const checkerTree = getCheckerTree(config.solanaNetwork);
-  const licenses: Array<{ index: number; address: Address }> = [];
-
-  logger.debug({ merkleTree: checkerTree }, 'Resolving license addresses from on-chain accounts');
-
-  for (const account of checkerAccounts) {
-    const licenseAddress = findLeafAssetIdPda(rpc.umi, {
-      leafIndex: account.data.licenseIndex,
-      merkleTree: publicKey(checkerTree)
-    });
-    const license = {
-      index: account.data.licenseIndex,
-      address: address(licenseAddress[0])
-    };
-    licenses.push(license);
-    logger.debug(
-      { licenseAddress: license.address, licenseIndex: license.index },
-      'Resolved license address'
-    );
-  }
-
-  logger.info(
-    { resolvedLicenses: licenses.length },
-    'Completed license discovery from chain'
-  );
-
-  return licenses;
-}
 
 // =============================================================================
 // Checker Node Management
@@ -332,17 +264,15 @@ async function main() {
 
   const rpc = createRpcClient(signer, config);
 
-  // Discover licenses (from config or on-chain)
-  const licenses = config.checkerLicenses.length > 0
-    ? await discoverLicensesFromConfig(config, signer, rpc)
-    : await discoverLicensesFromChain(config, signer, rpc);
+  // Validate and activate configured licenses
+  const licenses = await discoverLicensesFromConfig(config, signer, rpc);
 
   if (!licenses.length) {
     logger.fatal(
       { checkerAddress: signer.address, network: config.solanaNetwork },
-      'No valid checker licenses found, exiting'
+      'No valid checker licenses found after validation, exiting'
     );
-    process.exit(0);
+    process.exit(1);
   }
 
   logger.info(

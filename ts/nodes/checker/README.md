@@ -71,20 +71,6 @@ docker run -d \
   beamablenetwork/checker:latest
 ```
 
-### Auto-Discovery (No License Specified)
-
-If you don't specify `CHECKER_LICENSES`, the checker will automatically discover all licenses delegated to your checker wallet:
-
-```bash
-docker run -d \
-  --name beamable-checker \
-  --restart unless-stopped \
-  -e SOLANA_NETWORK=mainnet \
-  -e HELIUS_API_KEY=your_helius_api_key \
-  -e CHECKER_PRIVATE_KEY=your_base58_private_key \
-  beamablenetwork/checker:latest
-```
-
 ## Docker Compose
 
 Create a `docker-compose.yml` file:
@@ -99,8 +85,7 @@ services:
       SOLANA_NETWORK: mainnet
       HELIUS_API_KEY: ${HELIUS_API_KEY}
       CHECKER_PRIVATE_KEY: ${CHECKER_PRIVATE_KEY}
-      # Optional: Specify licenses or let auto-discovery find them
-      # CHECKER_LICENSES: ${CHECKER_LICENSES}
+      CHECKER_LICENSES: ${CHECKER_LICENSES}
 
       # Optional: Logging configuration
       LOG_LEVEL: info
@@ -122,7 +107,7 @@ Create a `.env` file with your secrets:
 ```bash
 HELIUS_API_KEY=your_helius_api_key_here
 CHECKER_PRIVATE_KEY=your_base58_private_key_here
-# CHECKER_LICENSES=license1,license2,license3
+CHECKER_LICENSES=license1,license2,license3
 ```
 
 Then run:
@@ -140,12 +125,12 @@ docker-compose up -d
 | `SOLANA_NETWORK` | Solana network to connect to | `mainnet` or `devnet` |
 | `HELIUS_API_KEY` | Your Helius API key for RPC access | `abc123...` |
 | `CHECKER_PRIVATE_KEY` | Checker wallet private key (base58 or JSON array format) | `5J7w8...` or `[1,2,3,...,64]` |
+| `CHECKER_LICENSES` | Comma-separated list of license addresses to run | `license1,license2,license3` |
 
 ### Optional Configuration
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `CHECKER_LICENSES` | Comma-separated list of license addresses to run. If empty, auto-discovers delegated licenses | (auto-discovery) |
 | `SKIP_BRAND` | Skip BRAND eligibility checks (for testing only) | `false` |
 | `LOG_LEVEL` | Logging verbosity: `trace`, `debug`, `info`, `warn`, `error`, `fatal` | `info` |
 | `LOG_FORMAT` | Output format: `pretty` (colored, human-readable) or `json` (structured) | `pretty` |
@@ -190,13 +175,7 @@ Run one checker instance with multiple licenses specified:
 CHECKER_LICENSES=license1,license2,license3
 ```
 
-### Option 2: Single Instance with Auto-Discovery
-Let the checker automatically discover all licenses delegated to your wallet:
-```bash
-# Don't set CHECKER_LICENSES
-```
-
-### Option 3: Multiple Separate Instances
+### Option 2: Multiple Separate Instances
 Run separate checker instances for each license (requires more resources):
 ```bash
 # Instance 1
