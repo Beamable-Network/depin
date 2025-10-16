@@ -1,10 +1,10 @@
-use global::process_activate_checker_licenses;
-use worker::process_submit_worker_proof;
-use worker::process_activate_worker;
-use worker::process_update_worker_uri;
-use init::process_init_network;
-use treasury::unlock::process_unlock;
-use checker::activate::process_activate_checker;
+use crate::instructions::{
+    checker::{self, activate::process_activate_checker},
+    global::process_activate_checker_licenses,
+    init::process_init_network,
+    treasury::unlock::process_unlock,
+    worker::{process_activate_worker, process_submit_worker_proof, process_update_worker_uri},
+};
 use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey};
 
 use crate::instruction::DepinInstruction;

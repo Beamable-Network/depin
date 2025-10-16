@@ -1,7 +1,9 @@
 use solana_program::{account_info::AccountInfo, declare_id, entrypoint, entrypoint::ProgramResult, pubkey::Pubkey };
 
-mod processor;
 mod instruction;
+pub mod instructions;
+pub mod shared;
+mod processor;
 
 declare_id!("BMBpXq5RaoRf5pGsQpuwjcozaLF2TuNCmYKKcFJjFiFS");
 
