@@ -37,7 +37,7 @@ export class S3AggregatedProofProvider implements AggregatedProofProvider {
         const checkers = new Uint8Array(64); // 512 bits
 
         // Create a set of submitted checker indexes for O(1) lookup
-        const submittedCheckerIndexes = new Set(proofsWithIndex.map(p => p.checkerIndex));
+        const submittedCheckerIndexes = new Set(proofsWithIndex.map(p => p.payload.checker.index));
 
         // Set bits for checkers that actually submitted proofs
         for (let i = 0; i < brandOutput.length; i++) {
@@ -49,8 +49,8 @@ export class S3AggregatedProofProvider implements AggregatedProofProvider {
             }
         }
 
-        const avgLatency = proofsWithIndex.reduce((s, p) => s + p.proof.payload.metrics.latency, 0) / proofsWithIndex.length;
-        const avgUptime = proofsWithIndex.reduce((s, p) => s + p.proof.payload.metrics.uptime, 0) / proofsWithIndex.length;
+        const avgLatency = proofsWithIndex.reduce((s, p) => s + p.payload.metrics.latency, 0) / proofsWithIndex.length;
+        const avgUptime = proofsWithIndex.reduce((s, p) => s + p.payload.metrics.uptime, 0) / proofsWithIndex.length;
 
         const latency = Math.round(avgLatency * 100_000);
         const uptime = Math.round(avgUptime * 100_000);

@@ -1,5 +1,6 @@
 import { Static, Type } from '@sinclair/typebox';
-import { SignatureWithPayloadSchema } from '../../signatures/signature.js';
+import { SignatureWithPayloadSchema } from '../signatures/signature.js';
+import { ProofPayloadSchema, SignedProoftSchema } from './proof.js';
 
 // Define schemas first
 export const OfferingTypeSchema = Type.Union([
@@ -172,28 +173,7 @@ export const WorkerErrorResponseSchema = Type.Object({
 
 export type WorkerErrorResponse = Static<typeof WorkerErrorResponseSchema>;
 
-export const WorkerProofPayloadSchema = Type.Object({
-  checker: Type.String({ description: 'Checker wallet address' }),
-  checkerLicense: Type.String({ description: 'Checker license NFT address' }),
-  checkerIp: Type.String({ description: 'Checker external IP address' }),
-  checkerVersion: Type.String({ description: 'Checker software version' }),
-  worker: Type.String({ description: 'Worker wallet address' }),
-  workerLicense: Type.String({ description: 'Worker license NFT address' }),
-  workerIp: Type.String({ description: 'Worker IP address' }),
-  workerVersion: Type.String({ description: 'Worker software version' }),
-  period: Type.Number({ description: 'Depin period' }),
-  timestamp: Type.Number({ description: 'Timestamp in epoch milliseconds' }),
-  metrics: Type.Object({
-    latency: Type.Number({ description: 'Response time in ms' }),
-    uptime: Type.Number({ description: 'Uptime in percentage' }),
-  })
-});
-
-export type WorkerProofPayload = Static<typeof WorkerProofPayloadSchema>;
-
-export const WorkerProofRequestSchema = SignatureWithPayloadSchema(WorkerProofPayloadSchema);
-
-export type WorkerProofRequest = Static<typeof WorkerProofRequestSchema>;
+export type WorkerProofPayload = Static<typeof ProofPayloadSchema>;
 
 export const WorkerProofReceiptPayloadSchema = Type.Object({
   type: Type.Literal('proof_receipt'),
@@ -211,11 +191,8 @@ export const WorkerProofResponseSchema = Type.Object({
 
 export type WorkerProofResponse = Static<typeof WorkerProofResponseSchema>;
 
-// List proofs response for a given period
-export const WorkerProofWithIndexSchema = Type.Object({
-  checkerIndex: Type.Number(),
-  proof: SignatureWithPayloadSchema(WorkerProofPayloadSchema)
-});
-
-export const WorkerProofListResponseSchema = Type.Array(WorkerProofWithIndexSchema);
+export const WorkerProofListResponseSchema = Type.Array(SignedProoftSchema);
 export type WorkerProofListResponse = Static<typeof WorkerProofListResponseSchema>;
+
+export const WorkerProofRequestSchema = SignedProoftSchema;
+export type WorkerProofRequest = Static<typeof WorkerProofRequestSchema>;

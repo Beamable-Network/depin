@@ -129,7 +129,7 @@ export class WorkerDiscoveryService {
     }
   }
 
-  private async tryFetchDiscoveryUri(uri: string, period: number, signal?: AbortSignal): Promise<WorkerDiscoveryDocument | null> {
+  public async tryFetchDiscoveryUri(uri: string, period: number, signal?: AbortSignal): Promise<WorkerDiscoveryDocument | null> {
     if (!uri?.length) return null;
     try {
       const res = await request(uri, {

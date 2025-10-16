@@ -1,12 +1,12 @@
-import { BMBStateAccount, CheckerLicenseMetadataAccount, CheckerMetadataAccount, getCurrentPeriod, SignedPayload, timestampToPeriod, WorkerErrorResponseSchema, WorkerProofListResponseSchema, WorkerProofPayloadSchema, WorkerProofReceiptPayloadSchema, WorkerProofRequest, WorkerProofRequestSchema, WorkerProofResponse, WorkerProofResponseSchema } from '@beamable-network/depin';
+import { BMBStateAccount, CheckerLicenseMetadataAccount, CheckerMetadataAccount, getCurrentPeriod, ProofPayloadSchema, SignedPayload, timestampToPeriod, WorkerErrorResponseSchema, WorkerProofListResponseSchema, WorkerProofReceiptPayloadSchema, WorkerProofRequest, WorkerProofRequestSchema, WorkerProofResponse, WorkerProofResponseSchema } from '@beamable-network/depin';
 import { DasApiAsset, DasApiError } from '@metaplex-foundation/digital-asset-standard-api';
 import { publicKey } from '@metaplex-foundation/umi';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { address, Address, isAddress, isSome } from 'gill';
 import { ProofConflictError, ProofNotModifiedError } from '../services/proof-storage.js';
-import { isPrivateIP, resolveHostnameToIps } from '../utils/network.js';
-import { WorkerNode } from '../worker.js';
+import { isPrivateIP } from '../utils/network.js';
 import { withRetry } from '../utils/retry.js';
+import { WorkerNode } from '../worker.js';
 
 export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker: WorkerNode }) {
     fastify.get('/proofs/:period', {
@@ -53,7 +53,7 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
 
         const currentPeriod = getCurrentPeriod();
 
-        const proof = new SignedPayload<typeof WorkerProofPayloadSchema>(request.body);
+        const proof = new SignedPayload<typeof ProofPayloadSchema>(request.body);
         const log = request.log;
         log.debug({ checker: proof.payload.checker, period: proof.payload.period }, 'Proof submission received');
 
@@ -79,7 +79,7 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
         }
 
         // Verify checker address matches the signer
-        if (proof.payload.checker != proof.publicKey) {
+        if (proof.payload.checker.address != proof.publicKey) {
             log.warn({ checker: proof.payload.checker, publicKey: proof.publicKey }, 'Checker address mismatch');
             return reply.code(400).send({
                 error: 'checker_address_mismatch',
@@ -89,7 +89,7 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
         }
 
         // Verify checker address is a valid Solana address
-        if (!isAddress(proof.payload.checker)) {
+        if (!isAddress(proof.payload.checker.address)) {
             log.warn({ checker: proof.payload.checker }, 'Invalid checker address');
             return reply.code(400).send({
                 error: 'invalid_checker_address',
@@ -129,8 +129,8 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
         }
 
         // Verify checker license address is a valid Solana address
-        if (!isAddress(proof.payload.checkerLicense)) {
-            log.warn({ checkerLicense: proof.payload.checkerLicense }, 'Invalid checker license address');
+        if (!isAddress(proof.payload.checker.license)) {
+            log.warn({ checkerLicense: proof.payload.checker.license }, 'Invalid checker license address');
             return reply.code(400).send({
                 error: 'invalid_checker_license',
                 message: 'The checker license field must be a valid Solana wallet address',
@@ -139,8 +139,8 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
         }
 
         // Verify worker license address is a valid Solana address
-        if (!isAddress(proof.payload.workerLicense)) {
-            log.warn({ workerLicense: proof.payload.workerLicense }, 'Invalid worker license address');
+        if (!isAddress(proof.payload.worker.license)) {
+            log.warn({ workerLicense: proof.payload.worker.license }, 'Invalid worker license address');
             return reply.code(400).send({
                 error: 'invalid_worker_license',
                 message: 'The worker license field must be a valid Solana wallet address',
@@ -150,9 +150,9 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
 
         // Verify worker license matches the worker's actual license
         const workerLicense = worker.getLicense();
-        if (proof.payload.workerLicense !== workerLicense) {
+        if (proof.payload.worker.license !== workerLicense) {
             log.warn({
-                workerLicenseInProof: proof.payload.workerLicense,
+                workerLicenseInProof: proof.payload.worker.license,
                 actualWorkerLicense: workerLicense
             }, 'Worker license mismatch');
             return reply.code(400).send({
@@ -180,24 +180,14 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
                 timestamp: Date.now()
             });
         }
-        if (!requestSourceIp || proof.payload.checkerIp !== requestSourceIp) {
+        if (!requestSourceIp || proof.payload.checker.ip !== requestSourceIp) {
             log.warn({
-                checkerIpInProof: proof.payload.checkerIp,
+                checkerIpInProof: proof.payload.checker.ip,
                 requestSourceIp: requestSourceIp
             }, 'Checker IP mismatch');
             return reply.code(400).send({
                 error: 'checker_ip_mismatch',
                 message: 'The checker IP in the proof does not match the request source IP',
-                timestamp: Date.now()
-            });
-        }
-        
-        // Verify worker version in proof
-        if (proof.payload.workerVersion !== worker.getVersion()) {
-            log.warn({ workerVersionInProof: proof.payload.workerVersion, actualWorkerVersion: worker.getVersion() }, 'Worker version mismatch');
-            return reply.code(400).send({
-                error: 'worker_version_mismatch',
-                message: 'The worker version in the proof does not match the worker\'s actual version',
                 timestamp: Date.now()
             });
         }
@@ -213,7 +203,7 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
         }
 
         // Validate checker license and delegation
-        const licenseValidationError = await validateCheckerLicense(worker, proof.payload.checkerLicense, proof.payload.checker);
+        const licenseValidationError = await validateCheckerLicense(worker, proof.payload.checker.license, proof.payload.checker.address);
         if (licenseValidationError) {
             if (licenseValidationError.error !== 'checker_suspended' && licenseValidationError.error !== 'checker_license_suspended') {
                 log.warn({ error: licenseValidationError.error }, 'Checker license validation failed');
@@ -230,7 +220,7 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
         // Fetch checker asset to get the index
         let checkerLicenseIndex = 0;
         try {
-            const licenseAsset = await worker.getUmi().rpc.getAsset(publicKey(proof.payload.checkerLicense));
+            const licenseAsset = await worker.getUmi().rpc.getAsset(publicKey(proof.payload.checker.license));
 
             // Verify the checker license is activated
             const bmbStateResult = await BMBStateAccount.readFromStateCached(async (address) => {
@@ -276,7 +266,7 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
 
         const signedReceipt = await SignedPayload.create<typeof WorkerProofReceiptPayloadSchema>(
             {
-                checker: proof.payload.checker,
+                checker: proof.payload.checker.address,
                 timestamp: Date.now(),
                 worker: worker.getAddress(),
                 period: proof.payload.period,

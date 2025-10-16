@@ -1,6 +1,6 @@
 import { MerkleTree } from 'merkletreejs';
 import { createHash } from 'crypto';
-import { WorkerProofListResponse } from '../nodes/types/worker.js';
+import { WorkerProofListResponse } from '../nodes/worker.js';
 
 /**
  * Computes a deterministic 32-byte Merkle root from a list of worker proofs.
@@ -21,7 +21,7 @@ export function computeProofMerkleRoot(proofs: WorkerProofListResponse): Uint8Ar
     }
 
     // Sort proofs by checkerIndex for deterministic ordering
-    const sortedProofs = proofs.toSorted((a, b) => a.checkerIndex - b.checkerIndex);
+    const sortedProofs = proofs.toSorted((a, b) => a.payload.checker.index - b.payload.checker.index);
 
     // Create leaf hashes from proof data
     const leaves = sortedProofs.map(proofWithIndex => {

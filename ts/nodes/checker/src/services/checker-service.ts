@@ -25,7 +25,8 @@ export class CheckerService {
 
   private isRunning = false;
   private currentPeriod = 0;
-  private readonly discoveryService: WorkerDiscoveryService;
+  
+  public readonly discoveryService: WorkerDiscoveryService;
 
   constructor(private readonly checker: CheckerNode) {
     this.discoveryService = new WorkerDiscoveryService(this.checker);
@@ -60,7 +61,7 @@ export class CheckerService {
     logger.info('Starting CheckerService');
 
     this.runLoop();
-  }
+  }  
 
   async runLoop(): Promise<void> {
     while (this.isRunning) {

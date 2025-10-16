@@ -1,5 +1,5 @@
 import { GetObjectCommand, type GetObjectCommandOutput, HeadObjectCommand, ListObjectsV2Command, type ListObjectsV2CommandOutput, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { SignedPayload, WorkerProofPayloadSchema, type WorkerProofListResponse, getCurrentPeriod } from '@beamable-network/depin';
+import { SignedPayload, ProofPayloadSchema, type WorkerProofListResponse, getCurrentPeriod } from '@beamable-network/depin';
 import { WorkerConfig } from '../config.js';
 import { getLogger } from '../logger.js';
 import { AsyncCache } from '../utils/async-cache.js';
@@ -42,7 +42,7 @@ export class ProofStorageService {
     return path;
   }
 
-  async storeProof(checkerLicenseIndex: number, proof: SignedPayload<typeof WorkerProofPayloadSchema>): Promise<void> {
+  async storeProof(checkerLicenseIndex: number, proof: SignedPayload<typeof ProofPayloadSchema>): Promise<void> {
     const period = proof.payload.period;
     const key = this.getKey(`${period}/${checkerLicenseIndex}`);
     const proofJson = JSON.stringify(proof);
@@ -145,10 +145,7 @@ export class ProofStorageService {
           const json = await streamToString(body);
           const parsed = JSON.parse(json);
 
-          proofs.push({
-            checkerIndex,
-            proof: parsed as SignedPayload<typeof WorkerProofPayloadSchema>
-          });
+          proofs.push(parsed as SignedPayload<typeof ProofPayloadSchema>);
         }
       } while (continuationToken);
       logger.debug({ period, count: proofs.length, ms: Date.now() - start }, 'Listed proofs by period');

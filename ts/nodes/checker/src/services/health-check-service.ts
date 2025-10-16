@@ -1,4 +1,4 @@
-import { ProgramAccount, SignedPayload, WorkerDiscoveryDocument, WorkerHealthCheckRequestPayloadSchema, WorkerMetadataAccount, WorkerProofPayloadSchema, sleep } from '@beamable-network/depin';
+import { ProgramAccount, SignedPayload, WorkerDiscoveryDocument, WorkerHealthCheckRequestPayloadSchema, WorkerMetadataAccount, ProofPayloadSchema, sleep } from '@beamable-network/depin';
 import pLimit from 'p-limit';
 import { Agent, request } from 'undici';
 import { CheckerNode } from '../checker.js';
@@ -370,16 +370,20 @@ class HealthCheckSession {
 
     try {
       // Construct signed proof
-      const signedProof = await SignedPayload.create<typeof WorkerProofPayloadSchema>(
+      const signedProof = await SignedPayload.create<typeof ProofPayloadSchema>(
         {
-          checker: this.checker.getAddress(),
-          checkerLicense: this.checker.license.address,
-          checkerIp: checkerIp,
-          checkerVersion: this.checker.getVersion(),
-          worker: this.target.discovery.worker.address,
-          workerLicense: this.target.discovery.worker.license,
-          workerIp: workerIp,
-          workerVersion: this.target.discovery.worker.version,
+          checker: {
+            index: this.checker.license.index,
+            license: this.checker.license.address,
+            address: this.checker.getAddress(),
+            version: this.checker.getVersion(),
+            ip: checkerIp,
+          },
+          worker: {
+            license: this.target.workerAccount.data.license,
+            address: this.target.discovery.worker.address,
+            ip: workerIp
+          },          
           period: this.target.period,
           timestamp: Math.floor(Date.now()),
           metrics: {
