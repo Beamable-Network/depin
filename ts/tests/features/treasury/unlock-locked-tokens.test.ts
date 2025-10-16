@@ -79,7 +79,8 @@ describe('Unlock locked tokens', async () => {
 
     it('should unlock tokens with penalty when unlocked early', async () => {
         const lockedAmount = 10_000n;
-        const lockPeriod = lite.getPeriod() - 1;
+        lite.goToPeriod(100); // Set period to 100 for consistent test behavior
+        const lockPeriod = lite.getPeriod();
         const lockDuration = 365; // 365 days lock period
         const unlockPeriod = 100 + lockDuration; // Will unlock at period 465
 
