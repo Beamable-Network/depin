@@ -214,6 +214,15 @@ services:
 
 Check available versions on [Docker Hub](https://hub.docker.com/r/beamablenetwork/checker).
 
+### Clock Synchronization
+
+**Your checker must have a properly synced system clock** because network proofs depend on correct timestamps (UTC). If your system clock is off-sync, workers may reject your checker's proofs, resulting in lost rewards.
+
+**Recommendations:**
+- Ensure your system is running NTP (Network Time Protocol) for automatic clock synchronization
+- For Docker containers, the host system's clock is used - make sure your host system clock is synced
+- On Linux systems, you can check NTP status with: `timedatectl status`
+
 ## Monitoring Your Checker
 
 ### View Logs

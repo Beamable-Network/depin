@@ -14,7 +14,8 @@ import {
     validateProofSignature,
     validateTimestamp,
     validateWorkerLicenseAddress,
-    validateWorkerLicenseMatch
+    validateWorkerLicenseMatch,
+    validateWorkerVersionMatch
 } from './proof.validation.js';
 
 export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker: WorkerNode }) {
@@ -75,6 +76,7 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
             validateCheckerLicenseAddress(proof.payload.checker.license) ||
             validateWorkerLicenseAddress(proof.payload.worker.license) ||
             validateWorkerLicenseMatch(proof, worker.getLicense()) ||
+            validateWorkerVersionMatch(proof, worker.getVersion()) ||
             validateCheckerIP(proof, request.ip || request.socket.remoteAddress) ||
             validateProofPeriod(proof.payload.period, currentPeriod) ||
             await validateCheckerLicense(worker, proof.payload.checker.license, proof.payload.checker.address);

@@ -125,6 +125,16 @@ export function validateWorkerLicenseMatch(proof: SignedPayload<typeof ProofPayl
     return null;
 }
 
+export function validateWorkerVersionMatch(proof: SignedPayload<typeof ProofPayloadSchema>, workerVersion: string): ValidationError | null {
+    if (proof.payload.worker.version !== workerVersion) {
+        return createErrorResponse(
+            'worker_version_mismatch',
+            'The worker version in the proof does not match the worker\'s actual version'
+        );
+    }
+    return null;
+}
+
 export function validateCheckerIP(proof: SignedPayload<typeof ProofPayloadSchema>, requestSourceIp?: string): ValidationError | null {
     if (!requestSourceIp) {
         return createErrorResponse(

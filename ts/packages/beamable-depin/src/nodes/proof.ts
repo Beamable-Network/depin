@@ -15,6 +15,7 @@ export const ProofPayloadSchema = Type.Object({
     address: Type.String({ description: 'Worker wallet address' }),
     license: Type.String({ description: 'Worker license NFT address' }),
     ip: Type.String({ description: 'Worker IP address' }),
+    version: Type.String({ description: 'Worker software version' }),
   }),
   metrics: Type.Object({
     latency: Type.Number({ description: 'Response time in ms' }),

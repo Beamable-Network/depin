@@ -360,6 +360,22 @@ class HealthCheckSession {
       return;
     }
 
+    const freshWorkerDoc = await withRetry(
+      async () => this.checker.checkerService.discoveryService.tryFetchDiscoveryUri(this.target.workerAccount.data.discoveryUri, this.target.period),
+      {
+        maxRetries: 5,
+        baseDelayMs: 1000,
+        exponentialBackoff: true
+      }
+    );
+
+    if (!freshWorkerDoc) {
+      logger.error({ ...this.logContext }, 'Failed to fetch fresh worker discovery document; skipping proof');
+      return;
+    }
+
+    this.target.discovery = freshWorkerDoc;
+
     logger.debug({
       ...this.logContext,
       ...metricsSnapshot,
@@ -382,8 +398,9 @@ class HealthCheckSession {
           worker: {
             license: this.target.workerAccount.data.license,
             address: this.target.discovery.worker.address,
+            version: this.target.discovery.worker.version,
             ip: workerIp
-          },          
+          },
           period: this.target.period,
           timestamp: Math.floor(Date.now()),
           metrics: {
