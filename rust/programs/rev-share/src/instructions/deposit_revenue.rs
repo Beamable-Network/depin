@@ -59,11 +59,8 @@ pub fn process_deposit_revenue<'a>(
 
     #[cfg(feature = "test")]
     {
-        // Test mode: only admin can deposit (for mocking revenue)
-        if *depositor_account.key != BMB_ADMIN {
-            msg!("Error: Only admin can deposit revenue in test mode");
-            return Err(ProgramError::InvalidAccountOwner);
-        }
+        // Test mode: anyone can deposit (for mocking revenue)
+        msg!("Test mode: allowing deposit from any account");
     }
 
     if !depositor_account.is_signer {

@@ -1,4 +1,3 @@
-use borsh::BorshDeserialize;
 use solana_program::{
     account_info::AccountInfo, entrypoint::ProgramResult, msg, program_error::ProgramError,
     pubkey::Pubkey,
@@ -14,7 +13,7 @@ pub fn process<'a>(
     accounts: &'a [AccountInfo<'a>],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    let instruction = RevShareInstruction::try_from_slice(instruction_data)
+    let instruction = RevShareInstruction::unpack(instruction_data)
         .map_err(|_| {
             msg!("Error: Failed to deserialize instruction");
             ProgramError::InvalidInstructionData

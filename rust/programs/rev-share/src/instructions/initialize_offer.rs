@@ -137,24 +137,35 @@ pub fn process_initialize_offer<'a>(
             &[&[crate::shared::REVSHARE_SEED, crate::shared::STATE_SEED, &[global_state_bump]]],
         )?;
 
-        // Initialize global state
-        let global_state = GlobalState::new();
+        // Initialize global state with first offer ID
+        let mut global_state = GlobalState::new();
+        global_state.last_offer_id = input.offer_id;
         let mut global_state_data = global_state_account.try_borrow_mut_data()?;
         write_account_data(&mut global_state_data, GlobalState::account_type(), &global_state)?;
 
         // Validate mint accounts
-        if *bmb_mint_account.key != BMB_MINT {
-            msg!("Error: Invalid BMB mint");
-            return Err(ProgramError::InvalidArgument);
-        }
+        #[cfg(not(feature = "test"))]
+        {
+            if *bmb_mint_account.key != BMB_MINT {
+                msg!("Error: Invalid BMB mint");
+                return Err(ProgramError::InvalidArgument);
+            }
 
-        if *usdc_mint_account.key != USDC_MINT {
-            msg!("Error: Invalid USDC mint");
-            return Err(ProgramError::InvalidArgument);
+            if *usdc_mint_account.key != USDC_MINT {
+                msg!("Error: Invalid USDC mint");
+                return Err(ProgramError::InvalidArgument);
+            }
         }
 
         // Validate treasury ATAs
+        #[cfg(feature = "test")]
+        let expected_bmb_treasury = get_associated_token_address(authority_account.key, bmb_mint_account.key);
+        #[cfg(not(feature = "test"))]
         let expected_bmb_treasury = get_associated_token_address(authority_account.key, &BMB_MINT);
+
+        #[cfg(feature = "test")]
+        let expected_usdc_treasury = get_associated_token_address(authority_account.key, usdc_mint_account.key);
+        #[cfg(not(feature = "test"))]
         let expected_usdc_treasury = get_associated_token_address(authority_account.key, &USDC_MINT);
 
         if *bmb_treasury_account.key != expected_bmb_treasury {
@@ -170,11 +181,16 @@ pub fn process_initialize_offer<'a>(
         // Create BMB treasury ATA if needed
         if bmb_treasury_account.data_is_empty() {
             msg!("Creating BMB treasury ATA");
+            #[cfg(feature = "test")]
+            let bmb_mint_for_ata = bmb_mint_account.key;
+            #[cfg(not(feature = "test"))]
+            let bmb_mint_for_ata = &BMB_MINT;
+
             invoke_signed(
                 &spl_associated_token_account::instruction::create_associated_token_account(
                     payer_account.key,
                     authority_account.key,
-                    &BMB_MINT,
+                    bmb_mint_for_ata,
                     token_program_account.key,
                 ),
                 &[
@@ -193,11 +209,16 @@ pub fn process_initialize_offer<'a>(
         // Create USDC treasury ATA if needed
         if usdc_treasury_account.data_is_empty() {
             msg!("Creating USDC treasury ATA");
+            #[cfg(feature = "test")]
+            let usdc_mint_for_ata = usdc_mint_account.key;
+            #[cfg(not(feature = "test"))]
+            let usdc_mint_for_ata = &USDC_MINT;
+
             invoke_signed(
                 &spl_associated_token_account::instruction::create_associated_token_account(
                     payer_account.key,
                     authority_account.key,
-                    &USDC_MINT,
+                    usdc_mint_for_ata,
                     token_program_account.key,
                 ),
                 &[

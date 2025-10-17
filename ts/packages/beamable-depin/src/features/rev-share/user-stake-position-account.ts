@@ -76,9 +76,11 @@ export class UserStakePositionAccount {
     }
 
     public static async findUserStakePositionPDA(user: Address): Promise<ProgramDerivedAddress> {
+        // Convert address from base58 string to bytes
+        const userBytes = getBase58Codec().encode(user);
         const pda = await getProgramDerivedAddress({
             programAddress: REV_SHARE_PROGRAM,
-            seeds: [REVSHARE_SEED, USER_SEED, user]
+            seeds: [REVSHARE_SEED, USER_SEED, userBytes]
         });
         return pda;
     }

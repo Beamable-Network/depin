@@ -18,7 +18,6 @@ import {
     Unstake,
 } from '@beamable-network/depin';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
-import { listenerCount } from 'process';
 
 describe('Rev-Share Basic Flow', async () => {
     let lite: LiteDepin;
@@ -237,8 +236,10 @@ describe('Rev-Share Basic Flow', async () => {
         expect(bobReward).toBeGreaterThan(3_300n); // At least 33%
         expect(bobReward).toBeLessThan(3_400n); // At most 34%
 
-        // Total rewards should equal deposited amount
-        expect(aliceReward + bobReward).toBe(revenueAmount);
+        // Total rewards should be very close to deposited amount (allowing for rounding dust)
+        const totalRewards = aliceReward + bobReward;
+        expect(totalRewards).toBeGreaterThanOrEqual(revenueAmount - 5n); // Allow up to 5 tokens dust
+        expect(totalRewards).toBeLessThanOrEqual(revenueAmount);
     });
 
     it('should allow adding more stake', async () => {

@@ -5,6 +5,7 @@ use solana_program::{
     entrypoint::ProgramResult,
     msg,
     program::invoke,
+    program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
     rent::Rent,
@@ -60,7 +61,7 @@ pub fn process_stake<'a>(
     }
 
     // Validate PDAs
-    let (expected_user_position, _user_position_bump) =
+    let (expected_user_position, user_position_bump) =
         UserStakePosition::find_pda(program_id, user_account.key);
     if *user_position_account.key != expected_user_position {
         msg!("Error: Invalid user position account");
@@ -147,7 +148,7 @@ pub fn process_stake<'a>(
     let user_position_space = user_position.len();
     let user_position_rent = rent.minimum_balance(user_position_space);
 
-    invoke(
+    invoke_signed(
         &system_instruction::create_account(
             payer_account.key,
             user_position_account.key,
@@ -160,6 +161,7 @@ pub fn process_stake<'a>(
             user_position_account.clone(),
             system_program_account.clone(),
         ],
+        &[&[crate::shared::REVSHARE_SEED, crate::shared::USER_SEED, user_account.key.as_ref(), &[user_position_bump]]],
     )?;
 
     // Initialize user position data
