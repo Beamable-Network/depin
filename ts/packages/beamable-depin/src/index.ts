@@ -28,6 +28,7 @@ export * from './features/checker/checker-metadata-account.js';
 export * from './features/worker/worker-proof-account.js';
 export * from './features/checker/checker-license-metadata-account.js';
 export * from './features/treasury/unlock.js';
+export * from './features/rev-share/index.js';
 
 export * from './utils/brand.js';
 export * from './utils/proof.js';
