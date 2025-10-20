@@ -45,29 +45,35 @@ export class ProofSubmitService {
       let period = getCurrentPeriod();
 
       if (period !== this.currentPeriod) {
-        // Period has changed
+        // Period has changed - submit proofs for the previous period
         this.currentPeriod = period;
+        const periodToSubmit = period - 1;
 
-        if (getRemainingTimeInPeriodMs(period) > ProofSubmitService.PERIOD_END_THRESHOLD_MS) { // If more than 23h50m left in the period
-          // Sleep for a random time between MIN_DELAY_MS minute and MAX_DELAY_MS
-          const randomSleepTimeMs = ProofSubmitService.MIN_DELAY_MS + Math.floor(Math.random() * (ProofSubmitService.MAX_DELAY_MS - ProofSubmitService.MIN_DELAY_MS));
-          logger.info({ period, randomSleepTimeMs }, 'Sleeping for a while');
-          await this.sleep(randomSleepTimeMs);
-        }
-        while (true) {
-          try {
-            await this.runPeriodTasks(period);
-            logger.info({ period }, 'Completed worker tasks for period');
-            break;
+        if (periodToSubmit < 0) {
+          logger.warn({ period, periodToSubmit }, 'Skipping submission for negative period');
+        } else {
+          if (getRemainingTimeInPeriodMs(period) > ProofSubmitService.PERIOD_END_THRESHOLD_MS) { // If more than 23h50m left in the period
+            // Sleep for a random time between MIN_DELAY_MS minute and MAX_DELAY_MS
+            const randomSleepTimeMs = ProofSubmitService.MIN_DELAY_MS + Math.floor(Math.random() * (ProofSubmitService.MAX_DELAY_MS - ProofSubmitService.MIN_DELAY_MS));
+            logger.info({ period, periodToSubmit, randomSleepTimeMs }, 'Sleeping for a while before submitting previous period');
+            await this.sleep(randomSleepTimeMs);
           }
-          catch (err) {
-            if (period !== getCurrentPeriod()) {
-              logger.fatal({ err, period }, 'Period changed, exiting retry loop');
+          while (true) {
+            try {
+              await this.runPeriodTasks(periodToSubmit);
+              logger.info({ period: periodToSubmit }, 'Completed worker tasks for period');
               break;
             }
-            else {
-              logger.error({ err, period }, 'Period tasks failed, will retry');
-              await this.sleep(ProofSubmitService.ERROR_RETRY_DELAY_MS);
+            catch (err) {
+              // Exit retry loop if we've moved to a new period
+              if (period !== getCurrentPeriod()) {
+                logger.fatal({ err, period: periodToSubmit, currentPeriod: getCurrentPeriod() }, 'Period changed, exiting retry loop');
+                break;
+              }
+              else {
+                logger.error({ err, period: periodToSubmit }, 'Period tasks failed, will retry');
+                await this.sleep(ProofSubmitService.ERROR_RETRY_DELAY_MS);
+              }
             }
           }
         }

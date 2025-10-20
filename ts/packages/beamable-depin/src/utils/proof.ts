@@ -29,8 +29,8 @@ export function computeProofMerkleRoot(proofs: WorkerProofListResponse): Uint8Ar
         return createHash('sha256').update(leafJson, 'utf8').digest();
     });
 
-    // Build Merkle tree
-    const tree = new MerkleTree(leaves, createHash('sha256'), {
+    // Build Merkle tree with SHA-256 hash function
+    const tree = new MerkleTree(leaves, (data: Buffer) => createHash('sha256').update(data).digest(), {
         sortPairs: true, // Ensure deterministic ordering of pairs
         duplicateOdd: true // Handle odd number of leaves consistently
     });

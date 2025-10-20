@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-    "programs/depin"
+    "programs/depin",
+    "programs/rev-share"
 ]
