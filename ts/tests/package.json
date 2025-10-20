@@ -6,7 +6,7 @@
   "scripts": {
     "test": "vitest run",
     "build-and-test": "pnpm build-rust && pnpm build-beamable-depin && pnpm test",
-    "build-rust": "cargo build-sbf --manifest-path=./../../rust/programs/depin/Cargo.toml --features test --sbf-out-dir=./../../rust/target/test",
+    "build-rust": "cargo build-sbf --manifest-path=./../../rust/Cargo.toml --features test --sbf-out-dir=./../../rust/target/test",
     "build-beamable-depin": "pnpm --dir ../packages/beamable-depin run build"
   },
   "keywords": [],
