@@ -25,7 +25,7 @@
       }
     },
     {
-      "label": "BUILD RUST depin TEST",
+      "label": "BUILD RUST TEST",
       "type": "shell",
       "command": "cargo build-sbf --features test --sbf-out-dir=./target/test",
       "options": {
@@ -38,7 +38,7 @@
       }
     },
     {
-      "label": "BUILD RUST depin",
+      "label": "BUILD RUST",
       "type": "shell",
       "command": "cargo build-sbf",
       "options": {
