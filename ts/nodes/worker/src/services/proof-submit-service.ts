@@ -1,5 +1,6 @@
 import { findWorkerProofPDA, getCurrentPeriod, getRemainingTimeInPeriodMs, SubmitWorkerProof } from '@beamable-network/depin';
 import { publicKey } from '@metaplex-foundation/umi';
+import { trace } from '@opentelemetry/api';
 import { SolanaError } from 'gill';
 import { getLogger } from '../logger.js';
 import { withRetry } from '../utils/retry.js';
@@ -8,6 +9,10 @@ import { AggregatedProof, AggregatedProofProvider, S3AggregatedProofProvider } f
 const { getAssetWithProof } = await import('@metaplex-foundation/mpl-bubblegum');
 
 const logger = getLogger('ProofSubmitService');
+
+function getTracer() {
+  return trace.getTracer('ProofSubmitService');
+}
 
 export class ProofSubmitService {
   private static readonly MIN_DELAY_MS = 60_000; // 1 minute
@@ -94,76 +99,82 @@ export class ProofSubmitService {
   }
 
   private async runPeriodTasks(period: number): Promise<void> {
-    await withRetry(async () => {
-      if (!this.isRunning) {
-        throw new Error('Service is not running');
-      }
+    await getTracer().startActiveSpan('ProofSubmitService.runPeriodTasks', async (span) => {
+      span.setAttribute('period', period);
 
-      const proof = await this.proofProvider.getAggregatedProof(period);
-      if (!proof) {
-        logger.debug({ period }, `No proof data available for period ${period}`);
-        return;
-      }
-
-      await this.submitProof(period, proof);
-    }, {
-      maxRetries: 5,
-      baseDelayMs: 10_000, // 10 seconds
-      exponentialBackoff: true,
-      shouldRetry: (error: any) => {
-        // Don't retry if service is stopped
-        if (error instanceof Error && error.message === 'Service is not running') {
-          return false;
+      await withRetry(async () => {
+        if (!this.isRunning) {
+          throw new Error('Service is not running');
         }
-        return true;
-      }
-    });
 
+        const proof = await this.proofProvider.getAggregatedProof(period);
+        if (!proof) {
+          logger.debug({ period }, `No proof data available for period ${period}`);
+          return;
+        }
+
+        await this.submitProof(period, proof);
+      }, {
+        maxRetries: 5,
+        baseDelayMs: 10_000, // 10 seconds
+        exponentialBackoff: true,
+        shouldRetry: (error: any) => {
+          // Don't retry if service is stopped
+          if (error instanceof Error && error.message === 'Service is not running') {
+            return false;
+          }
+          return true;
+        }
+      });
+    });
   }
 
   private async submitProof(period: number, proof: AggregatedProof): Promise<void> {
-    logger.info({ period }, 'Submitting proof');
+    const tracer = getTracer();
+    await tracer.startActiveSpan('ProofSubmitService.submitProof', async (span) => {
+      span.setAttribute('period', period);
+      logger.info({ period }, 'Submitting proof');
 
-    const licenseAsset = await getAssetWithProof(this.worker.getUmi(), publicKey(this.worker.getLicense()), { truncateCanopy: true });
+      const licenseAsset = await getAssetWithProof(this.worker.getUmi(), publicKey(this.worker.getLicense()), { truncateCanopy: true });
 
-    const instruction = new SubmitWorkerProof({
-      payer: this.worker.getSigner(),
-      worker_license: licenseAsset,
-      proof_root: proof.proofRoot,
-      checkers: proof.checkers,
-      period,
-      latency: proof.latency,
-      uptime: proof.uptime,
-    });
+      const instruction = new SubmitWorkerProof({
+        payer: this.worker.getSigner(),
+        worker_license: licenseAsset,
+        proof_root: proof.proofRoot,
+        checkers: proof.checkers,
+        period,
+        latency: proof.latency,
+        uptime: proof.uptime,
+      });
 
-    try {
-      const { signature } = await this.worker.getRpcClient().buildAndSendTransaction(
-        [await instruction.getInstruction()],
-        'finalized'
-      );
+      try {
+        const { signature } = await this.worker.getRpcClient().buildAndSendTransaction(
+          [await instruction.getInstruction()],
+          'finalized'
+        );
 
-      // Count set bits in checkers bitmap for observability
-      let setBits = 0;
-      for (const b of proof.checkers) {
-        let v = b;
-        while (v) { setBits += v & 1; v >>= 1; }
+        // Count set bits in checkers bitmap for observability
+        let setBits = 0;
+        for (const b of proof.checkers) {
+          let v = b;
+          while (v) { setBits += v & 1; v >>= 1; }
+        }
+
+        logger.info({ period, txSig: signature, setCheckers: setBits }, '✅ Proof submitted');
       }
-
-      logger.info({ period, txSig: signature, setCheckers: setBits }, '✅ Proof submitted');
-    }
-    catch (err) {
-      // Don't retry if WorkerProof already exists
-      if (err instanceof SolanaError) {
-        const logs = err.context?.logs as readonly string[] | null;
-        if (logs?.some((log) => log.includes('WorkerProof already exists'))) {
-          logger.warn({ period }, 'WorkerProof already exists, skipping retry');
+      catch (err) {
+        // Don't retry if WorkerProof already exists
+        if (err instanceof SolanaError) {
+          const logs = err.context?.logs as readonly string[] | null;
+          if (logs?.some((log) => log.includes('WorkerProof already exists'))) {
+            logger.warn({ period }, 'WorkerProof already exists, skipping retry');
+          }
+        }
+        else {
+          throw err;
         }
       }
-      else {
-        throw err;
-      }
-    }
-
+    });
   }
 
   // Proof Verification
