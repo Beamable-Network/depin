@@ -1,5 +1,6 @@
 import { findWorkerProofPDA, getCurrentPeriod, getRemainingTimeInPeriodMs, SubmitWorkerProof } from '@beamable-network/depin';
 import { publicKey } from '@metaplex-foundation/umi';
+import { SolanaError } from 'gill';
 import { getLogger } from '../logger.js';
 import { withRetry } from '../utils/retry.js';
 import { WorkerNode } from '../worker.js';
@@ -151,8 +152,12 @@ export class ProofSubmitService {
       logger.info({ period, txSig: signature, setCheckers: setBits }, '✅ Proof submitted');
     }
     catch (err) {
-      if (err instanceof Error && err.message.includes('AccountAlreadyInitialized')) {
-        logger.warn({ period }, 'Proof already initialized');
+      // Don't retry if WorkerProof already exists
+      if (err instanceof SolanaError) {
+        const logs = err.context?.logs as readonly string[] | null;
+        if (logs?.some((log) => log.includes('WorkerProof already exists'))) {
+          logger.warn({ period }, 'WorkerProof already exists, skipping retry');
+        }
       }
       else {
         throw err;
