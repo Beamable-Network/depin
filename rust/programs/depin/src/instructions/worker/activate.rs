@@ -48,7 +48,7 @@ pub fn process_activate_worker<'info>(
         nonce: license.nonce,
         data_hash: license.data_hash,
         creator_hash: license.creator_hash,
-        collection_hash: license.collection_hash,
+        collection_hash: license.get_collection_hash(),
         asset_data_hash: license.asset_data_hash,
         flags: license.flags,
     };

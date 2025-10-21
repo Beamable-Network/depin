@@ -11,7 +11,13 @@ pub struct CnftContext {
     pub root: [u8; 32],
     pub data_hash: [u8; 32],
     pub creator_hash: [u8; 32],
-    pub collection_hash: [u8; 32],
+    pub collection: Option<Pubkey>,
     pub asset_data_hash: [u8; 32],
     pub flags: u8
+}
+
+impl CnftContext {
+    pub fn get_collection_hash(&self) -> [u8; 32] {
+        crate::shared::utils::bgum::hash_collection_option(self.collection)
+    }
 }

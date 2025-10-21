@@ -1,5 +1,5 @@
 use borsh::BorshSerialize;
-use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, instruction::{AccountMeta, Instruction}, program::invoke, msg, program_error::ProgramError};
+use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, instruction::{AccountMeta, Instruction}, keccak, msg, program::invoke, program_error::ProgramError, pubkey::Pubkey};
 
 use crate::shared::{constants::programs::MPL_ACCOUNT_COMPRESSION_PROGRAM, features::bubblegum::cnft_context::CnftContext};
 
@@ -76,4 +76,11 @@ pub fn verify_license_and_owner<'a>(
         leaf_hash,
         license.index,
     )
+}
+
+pub const DEFAULT_COLLECTION: Pubkey = Pubkey::new_from_array([0u8; 32]);
+
+pub fn hash_collection_option(collection: Option<Pubkey>) -> [u8; 32] {
+    let collection_key = collection.unwrap_or(DEFAULT_COLLECTION);
+    keccak::hashv(&[collection_key.as_ref()]).to_bytes()
 }

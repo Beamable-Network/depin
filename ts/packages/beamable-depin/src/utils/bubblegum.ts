@@ -1,5 +1,5 @@
 import { AssetWithProof } from "@metaplex-foundation/mpl-bubblegum";
-import { ReadonlyUint8Array, Codec, getStructCodec, getAddressCodec, getU64Codec, getU32Codec, getBytesCodec, getU8Codec, address, Address, getProgramDerivedAddress, getU64Codec as getU64CodecLittleEndian, Endian, getAddressEncoder } from "gill";
+import { ReadonlyUint8Array, Codec, getStructCodec, getAddressCodec, getU64Codec, getU32Codec, getBytesCodec, getU8Codec, address, Address, getProgramDerivedAddress, getU64Codec as getU64CodecLittleEndian, Endian, getAddressEncoder, Option, isSome, some, none, getOptionCodec } from "gill";
 
 // MPL_BUBBLEGUM_PROGRAM_ID
 export const MPL_BUBBLEGUM_PROGRAM = address("BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY");
@@ -12,7 +12,7 @@ export interface CNftContext {
     root: ReadonlyUint8Array;
     data_hash: ReadonlyUint8Array;
     creator_hash: ReadonlyUint8Array;
-    collection_hash: ReadonlyUint8Array;
+    collection: Option<Address>;
     asset_data_hash: ReadonlyUint8Array;
     flags: number;
 }
@@ -25,7 +25,7 @@ export const CNftContextCodec: Codec<CNftContext> = getStructCodec([
     ["root", getBytesCodec()],
     ["data_hash", getBytesCodec()],
     ["creator_hash", getBytesCodec()],
-    ["collection_hash", getBytesCodec()],
+    ["collection", getOptionCodec(getAddressCodec())],
     ["asset_data_hash", getBytesCodec()],
     ["flags", getU8Codec()]
 ]);
@@ -39,7 +39,7 @@ export function assetToCNftContext(asset: AssetWithProof): CNftContext {
         root: asset.root,
         data_hash: asset.dataHash,
         creator_hash: asset.creatorHash,
-        collection_hash: asset.collection_hash,
+        collection: isSome(asset.metadata.collection) ? some(address(asset.metadata.collection.value.key)) : none(),
         asset_data_hash: asset.asset_data_hash,
         flags: asset.flags
     };
