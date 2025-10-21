@@ -17,7 +17,7 @@ use spl_token::instruction as token_instruction;
 use crate::{
     instructions::input::StakeInput,
     shared::{
-        features::{GlobalState, RevShareOffer, StakeEntry, UserStakePosition},
+        features::{OfferBook, StakeEntry, UserStakePosition},
         utils::{read_account_data, write_account_data},
     },
 };
@@ -42,8 +42,7 @@ pub fn process_stake<'a>(
     let user_account = next_account_info(account_info_iter)?;
     let payer_account = next_account_info(account_info_iter)?;
     let user_position_account = next_account_info(account_info_iter)?;
-    let global_state_account = next_account_info(account_info_iter)?;
-    let active_offer_account = next_account_info(account_info_iter)?;
+    let offer_book_account = next_account_info(account_info_iter)?;
     let user_bmb_account = next_account_info(account_info_iter)?;
     let bmb_treasury_account = next_account_info(account_info_iter)?;
     let token_program_account = next_account_info(account_info_iter)?;
@@ -68,9 +67,9 @@ pub fn process_stake<'a>(
         return Err(ProgramError::InvalidArgument);
     }
 
-    let (expected_global_state, _) = GlobalState::find_pda(program_id);
-    if *global_state_account.key != expected_global_state {
-        msg!("Error: Invalid global state account");
+    let (expected_offer_book, _) = OfferBook::find_pda(program_id);
+    if *offer_book_account.key != expected_offer_book {
+        msg!("Error: Invalid offer book account");
         return Err(ProgramError::InvalidArgument);
     }
 
@@ -80,33 +79,22 @@ pub fn process_stake<'a>(
         return Err(ProgramError::AccountAlreadyInitialized);
     }
 
-    // Read global state to get current active offer
-    let global_state: GlobalState = read_account_data(
-        &global_state_account.try_borrow_data()?,
-        GlobalState::account_type(),
-    )?;
-
-    if global_state.last_offer_id == 0 {
-        msg!("Error: No active offer exists");
-        return Err(ProgramError::InvalidAccountData);
-    }
-
-    // Validate active offer
-    let (expected_active_offer, _) = RevShareOffer::find_pda(program_id, global_state.last_offer_id);
-    if *active_offer_account.key != expected_active_offer {
-        msg!("Error: Invalid active offer account");
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    // Read active offer
-    let mut active_offer: RevShareOffer = read_account_data(
-        &active_offer_account.try_borrow_data()?,
-        RevShareOffer::account_type(),
+    // Read offer book and find active offer
+    let mut offer_book: OfferBook = read_account_data(
+        &offer_book_account.try_borrow_data()?,
+        OfferBook::account_type(),
     )?;
 
     // Get current timestamp
     let clock = Clock::get()?;
     let current_time = clock.unix_timestamp;
+
+    // Find active offer
+    let active_offer = offer_book.get_active_offer_mut(current_time)
+        .ok_or_else(|| {
+            msg!("Error: No active offer exists");
+            ProgramError::InvalidAccountData
+        })?;
 
     // Calculate weight for this stake
     let weight = active_offer.calculate_stake_weight(input.amount, current_time);
@@ -124,12 +112,12 @@ pub fn process_stake<'a>(
         .checked_add(weight)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    // Write updated offer
-    let mut active_offer_data = active_offer_account.try_borrow_mut_data()?;
+    // Write updated offer book
+    let mut offer_book_data = offer_book_account.try_borrow_mut_data()?;
     write_account_data(
-        &mut active_offer_data,
-        RevShareOffer::account_type(),
-        &active_offer,
+        &mut offer_book_data,
+        OfferBook::account_type(),
+        &offer_book,
     )?;
 
     // Create stake entry

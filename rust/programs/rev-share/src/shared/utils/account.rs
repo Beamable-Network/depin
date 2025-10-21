@@ -3,7 +3,7 @@ use solana_program::{
     program_error::ProgramError,
     msg,
     account_info::AccountInfo,
-    sysvar::rent::Rent,
+    sysvar::{rent::Rent, Sysvar},
     system_instruction,
     program::invoke,
     entrypoint::ProgramResult,
@@ -104,4 +104,15 @@ pub fn reallocate_account_if_needed<'a>(
     }
 
     Ok(())
+}
+
+/// Simpler wrapper for resizing an account (calculates rent automatically)
+pub fn resize_account<'a>(
+    target_account: &'a AccountInfo<'a>,
+    new_size: usize,
+    payer: &'a AccountInfo<'a>,
+    system_program: &'a AccountInfo<'a>,
+) -> ProgramResult {
+    let rent = Rent::get()?;
+    reallocate_account_if_needed(payer, target_account, system_program, &rent, new_size)
 }

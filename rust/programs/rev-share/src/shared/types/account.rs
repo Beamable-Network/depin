@@ -4,7 +4,6 @@ use borsh::{BorshDeserialize, BorshSerialize};
 #[borsh(use_discriminant = true)]
 #[repr(u8)]
 pub enum RevShareAccountType {
-    GlobalState = 1,
-    RevShareOffer = 2,
+    OfferBook = 1,
     UserStakePosition = 3,
 }

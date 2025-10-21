@@ -6,8 +6,7 @@ import {
 import { TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import { REV_SHARE_PROGRAM } from "./rev-share-constants.js";
 import { RevShareInstruction } from "./rev-share-enums.js";
-import { GlobalStateAccount } from "./global-state-account.js";
-import { RevShareOfferAccount } from "./rev-share-offer-account.js";
+import { OfferBookAccount } from "./offer-book-account.js";
 import { UserStakePositionAccount } from "./user-stake-position-account.js";
 import { RevShareAuthority } from "./authority.js";
 
@@ -34,16 +33,14 @@ export class Unstake {
 
     public async getInstruction() {
         const userPositionPda = await UserStakePositionAccount.findUserStakePositionPDA(this.user);
-        const globalStatePda = await GlobalStateAccount.findGlobalStatePDA();
-        const optedOutOfferPda = await RevShareOfferAccount.findOfferPDA(this.opted_out_offer_id);
+        const offerBookPda = await OfferBookAccount.findOfferBookPDA();
         const authorityPda = await RevShareAuthority.findAuthorityPDA();
         const bmbTreasuryAta = await RevShareAuthority.findBmbTreasuryATA();
 
         let accounts = [
             { address: this.user, role: AccountRole.WRITABLE_SIGNER },
             { address: userPositionPda[0], role: AccountRole.WRITABLE },
-            { address: globalStatePda[0], role: AccountRole.READONLY },
-            { address: optedOutOfferPda[0], role: AccountRole.WRITABLE },
+            { address: offerBookPda[0], role: AccountRole.WRITABLE },
             { address: authorityPda[0], role: AccountRole.READONLY },
             { address: this.user_bmb_token_account, role: AccountRole.WRITABLE },
             { address: bmbTreasuryAta[0], role: AccountRole.WRITABLE },

@@ -20,8 +20,8 @@ use crate::{
     instructions::input::InitializeOfferInput,
     shared::{
         constants::{BMB_MINT, USDC_MINT},
-        features::{Authority, GlobalState, RevShareOffer},
-        utils::{read_account_data, write_account_data},
+        features::{Authority, OfferBook, Offer},
+        utils::{read_account_data, write_account_data, resize_account},
     },
 };
 
@@ -39,9 +39,7 @@ pub fn process_initialize_offer<'a>(
     let account_info_iter = &mut accounts.iter();
     let admin_account = next_account_info(account_info_iter)?;
     let payer_account = next_account_info(account_info_iter)?;
-    let global_state_account = next_account_info(account_info_iter)?;
-    let new_offer_account = next_account_info(account_info_iter)?;
-    let previous_offer_account = next_account_info(account_info_iter)?;
+    let offer_book_account = next_account_info(account_info_iter)?;
     let authority_account = next_account_info(account_info_iter)?;
     let bmb_treasury_account = next_account_info(account_info_iter)?;
     let usdc_treasury_account = next_account_info(account_info_iter)?;
@@ -84,15 +82,9 @@ pub fn process_initialize_offer<'a>(
     }
 
     // Validate PDAs
-    let (expected_global_state, global_state_bump) = GlobalState::find_pda(program_id);
-    if *global_state_account.key != expected_global_state {
-        msg!("Error: Invalid global state account");
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    let (expected_new_offer, new_offer_bump) = RevShareOffer::find_pda(program_id, input.offer_id);
-    if *new_offer_account.key != expected_new_offer {
-        msg!("Error: Invalid new offer account");
+    let (expected_offer_book, offer_book_bump) = OfferBook::find_pda(program_id);
+    if *offer_book_account.key != expected_offer_book {
+        msg!("Error: Invalid offer book account");
         return Err(ProgramError::InvalidArgument);
     }
 
@@ -109,11 +101,11 @@ pub fn process_initialize_offer<'a>(
     }
 
     let rent = Rent::get()?;
-    let is_first_offer = global_state_account.data_is_empty();
+    let is_first_offer = offer_book_account.data_is_empty();
 
     // Handle first offer initialization
     if is_first_offer {
-        msg!("First offer - initializing global state and treasuries");
+        msg!("First offer - initializing offer book and treasuries");
 
         // Validate that offer_id is 1 for first offer
         if input.offer_id != 1 {
@@ -121,37 +113,38 @@ pub fn process_initialize_offer<'a>(
             return Err(ProgramError::InvalidInstructionData);
         }
 
-        // Previous offer should be system program for first offer
-        if *previous_offer_account.key != system_program::ID {
-            msg!("Error: For first offer, previous offer must be system program");
-            return Err(ProgramError::InvalidArgument);
-        }
-
-        // Create global state account
-        let global_state_space = GlobalState::LEN;
-        let global_state_rent = rent.minimum_balance(global_state_space);
+        // Create offer book account with initial size (holds ~17 offers in 1KB)
+        let offer_book_space = 1024; // 1KB should be enough for most use cases
+        let offer_book_rent = rent.minimum_balance(offer_book_space);
 
         invoke_signed(
             &system_instruction::create_account(
                 payer_account.key,
-                global_state_account.key,
-                global_state_rent,
-                global_state_space as u64,
+                offer_book_account.key,
+                offer_book_rent,
+                offer_book_space as u64,
                 program_id,
             ),
             &[
                 payer_account.clone(),
-                global_state_account.clone(),
+                offer_book_account.clone(),
                 system_program_account.clone(),
             ],
-            &[&[crate::shared::REVSHARE_SEED, crate::shared::STATE_SEED, &[global_state_bump]]],
+            &[&[crate::shared::OFFER_BOOK_SEED, &[offer_book_bump]]],
         )?;
 
-        // Initialize global state with first offer ID
-        let mut global_state = GlobalState::new();
-        global_state.last_offer_id = input.offer_id;
-        let mut global_state_data = global_state_account.try_borrow_mut_data()?;
-        write_account_data(&mut global_state_data, GlobalState::account_type(), &global_state)?;
+        // Initialize offer book with first offer
+        let mut offer_book = OfferBook::new();
+        let new_offer = Offer::new(
+            input.offer_id,
+            input.start_time,
+            input.end_time,
+            input.revenue_percentage,
+        );
+        offer_book.offers.push(new_offer);
+
+        let mut offer_book_data = offer_book_account.try_borrow_mut_data()?;
+        write_account_data(&mut offer_book_data, OfferBook::account_type(), &offer_book)?;
 
         // Validate mint accounts
         if *bmb_mint_account.key != BMB_MINT {
@@ -226,106 +219,83 @@ pub fn process_initialize_offer<'a>(
             )?;
         }
     } else {
-        // Subsequent offers - validate sequence and inherit stakes
-        let mut global_state: GlobalState = read_account_data(
-            &global_state_account.try_borrow_data()?,
-            GlobalState::account_type(),
+        // Subsequent offers - load offer book, compact, add new offer
+        let mut offer_book: OfferBook = read_account_data(
+            &offer_book_account.try_borrow_data()?,
+            OfferBook::account_type(),
         )?;
 
-        // Validate offer ID is sequential
-        if input.offer_id != global_state.last_offer_id + 1 {
-            msg!(
-                "Error: Offer ID must be sequential. Expected {}, got {}",
-                global_state.last_offer_id + 1,
-                input.offer_id
-            );
-            return Err(ProgramError::InvalidInstructionData);
-        }
+        // Validate offer ID is sequential and calculate inherited stake
+        let (_expected_offer_id, inherited_stake) = {
+            let last_offer = offer_book.get_last_offer()
+                .ok_or_else(|| {
+                    msg!("Error: OfferBook has no offers");
+                    ProgramError::InvalidAccountData
+                })?;
 
-        // Validate previous offer PDA
-        let (expected_previous_offer, _) =
-            RevShareOffer::find_pda(program_id, global_state.last_offer_id);
-        if *previous_offer_account.key != expected_previous_offer {
-            msg!("Error: Invalid previous offer account");
-            return Err(ProgramError::InvalidArgument);
-        }
+            if input.offer_id != last_offer.offer_id + 1 {
+                msg!(
+                    "Error: Offer ID must be sequential. Expected {}, got {}",
+                    last_offer.offer_id + 1,
+                    input.offer_id
+                );
+                return Err(ProgramError::InvalidInstructionData);
+            }
 
-        // Update global state last_offer_id
-        global_state.last_offer_id = input.offer_id;
-        let mut global_state_data = global_state_account.try_borrow_mut_data()?;
-        write_account_data(&mut global_state_data, GlobalState::account_type(), &global_state)?;
-    }    
+            // Validate new offer starts after previous offer ends
+            if input.start_time <= last_offer.end_time {
+                msg!(
+                    "Error: New offer start time ({}) must be after previous offer end time ({})",
+                    input.start_time,
+                    last_offer.end_time
+                );
+                return Err(ProgramError::InvalidInstructionData);
+            }
 
-    // Create new offer account
-    if !new_offer_account.data_is_empty() {
-        msg!("Error: Offer account already exists");
-        return Err(ProgramError::AccountAlreadyInitialized);
-    }
+            // Calculate inherited stake from last offer
+            let inherited = last_offer
+                .total_staked
+                .checked_sub(last_offer.total_staked_opted_out)
+                .unwrap_or(0);
 
-    let offer_space = RevShareOffer::LEN;
-    let offer_rent = rent.minimum_balance(offer_space);
+            (last_offer.offer_id + 1, inherited)
+        };
 
-    invoke_signed(
-        &system_instruction::create_account(
-            payer_account.key,
-            new_offer_account.key,
-            offer_rent,
-            offer_space as u64,
-            program_id,
-        ),
-        &[
-            payer_account.clone(),
-            new_offer_account.clone(),
-            system_program_account.clone(),
-        ],
-        &[&[
-            crate::shared::REVSHARE_SEED,
-            crate::shared::OFFER_SEED,
-            &input.offer_id.to_le_bytes(),
-            &[new_offer_bump],
-        ]],
-    )?;
-
-    // Initialize offer with inherited stakes
-    let mut new_offer = RevShareOffer::new(
-        input.offer_id,
-        input.start_time,
-        input.end_time,
-        input.revenue_percentage,
-    );
-
-    // Inherit stakes from previous offer if not first offer
-    if !is_first_offer {
-        let previous_offer: RevShareOffer = read_account_data(
-            &previous_offer_account.try_borrow_data()?,
-            RevShareOffer::account_type(),
-        )?;
-
-        // Validate new offer starts after previous offer ends
-        if input.start_time <= previous_offer.end_time {
-            msg!(
-                "Error: New offer start time ({}) must be after previous offer end time ({})",
-                input.start_time,
-                previous_offer.end_time
-            );
-            return Err(ProgramError::InvalidInstructionData);
-        }
-
-        // Inherited stake = previous total_staked - previous total_staked_opted_out
-        let inherited_stake = previous_offer
-            .total_staked
-            .checked_sub(previous_offer.total_staked_opted_out)
-            .unwrap_or(0);
+        // Compact expired offers before adding new one
+        msg!("Compacting expired offers");
+        offer_book.compact_expired_offers(current_time);
 
         msg!("Inheriting {} tokens from previous offer", inherited_stake);
 
+        // Create new offer with inherited stakes
+        let mut new_offer = Offer::new(
+            input.offer_id,
+            input.start_time,
+            input.end_time,
+            input.revenue_percentage,
+        );
         new_offer.total_staked = inherited_stake;
         new_offer.total_staked_weighted = inherited_stake; // Full weight for inherited stakes
-    }
 
-    // Write new offer
-    let mut new_offer_data = new_offer_account.try_borrow_mut_data()?;
-    write_account_data(&mut new_offer_data, RevShareOffer::account_type(), &new_offer)?;
+        // Add new offer to the book
+        offer_book.offers.push(new_offer);
+
+        // Check if we need to resize the account
+        let new_size = offer_book.len();
+        if new_size > offer_book_account.data_len() {
+            msg!("Resizing offer book account from {} to {}", offer_book_account.data_len(), new_size);
+            resize_account(
+                offer_book_account,
+                new_size,
+                payer_account,
+                system_program_account,
+            )?;
+        }
+
+        // Write updated offer book
+        let mut offer_book_data = offer_book_account.try_borrow_mut_data()?;
+        write_account_data(&mut offer_book_data, OfferBook::account_type(), &offer_book)?;
+    }
 
     msg!("Offer {} initialized successfully", input.offer_id);
 

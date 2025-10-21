@@ -3,19 +3,17 @@ import { Address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
-    BMB_MINT,
-    USDC_MINT,
-    GlobalStateAccount,
-    RevShareOfferAccount,
-    UserStakePositionAccount,
-    RevShareAuthority,
-    InitializeOffer,
-    Stake,
     AddStake,
+    BMB_MINT,
     ClaimRewards,
     DepositRevenue,
+    InitializeOffer,
+    OfferBookAccount,
     OptOutRollover,
+    Stake,
     Unstake,
+    USDC_MINT,
+    UserStakePositionAccount
 } from '@beamable-network/depin';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 
@@ -83,7 +81,7 @@ describe('Rev-Share Basic Flow', async () => {
     it('should complete full rev-share flow: initialize -> stake -> deposit -> claim', async () => {
         // ========== 1. Initialize first offer ==========
         const now = BigInt(Math.floor(Date.now() / 1000));
-        const startTime = now;
+        const startTime = now + 10n; // Must be in the future
         const endTime = now + 86400n * 30n; // 30 days
 
         const initOffer = new InitializeOffer({
@@ -92,23 +90,26 @@ describe('Rev-Share Basic Flow', async () => {
             offer_id: 1,
             start_time: startTime,
             end_time: endTime,
-            revenue_percentage: 500, // 5%
+            revenue_percentage: 10000, // 100% for testing (10000 basis points = 100%)
         });
 
         const initResult = await lite.buildTransaction()
             .addInstruction(await initOffer.getInstruction())
             .sendTransaction({ payer: admin });
 
+        // Advance time to be within the offer period
+        lite.setTime(startTime + 1n);
+
         expect(initResult.logs).toBeDefined();
 
-        // Verify GlobalState was created
-        const globalStatePda = await GlobalStateAccount.findGlobalStatePDA();
-        const globalState = await getGlobalState(lite);
-        expect(globalState).toBeDefined();
-        expect(globalState.lastOfferId).toBe(1);
+        // Verify OfferBook was created
+        const offerBookPda = await OfferBookAccount.findOfferBookPDA();
+        const offerBook = await getOfferBook(lite);
+        expect(offerBook).toBeDefined();
+        expect(offerBook.offers.length).toBe(1);
+        expect(offerBook.getLastOffer()?.offerId).toBe(1);
 
         // Verify Offer was created
-        const offer1Pda = await RevShareOfferAccount.findOfferPDA(1);
         const offer1 = await getOffer(lite, 1);
         expect(offer1).toBeDefined();
         expect(offer1.offerId).toBe(1);
@@ -122,7 +123,6 @@ describe('Rev-Share Basic Flow', async () => {
             payer: userAlice.address,
             amount: aliceStakeAmount,
             user_bmb_token_account: aliceBmbAta,
-            active_offer_id: 1,
         });
 
         const aliceInitialBalance = await lite.getTokenBalance(BMB_MINT, userAlice.address);
@@ -154,7 +154,6 @@ describe('Rev-Share Basic Flow', async () => {
             payer: userBob.address,
             amount: bobStakeAmount,
             user_bmb_token_account: bobBmbAta,
-            active_offer_id: 1,
         });
 
         await lite.buildTransaction()
@@ -166,7 +165,10 @@ describe('Rev-Share Basic Flow', async () => {
         expect(offer1AfterBobStake.totalStaked).toBe(aliceStakeAmount + bobStakeAmount);
 
         // ========== 4. Deposit 10,000 USDC revenue ==========
-        const revenueAmount = 10_000n;
+        // Note: We pass TOTAL revenue (10,000 USDC)
+        // Program will collect 100% (10,000 basis points) = 10,000 USDC
+        const totalRevenue = 10_000n;
+        const expectedCollected = 10_000n; // 100% of 10,000
 
         // Mock admin having USDC
         const adminUsdcAta = (await findAssociatedTokenPda({
@@ -174,22 +176,21 @@ describe('Rev-Share Basic Flow', async () => {
             owner: admin.address,
             tokenProgram: TOKEN_PROGRAM_ADDRESS,
         }))[0];
-        await lite.mintToken(USDC_MINT, admin.address, revenueAmount, admin);
+        await lite.mintToken(USDC_MINT, admin.address, totalRevenue, admin);
 
         const depositRevenue = new DepositRevenue({
             depositor: admin.address,
-            amount: revenueAmount,
+            amount: totalRevenue, // Pass total revenue, not pre-calculated share
             depositor_usdc_token_account: adminUsdcAta,
-            active_offer_id: 1,
         });
 
         await lite.buildTransaction()
             .addInstruction(await depositRevenue.getInstruction())
             .sendTransaction({ payer: admin });
 
-        // Verify offer collected USDC updated
+        // Verify offer collected USDC updated (should be 100% of total revenue)
         const offer1AfterDeposit = await getOffer(lite, 1);
-        expect(offer1AfterDeposit.collectedUsdc).toBe(revenueAmount);
+        expect(offer1AfterDeposit.collectedUsdc).toBe(expectedCollected);
 
         // ========== 5. Fast forward time past offer end ==========
         lite.setTime(BigInt(endTime) + 100n);
@@ -236,26 +237,30 @@ describe('Rev-Share Basic Flow', async () => {
         expect(bobReward).toBeGreaterThan(3_300n); // At least 33%
         expect(bobReward).toBeLessThan(3_400n); // At most 34%
 
-        // Total rewards should be very close to deposited amount (allowing for rounding dust)
+        // Total rewards should be very close to collected amount (allowing for rounding dust)
         const totalRewards = aliceReward + bobReward;
-        expect(totalRewards).toBeGreaterThanOrEqual(revenueAmount - 5n); // Allow up to 5 tokens dust
-        expect(totalRewards).toBeLessThanOrEqual(revenueAmount);
+        expect(totalRewards).toBeGreaterThanOrEqual(expectedCollected - 5n); // Allow up to 5 tokens dust
+        expect(totalRewards).toBeLessThanOrEqual(expectedCollected);
     });
 
     it('should allow adding more stake', async () => {
         // Initialize offer
         const now = BigInt(Math.floor(Date.now() / 1000));
+        const startTime = now + 10n; // Must be in the future
         const initOffer = new InitializeOffer({
             admin: admin.address,
             payer: admin.address,
             offer_id: 1,
-            start_time: now,
+            start_time: startTime,
             end_time: now + 86400n * 30n,
             revenue_percentage: 500,
         });
         await lite.buildTransaction()
             .addInstruction(await initOffer.getInstruction())
             .sendTransaction({ payer: admin });
+
+        // Advance time to be within the offer period
+        lite.setTime(startTime + 1n);
 
         // Alice stakes initial amount
         await lite.buildTransaction()
@@ -264,7 +269,6 @@ describe('Rev-Share Basic Flow', async () => {
                 payer: userAlice.address,
                 amount: 1_000n,
                 user_bmb_token_account: aliceBmbAta,
-                active_offer_id: 1,
             })).getInstruction())
             .sendTransaction({ payer: userAlice });
 
@@ -278,7 +282,6 @@ describe('Rev-Share Basic Flow', async () => {
             payer: userAlice.address,
             amount: 500n,
             user_bmb_token_account: aliceBmbAta,
-            active_offer_id: 1,
         });
 
         await lite.buildTransaction()
@@ -293,11 +296,12 @@ describe('Rev-Share Basic Flow', async () => {
     it('should handle opt-out flow', async () => {
         // Initialize and stake
         const now = BigInt(Math.floor(Date.now() / 1000));
+        const startTime = now + 10n; // Must be in the future
         const initOffer = new InitializeOffer({
             admin: admin.address,
             payer: admin.address,
             offer_id: 1,
-            start_time: now,
+            start_time: startTime,
             end_time: now + 86400n * 30n,
             revenue_percentage: 500,
         });
@@ -305,20 +309,21 @@ describe('Rev-Share Basic Flow', async () => {
             .addInstruction(await initOffer.getInstruction())
             .sendTransaction({ payer: admin });
 
+        // Advance time to be within the offer period
+        lite.setTime(startTime + 1n);
+
         await lite.buildTransaction()
             .addInstruction(await (new Stake({
                 user: userAlice.address,
                 payer: userAlice.address,
                 amount: 1_000n,
                 user_bmb_token_account: aliceBmbAta,
-                active_offer_id: 1,
             })).getInstruction())
             .sendTransaction({ payer: userAlice });
 
         // Alice opts out
         const optOut = new OptOutRollover({
             user: userAlice.address,
-            active_offer_id: 1,
         });
 
         await lite.buildTransaction()
@@ -355,16 +360,15 @@ describe('Rev-Share Basic Flow', async () => {
 });
 
 // Helper functions
-async function getGlobalState(lite: LiteDepin): Promise<GlobalStateAccount> {
-    const pda = await GlobalStateAccount.findGlobalStatePDA();
+async function getOfferBook(lite: LiteDepin): Promise<OfferBookAccount> {
+    const pda = await OfferBookAccount.findOfferBookPDA();
     const data = lite.getAccountData(pda[0]);
-    return GlobalStateAccount.deserializeFrom(data!);
+    return OfferBookAccount.deserializeFrom(data!);
 }
 
-async function getOffer(lite: LiteDepin, offerId: number): Promise<RevShareOfferAccount> {
-    const pda = await RevShareOfferAccount.findOfferPDA(offerId);
-    const data = lite.getAccountData(pda[0]);
-    return RevShareOfferAccount.deserializeFrom(data!);
+async function getOffer(lite: LiteDepin, offerId: number) {
+    const offerBook = await getOfferBook(lite);
+    return offerBook.findOffer(offerId);
 }
 
 async function getUserPosition(lite: LiteDepin, user: Address): Promise<UserStakePositionAccount> {

@@ -9,7 +9,6 @@ export enum RevShareInstruction {
 }
 
 export enum RevShareAccountType {
-    GlobalState = 1,
-    RevShareOffer = 2,
+    OfferBook = 1,
     UserStakePosition = 3,
 }

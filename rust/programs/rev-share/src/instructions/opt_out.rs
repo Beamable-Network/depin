@@ -1,13 +1,15 @@
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
+    clock::Clock,
     entrypoint::ProgramResult,
     msg,
     program_error::ProgramError,
     pubkey::Pubkey,
+    sysvar::Sysvar,
 };
 
 use crate::shared::{
-    features::{GlobalState, RevShareOffer, UserStakePosition},
+    features::{OfferBook, UserStakePosition},
     utils::{read_account_data, write_account_data},
 };
 
@@ -22,8 +24,7 @@ pub fn process_opt_out_rollover<'a>(
     let account_info_iter = &mut accounts.iter();
     let user_account = next_account_info(account_info_iter)?;
     let user_position_account = next_account_info(account_info_iter)?;
-    let global_state_account = next_account_info(account_info_iter)?;
-    let active_offer_account = next_account_info(account_info_iter)?;
+    let offer_book_account = next_account_info(account_info_iter)?;
 
     // Validate signer
     if !user_account.is_signer {
@@ -38,9 +39,9 @@ pub fn process_opt_out_rollover<'a>(
         return Err(ProgramError::InvalidArgument);
     }
 
-    let (expected_global_state, _) = GlobalState::find_pda(program_id);
-    if *global_state_account.key != expected_global_state {
-        msg!("Error: Invalid global state account");
+    let (expected_offer_book, _) = OfferBook::find_pda(program_id);
+    if *offer_book_account.key != expected_offer_book {
+        msg!("Error: Invalid offer book account");
         return Err(ProgramError::InvalidArgument);
     }
 
@@ -62,29 +63,25 @@ pub fn process_opt_out_rollover<'a>(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // Read global state to get current active offer
-    let global_state: GlobalState = read_account_data(
-        &global_state_account.try_borrow_data()?,
-        GlobalState::account_type(),
+    // Read offer book and find active offer
+    let mut offer_book: OfferBook = read_account_data(
+        &offer_book_account.try_borrow_data()?,
+        OfferBook::account_type(),
     )?;
 
-    if global_state.last_offer_id == 0 {
-        msg!("Error: No active offer exists");
-        return Err(ProgramError::InvalidAccountData);
-    }
+    // Get current timestamp
+    let clock = Clock::get()?;
+    let current_time = clock.unix_timestamp;
 
-    // Validate active offer
-    let (expected_active_offer, _) = RevShareOffer::find_pda(program_id, global_state.last_offer_id);
-    if *active_offer_account.key != expected_active_offer {
-        msg!("Error: Invalid active offer account");
-        return Err(ProgramError::InvalidArgument);
-    }
+    // Find active offer
+    let active_offer = offer_book.get_active_offer_mut(current_time)
+        .ok_or_else(|| {
+            msg!("Error: No active offer exists");
+            ProgramError::InvalidAccountData
+        })?;
 
-    // Read active offer
-    let mut active_offer: RevShareOffer = read_account_data(
-        &active_offer_account.try_borrow_data()?,
-        RevShareOffer::account_type(),
-    )?;
+    // Store the offer ID before updating
+    let current_offer_id = active_offer.offer_id;
 
     // Update offer's opted out total
     active_offer.total_staked_opted_out = active_offer
@@ -92,16 +89,16 @@ pub fn process_opt_out_rollover<'a>(
         .checked_add(user_position.staked_amount)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    // Write updated offer
-    let mut active_offer_data = active_offer_account.try_borrow_mut_data()?;
+    // Write updated offer book
+    let mut offer_book_data = offer_book_account.try_borrow_mut_data()?;
     write_account_data(
-        &mut active_offer_data,
-        RevShareOffer::account_type(),
-        &active_offer,
+        &mut offer_book_data,
+        OfferBook::account_type(),
+        &offer_book,
     )?;
 
     // Mark user as opted out at current offer
-    user_position.opted_out_at_offer = global_state.last_offer_id;
+    user_position.opted_out_at_offer = current_offer_id;
 
     // Write updated user position
     let mut user_position_data = user_position_account.try_borrow_mut_data()?;
@@ -113,7 +110,7 @@ pub fn process_opt_out_rollover<'a>(
 
     msg!(
         "User opted out at offer {}. Stake amount {} marked as opted out",
-        global_state.last_offer_id,
+        current_offer_id,
         user_position.staked_amount
     );
 

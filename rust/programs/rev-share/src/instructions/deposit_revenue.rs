@@ -1,10 +1,12 @@
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
+    clock::Clock,
     entrypoint::ProgramResult,
     msg,
     program::invoke,
     program_error::ProgramError,
     pubkey::Pubkey,
+    sysvar::Sysvar,
 };
 use spl_token::instruction as token_instruction;
 
@@ -14,7 +16,7 @@ use crate::{
     instructions::input::DepositRevenueInput,
     shared::{
         constants::BMB_ADMIN,
-        features::{GlobalState, RevShareOffer},
+        features::OfferBook,
         utils::{read_account_data, write_account_data},
     },
 };
@@ -37,8 +39,7 @@ pub fn process_deposit_revenue<'a>(
     // Extract accounts
     let account_info_iter = &mut accounts.iter();
     let depositor_account = next_account_info(account_info_iter)?;
-    let global_state_account = next_account_info(account_info_iter)?;
-    let active_offer_account = next_account_info(account_info_iter)?;
+    let offer_book_account = next_account_info(account_info_iter)?;
     let depositor_usdc_account = next_account_info(account_info_iter)?;
     let usdc_treasury_account = next_account_info(account_info_iter)?;
     let token_program_account = next_account_info(account_info_iter)?;
@@ -69,68 +70,72 @@ pub fn process_deposit_revenue<'a>(
     }
 
     // Validate PDAs
-    let (expected_global_state, _) = GlobalState::find_pda(program_id);
-    if *global_state_account.key != expected_global_state {
-        msg!("Error: Invalid global state account");
+    let (expected_offer_book, _) = OfferBook::find_pda(program_id);
+    if *offer_book_account.key != expected_offer_book {
+        msg!("Error: Invalid offer book account");
         return Err(ProgramError::InvalidArgument);
     }
 
-    // Read global state to get current active offer
-    if global_state_account.data_is_empty() {
-        msg!("Error: Global state not initialized");
-        return Err(ProgramError::UninitializedAccount);
-    }
-
-    let global_state: GlobalState = read_account_data(
-        &global_state_account.try_borrow_data()?,
-        GlobalState::account_type(),
+    // Read offer book and find active offer
+    let mut offer_book: OfferBook = read_account_data(
+        &offer_book_account.try_borrow_data()?,
+        OfferBook::account_type(),
     )?;
 
-    if global_state.last_offer_id == 0 {
-        msg!("Error: No active offer exists");
-        return Err(ProgramError::InvalidAccountData);
+    // Get current timestamp
+    let clock = Clock::get()?;
+    let current_time = clock.unix_timestamp;
+
+    // Find active offer - if none exists, return early without transferring anything
+    let active_offer = match offer_book.get_active_offer_mut(current_time) {
+        Some(offer) => offer,
+        None => {
+            msg!("No active offer exists - no revenue collected");
+            return Ok(());
+        }
+    };
+
+    // Calculate revenue share: total_revenue * revenue_percentage / 10000
+    // revenue_percentage is in basis points (e.g., 500 = 5%)
+    let revenue_share = (input.amount as u128)
+        .checked_mul(active_offer.revenue_percentage as u128)
+        .and_then(|v| v.checked_div(10000u128))
+        .and_then(|v| u64::try_from(v).ok())
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+
+    if revenue_share == 0 {
+        msg!("Revenue share rounds to 0 - no collection");
+        return Ok(());
     }
 
-    // Validate active offer
-    let (expected_active_offer, _) = RevShareOffer::find_pda(program_id, global_state.last_offer_id);
-    if *active_offer_account.key != expected_active_offer {
-        msg!("Error: Invalid active offer account");
-        return Err(ProgramError::InvalidArgument);
-    }
+    msg!(
+        "Total revenue: {} USDC, collecting {}% ({} USDC) for offer {}",
+        input.amount,
+        active_offer.revenue_percentage,
+        revenue_share,
+        active_offer.offer_id
+    );
 
-    if active_offer_account.data_is_empty() {
-        msg!("Error: Active offer not initialized");
-        return Err(ProgramError::UninitializedAccount);
-    }
-
-    // Read active offer
-    let mut active_offer: RevShareOffer = read_account_data(
-        &active_offer_account.try_borrow_data()?,
-        RevShareOffer::account_type(),
-    )?;
+    let active_offer_id = active_offer.offer_id;
+    let old_collected = active_offer.collected_usdc;
 
     // Update collected USDC
     active_offer.collected_usdc = active_offer
         .collected_usdc
-        .checked_add(input.amount)
+        .checked_add(revenue_share)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    msg!(
-        "Offer {} collected USDC updated: {} -> {}",
-        active_offer.offer_id,
-        active_offer.collected_usdc - input.amount,
-        active_offer.collected_usdc
-    );
+    let new_collected = active_offer.collected_usdc;
 
-    // Write updated offer
-    let mut active_offer_data = active_offer_account.try_borrow_mut_data()?;
+    // Write updated offer book
+    let mut offer_book_data = offer_book_account.try_borrow_mut_data()?;
     write_account_data(
-        &mut active_offer_data,
-        RevShareOffer::account_type(),
-        &active_offer,
+        &mut offer_book_data,
+        OfferBook::account_type(),
+        &offer_book,
     )?;
 
-    // Transfer USDC from depositor to treasury
+    // Transfer only the revenue share from depositor to treasury
     invoke(
         &token_instruction::transfer(
             token_program_account.key,
@@ -138,7 +143,7 @@ pub fn process_deposit_revenue<'a>(
             usdc_treasury_account.key,
             depositor_account.key,
             &[],
-            input.amount,
+            revenue_share,
         )?,
         &[
             depositor_usdc_account.clone(),
@@ -149,9 +154,10 @@ pub fn process_deposit_revenue<'a>(
     )?;
 
     msg!(
-        "Deposited {} USDC to offer {} treasury",
-        input.amount,
-        active_offer.offer_id
+        "Offer {} collected USDC updated: {} -> {}",
+        active_offer_id,
+        old_collected,
+        new_collected
     );
 
     Ok(())

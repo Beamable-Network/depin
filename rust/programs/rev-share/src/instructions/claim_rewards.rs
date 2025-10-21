@@ -14,7 +14,7 @@ use spl_token::instruction as token_instruction;
 use crate::{
     instructions::input::ClaimRewardsInput,
     shared::{
-        features::{Authority, RevShareOffer, UserStakePosition},
+        features::{Authority, OfferBook, UserStakePosition},
         utils::{read_account_data, write_account_data},
     },
 };
@@ -33,7 +33,7 @@ pub fn process_claim_rewards<'a>(
     let account_info_iter = &mut accounts.iter();
     let user_account = next_account_info(account_info_iter)?;
     let user_position_account = next_account_info(account_info_iter)?;
-    let claim_offer_account = next_account_info(account_info_iter)?;
+    let offer_book_account = next_account_info(account_info_iter)?;
     let authority_account = next_account_info(account_info_iter)?;
     let user_usdc_account = next_account_info(account_info_iter)?;
     let usdc_treasury_account = next_account_info(account_info_iter)?;
@@ -52,9 +52,9 @@ pub fn process_claim_rewards<'a>(
         return Err(ProgramError::InvalidArgument);
     }
 
-    let (expected_claim_offer, _) = RevShareOffer::find_pda(program_id, input.offer_id);
-    if *claim_offer_account.key != expected_claim_offer {
-        msg!("Error: Invalid claim offer account");
+    let (expected_offer_book, _) = OfferBook::find_pda(program_id);
+    if *offer_book_account.key != expected_offer_book {
+        msg!("Error: Invalid offer book account");
         return Err(ProgramError::InvalidArgument);
     }
 
@@ -97,11 +97,17 @@ pub fn process_claim_rewards<'a>(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // Read claim offer
-    let claim_offer: RevShareOffer = read_account_data(
-        &claim_offer_account.try_borrow_data()?,
-        RevShareOffer::account_type(),
+    // Read offer book and find the specific offer
+    let offer_book: OfferBook = read_account_data(
+        &offer_book_account.try_borrow_data()?,
+        OfferBook::account_type(),
     )?;
+
+    let claim_offer = offer_book.find_offer(input.offer_id)
+        .ok_or_else(|| {
+            msg!("Error: Offer {} not found in offer book", input.offer_id);
+            ProgramError::InvalidAccountData
+        })?;
 
     // Validate offer has ended
     let clock = Clock::get()?;

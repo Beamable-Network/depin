@@ -10,8 +10,7 @@ import { TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import { SYSTEM_PROGRAM_ADDRESS } from "@solana-program/system";
 import { REV_SHARE_PROGRAM } from "./rev-share-constants.js";
 import { RevShareInstruction } from "./rev-share-enums.js";
-import { GlobalStateAccount } from "./global-state-account.js";
-import { RevShareOfferAccount } from "./rev-share-offer-account.js";
+import { OfferBookAccount } from "./offer-book-account.js";
 import { UserStakePositionAccount } from "./user-stake-position-account.js";
 import { RevShareAuthority } from "./authority.js";
 
@@ -28,7 +27,6 @@ export interface CreateAddStakeInput {
     payer: Address;
     amount: bigint;
     user_bmb_token_account: Address;
-    active_offer_id: number;
 }
 
 export class AddStake {
@@ -36,7 +34,6 @@ export class AddStake {
     readonly payer: Address;
     readonly params: AddStakeParams;
     readonly user_bmb_token_account: Address;
-    readonly active_offer_id: number;
 
     constructor(input: CreateAddStakeInput) {
         this.user = input.user;
@@ -45,7 +42,6 @@ export class AddStake {
             amount: input.amount,
         };
         this.user_bmb_token_account = input.user_bmb_token_account;
-        this.active_offer_id = input.active_offer_id;
     }
 
     private serialize(): Uint8Array {
@@ -55,16 +51,14 @@ export class AddStake {
 
     public async getInstruction() {
         const userPositionPda = await UserStakePositionAccount.findUserStakePositionPDA(this.user);
-        const globalStatePda = await GlobalStateAccount.findGlobalStatePDA();
-        const activeOfferPda = await RevShareOfferAccount.findOfferPDA(this.active_offer_id);
+        const offerBookPda = await OfferBookAccount.findOfferBookPDA();
         const bmbTreasuryAta = await RevShareAuthority.findBmbTreasuryATA();
 
         let accounts = [
             { address: this.user, role: AccountRole.READONLY_SIGNER },
             { address: this.payer, role: AccountRole.WRITABLE_SIGNER },
             { address: userPositionPda[0], role: AccountRole.WRITABLE },
-            { address: globalStatePda[0], role: AccountRole.READONLY },
-            { address: activeOfferPda[0], role: AccountRole.WRITABLE },
+            { address: offerBookPda[0], role: AccountRole.WRITABLE },
             { address: this.user_bmb_token_account, role: AccountRole.WRITABLE },
             { address: bmbTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },

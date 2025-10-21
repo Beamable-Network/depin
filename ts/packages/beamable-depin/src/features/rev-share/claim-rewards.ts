@@ -9,7 +9,7 @@ import {
 import { TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import { REV_SHARE_PROGRAM } from "./rev-share-constants.js";
 import { RevShareInstruction } from "./rev-share-enums.js";
-import { RevShareOfferAccount } from "./rev-share-offer-account.js";
+import { OfferBookAccount } from "./offer-book-account.js";
 import { UserStakePositionAccount } from "./user-stake-position-account.js";
 import { RevShareAuthority } from "./authority.js";
 
@@ -47,14 +47,14 @@ export class ClaimRewards {
 
     public async getInstruction() {
         const userPositionPda = await UserStakePositionAccount.findUserStakePositionPDA(this.user);
-        const claimOfferPda = await RevShareOfferAccount.findOfferPDA(this.params.offer_id);
+        const offerBookPda = await OfferBookAccount.findOfferBookPDA();
         const authorityPda = await RevShareAuthority.findAuthorityPDA();
         const usdcTreasuryAta = await RevShareAuthority.findUsdcTreasuryATA();
 
         let accounts = [
             { address: this.user, role: AccountRole.READONLY_SIGNER },
             { address: userPositionPda[0], role: AccountRole.WRITABLE },
-            { address: claimOfferPda[0], role: AccountRole.READONLY },
+            { address: offerBookPda[0], role: AccountRole.READONLY },
             { address: authorityPda[0], role: AccountRole.READONLY },
             { address: this.user_usdc_token_account, role: AccountRole.WRITABLE },
             { address: usdcTreasuryAta[0], role: AccountRole.WRITABLE },

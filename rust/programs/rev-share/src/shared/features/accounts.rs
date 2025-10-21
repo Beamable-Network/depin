@@ -2,35 +2,13 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
 
 use crate::shared::{
-    constants::{REVSHARE_SEED, STATE_SEED, OFFER_SEED, USER_SEED, AUTHORITY_SEED},
+    constants::{OFFER_BOOK_SEED, USER_SEED, AUTHORITY_SEED, REVSHARE_SEED},
     types::account::RevShareAccountType,
 };
 
-/// Global state tracking the latest offer ID
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub struct GlobalState {
-    pub last_offer_id: u32,
-}
-
-impl GlobalState {
-    pub const LEN: usize = 1 + 4; // discriminator + u32
-
-    pub fn new() -> Self {
-        Self { last_offer_id: 0 }
-    }
-
-    pub fn find_pda(program_id: &Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[REVSHARE_SEED, STATE_SEED], program_id)
-    }
-
-    pub fn account_type() -> RevShareAccountType {
-        RevShareAccountType::GlobalState
-    }
-}
-
-/// Revenue sharing offer with time-weighted staking rewards
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub struct RevShareOffer {
+/// Individual offer struct (stored in OfferBook Vec)
+#[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
+pub struct Offer {
     pub offer_id: u32,
     pub start_time: i64,
     pub end_time: i64,
@@ -41,8 +19,8 @@ pub struct RevShareOffer {
     pub collected_usdc: u64,
 }
 
-impl RevShareOffer {
-    pub const LEN: usize = 1 + 4 + 8 + 8 + 2 + 8 + 8 + 8 + 8; // discriminator + fields
+impl Offer {
+    pub const LEN: usize = 4 + 8 + 8 + 2 + 8 + 8 + 8 + 8; // no discriminator - stored in Vec
 
     pub fn new(offer_id: u32, start_time: i64, end_time: i64, revenue_percentage: u16) -> Self {
         Self {
@@ -55,17 +33,6 @@ impl RevShareOffer {
             total_staked_opted_out: 0,
             collected_usdc: 0,
         }
-    }
-
-    pub fn find_pda(program_id: &Pubkey, offer_id: u32) -> (Pubkey, u8) {
-        Pubkey::find_program_address(
-            &[REVSHARE_SEED, OFFER_SEED, &offer_id.to_le_bytes()],
-            program_id,
-        )
-    }
-
-    pub fn account_type() -> RevShareAccountType {
-        RevShareAccountType::RevShareOffer
     }
 
     /// Calculate the time-based weight for a stake entry
@@ -94,6 +61,91 @@ impl RevShareOffer {
             .unwrap_or(0);
 
         weighted
+    }
+}
+
+/// OfferBook containing an ordered array of offers
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct OfferBook {
+    pub offers: Vec<Offer>,
+}
+
+impl OfferBook {
+    pub const BASE_LEN: usize = 1 + 4; // discriminator + Vec length
+
+    pub fn new() -> Self {
+        Self {
+            offers: Vec::new(),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        Self::BASE_LEN + (self.offers.len() * Offer::LEN)
+    }
+
+    pub fn find_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[OFFER_BOOK_SEED], program_id)
+    }
+
+    pub fn account_type() -> RevShareAccountType {
+        RevShareAccountType::OfferBook
+    }
+
+    /// Find the currently active offer based on the given timestamp
+    pub fn get_active_offer(&self, current_time: i64) -> Option<&Offer> {
+        self.offers.iter().find(|offer| {
+            current_time >= offer.start_time && current_time <= offer.end_time
+        })
+    }
+
+    /// Find the currently active offer (mutable) based on the given timestamp
+    pub fn get_active_offer_mut(&mut self, current_time: i64) -> Option<&mut Offer> {
+        self.offers.iter_mut().find(|offer| {
+            current_time >= offer.start_time && current_time <= offer.end_time
+        })
+    }
+
+    /// Find an offer by ID
+    pub fn find_offer(&self, offer_id: u32) -> Option<&Offer> {
+        self.offers.iter().find(|offer| offer.offer_id == offer_id)
+    }
+
+    /// Find an offer by ID (mutable)
+    pub fn find_offer_mut(&mut self, offer_id: u32) -> Option<&mut Offer> {
+        self.offers.iter_mut().find(|offer| offer.offer_id == offer_id)
+    }
+
+    /// Get the most recent offer
+    pub fn get_last_offer(&self) -> Option<&Offer> {
+        self.offers.last()
+    }
+
+    /// Compact expired offers: remove offers that ended more than 30 days ago
+    /// Always keep at least 1 expired offer (the most recent) for claiming and inheritance
+    pub fn compact_expired_offers(&mut self, current_time: i64) {
+        const THIRTY_DAYS: i64 = 30 * 24 * 60 * 60; // 2,592,000 seconds
+
+        // Sort offers by end_time descending to process most recent first
+        let mut kept_recent_expired = false;
+
+        self.offers.retain(|offer| {
+            if offer.end_time < current_time {
+                // Offer has ended
+                let days_since_ended = current_time - offer.end_time;
+
+                if days_since_ended > THIRTY_DAYS && kept_recent_expired {
+                    // More than 30 days old and we already kept a more recent one
+                    false // Remove this old offer
+                } else {
+                    // Either within 30 days or this is the most recent expired offer
+                    kept_recent_expired = true;
+                    true // Keep this offer
+                }
+            } else {
+                // Offer hasn't ended yet (current or future)
+                true // Keep all non-expired offers
+            }
+        });
     }
 }
 
@@ -144,7 +196,7 @@ impl UserStakePosition {
     }
 
     /// Calculate user's total weighted stake for a specific offer
-    pub fn calculate_weighted_stake_for_offer(&self, offer: &RevShareOffer) -> u64 {
+    pub fn calculate_weighted_stake_for_offer(&self, offer: &Offer) -> u64 {
         self.stake_entries
             .iter()
             .map(|entry| offer.calculate_stake_weight(entry.amount, entry.timestamp))

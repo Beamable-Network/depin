@@ -12,8 +12,7 @@ import { TOKEN_PROGRAM_ADDRESS, ASSOCIATED_TOKEN_PROGRAM_ADDRESS } from "@solana
 import { SYSTEM_PROGRAM_ADDRESS } from "@solana-program/system";
 import { REV_SHARE_PROGRAM } from "./rev-share-constants.js";
 import { RevShareInstruction } from "./rev-share-enums.js";
-import { GlobalStateAccount } from "./global-state-account.js";
-import { RevShareOfferAccount } from "./rev-share-offer-account.js";
+import { OfferBookAccount } from "./offer-book-account.js";
 import { RevShareAuthority } from "./authority.js";
 import { BMB_MINT, USDC_MINT } from "../../constants.js";
 
@@ -38,14 +37,12 @@ export interface CreateInitializeOfferInput {
     start_time: bigint;
     end_time: bigint;
     revenue_percentage: number;
-    previous_offer_id?: number; // If undefined, use system program (first offer)
 }
 
 export class InitializeOffer {
     readonly admin: Address;
     readonly payer: Address;
     readonly params: InitializeOfferParams;
-    readonly previous_offer_id?: number;
 
     constructor(input: CreateInitializeOfferInput) {
         this.admin = input.admin;
@@ -56,7 +53,6 @@ export class InitializeOffer {
             end_time: input.end_time,
             revenue_percentage: input.revenue_percentage,
         };
-        this.previous_offer_id = input.previous_offer_id;
     }
 
     private serialize(): Uint8Array {
@@ -65,12 +61,7 @@ export class InitializeOffer {
     }
 
     public async getInstruction() {
-        const globalStatePda = await GlobalStateAccount.findGlobalStatePDA();
-        const newOfferPda = await RevShareOfferAccount.findOfferPDA(this.params.offer_id);
-        const previousOfferPda = this.previous_offer_id !== undefined
-            ? await RevShareOfferAccount.findOfferPDA(this.previous_offer_id)
-            : [SYSTEM_PROGRAM_ADDRESS, 0] as const;
-
+        const offerBookPda = await OfferBookAccount.findOfferBookPDA();
         const authorityPda = await RevShareAuthority.findAuthorityPDA();
         const bmbTreasuryAta = await RevShareAuthority.findBmbTreasuryATA();
         const usdcTreasuryAta = await RevShareAuthority.findUsdcTreasuryATA();
@@ -78,9 +69,7 @@ export class InitializeOffer {
         let accounts = [
             { address: this.admin, role: AccountRole.READONLY_SIGNER },
             { address: this.payer, role: AccountRole.WRITABLE_SIGNER },
-            { address: globalStatePda[0], role: AccountRole.WRITABLE },
-            { address: newOfferPda[0], role: AccountRole.WRITABLE },
-            { address: previousOfferPda[0], role: AccountRole.READONLY },
+            { address: offerBookPda[0], role: AccountRole.WRITABLE },
             { address: authorityPda[0], role: AccountRole.READONLY },
             { address: bmbTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: usdcTreasuryAta[0], role: AccountRole.WRITABLE },
