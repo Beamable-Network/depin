@@ -42,5 +42,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
   CMD curl -f http://localhost:3000/health || exit 1
 
-CMD ["node", "--import=./dist/src/otel.js", "dist/src/index.js"]
+CMD ["node", "--import=./src/otel.js", "src/index.js"]
 
