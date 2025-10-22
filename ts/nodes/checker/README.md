@@ -115,13 +115,13 @@ services:
       HELIUS_API_KEY: ${HELIUS_API_KEY}
       CHECKER_PRIVATE_KEY: ${CHECKER_PRIVATE_KEY}
 
-      # License specification: Use one or both of these options
+      # License specification: Define one or both in your .env file
       CHECKER_LICENSES: ${CHECKER_LICENSES}  # Explicit license addresses
       CHECKER_OWNERS: ${CHECKER_OWNERS}      # Whitelisted owner addresses for auto-discovery
 
       # Optional: Logging configuration
-      LOG_LEVEL: info
-      LOG_FORMAT: json
+      # LOG_LEVEL: info
+      # LOG_FORMAT: json
 
       # Optional: Rate limiting (defaults are for free tier)
       # THROTTLE_SEND_TX_LIMIT: 1
