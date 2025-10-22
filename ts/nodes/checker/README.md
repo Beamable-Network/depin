@@ -45,7 +45,7 @@ The checker is lightweight and can run on most systems, including:
 
 ## Quick Start with Docker
 
-### Single License Example
+### Single License Example (Explicit)
 
 ```bash
 docker run -d \
@@ -58,7 +58,7 @@ docker run -d \
   beamablenetwork/checker:latest
 ```
 
-### Multiple Licenses Example
+### Multiple Licenses Example (Explicit)
 
 ```bash
 docker run -d \
@@ -68,6 +68,35 @@ docker run -d \
   -e HELIUS_API_KEY=your_helius_api_key \
   -e CHECKER_PRIVATE_KEY=your_base58_private_key \
   -e CHECKER_LICENSES=license1,license2,license3 \
+  beamablenetwork/checker:latest
+```
+
+### License Discovery by Owner
+
+Run all licenses delegated to your checker wallet from specific whitelisted owners:
+
+```bash
+docker run -d \
+  --name beamable-checker \
+  --restart unless-stopped \
+  -e SOLANA_NETWORK=mainnet \
+  -e HELIUS_API_KEY=your_helius_api_key \
+  -e CHECKER_PRIVATE_KEY=your_base58_private_key \
+  -e CHECKER_OWNERS=owner1,owner2 \
+  beamablenetwork/checker:latest
+```
+
+### Hybrid Approach (Combine Both)
+
+```bash
+docker run -d \
+  --name beamable-checker \
+  --restart unless-stopped \
+  -e SOLANA_NETWORK=mainnet \
+  -e HELIUS_API_KEY=your_helius_api_key \
+  -e CHECKER_PRIVATE_KEY=your_base58_private_key \
+  -e CHECKER_LICENSES=specific_license1,specific_license2 \
+  -e CHECKER_OWNERS=trusted_owner1,trusted_owner2 \
   beamablenetwork/checker:latest
 ```
 
@@ -85,7 +114,10 @@ services:
       SOLANA_NETWORK: mainnet
       HELIUS_API_KEY: ${HELIUS_API_KEY}
       CHECKER_PRIVATE_KEY: ${CHECKER_PRIVATE_KEY}
-      CHECKER_LICENSES: ${CHECKER_LICENSES}
+
+      # License specification: Use one or both of these options
+      CHECKER_LICENSES: ${CHECKER_LICENSES}  # Explicit license addresses
+      CHECKER_OWNERS: ${CHECKER_OWNERS}      # Whitelisted owner addresses for auto-discovery
 
       # Optional: Logging configuration
       LOG_LEVEL: info
@@ -104,10 +136,26 @@ services:
 
 Create a `.env` file with your secrets:
 
+**Option 1: Explicit licenses only**
 ```bash
 HELIUS_API_KEY=your_helius_api_key_here
 CHECKER_PRIVATE_KEY=your_base58_private_key_here
 CHECKER_LICENSES=license1,license2,license3
+```
+
+**Option 2: Auto-discovery by whitelisted owners**
+```bash
+HELIUS_API_KEY=your_helius_api_key_here
+CHECKER_PRIVATE_KEY=your_base58_private_key_here
+CHECKER_OWNERS=owner1,owner2
+```
+
+**Option 3: Hybrid (both explicit and auto-discovery)**
+```bash
+HELIUS_API_KEY=your_helius_api_key_here
+CHECKER_PRIVATE_KEY=your_base58_private_key_here
+CHECKER_LICENSES=specific_license1
+CHECKER_OWNERS=trusted_owner1,trusted_owner2
 ```
 
 Then run:
@@ -125,7 +173,15 @@ docker-compose up -d
 | `SOLANA_NETWORK` | Solana network to connect to | `mainnet` or `devnet` |
 | `HELIUS_API_KEY` | Your Helius API key for RPC access | `abc123...` |
 | `CHECKER_PRIVATE_KEY` | Checker wallet private key (base58 or JSON array format) | `5J7w8...` or `[1,2,3,...,64]` |
-| `CHECKER_LICENSES` | Comma-separated list of license addresses to run | `license1,license2,license3` |
+
+**License Specification** (at least one required):
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `CHECKER_LICENSES` | Comma-separated list of explicit license addresses to run | `license1,license2,license3` |
+| `CHECKER_OWNERS` | Comma-separated list of whitelisted owner addresses. Auto-discovers licenses delegated to your checker wallet from these owners only | `owner1,owner2` |
+
+**Note**: You must specify at least one of `CHECKER_LICENSES` or `CHECKER_OWNERS`. You can also use both together for a hybrid approach.
 
 ### Optional Configuration
 
@@ -169,13 +225,31 @@ CHECKER_PRIVATE_KEY=[1,2,3,4,5,...,64]
 
 You can run a checker for multiple licenses in several ways:
 
-### Option 1: Single Instance with Multiple Licenses (Recommended)
-Run one checker instance with multiple licenses specified:
+### Option 1: Explicit License Specification
+Specify licenses directly (recommended for full control):
 ```bash
 CHECKER_LICENSES=license1,license2,license3
 ```
 
-### Option 2: Multiple Separate Instances
+### Option 2: Auto-Discovery by Owner (Recommended for Delegated Licenses)
+If someone delegates licenses to your checker wallet, whitelist their address to automatically discover and run those licenses:
+```bash
+CHECKER_OWNERS=owner1,owner2
+```
+
+**Benefits:**
+- No need to update configuration when the owner delegates new licenses to you
+- Only runs licenses from trusted owners you've whitelisted
+- Prevents unauthorized resource usage from unexpected delegations
+
+### Option 3: Hybrid Approach
+Combine both for maximum flexibility:
+```bash
+CHECKER_LICENSES=my_own_license1,my_own_license2
+CHECKER_OWNERS=trusted_delegator1,trusted_delegator2
+```
+
+### Option 4: Multiple Separate Instances
 Run separate checker instances for each license (requires more resources):
 ```bash
 # Instance 1

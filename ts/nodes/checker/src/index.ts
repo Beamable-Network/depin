@@ -3,12 +3,19 @@ import { CheckerConfig } from './config.js';
 import { getLogger } from './logger.js';
 import { HealthServer } from './health-server.js';
 
-import { ActivateChecker, CheckerMetadataAccount } from '@beamable-network/depin';
+import { ActivateChecker, CheckerMetadataAccount, getCheckerTree } from '@beamable-network/depin';
+import { findLeafAssetIdPda } from '@metaplex-foundation/mpl-bubblegum';
+import { publicKey } from '@metaplex-foundation/umi';
+import { trace } from '@opentelemetry/api';
 import { address, Address, createKeyPairSignerFromBytes, KeyPairSigner } from 'gill';
 import packageJson from '../package.json' with { type: 'json' };
 import { createRpcClient, RpcClient } from './utils/rpc-client.js';
 
 const logger = getLogger('main');
+
+function getTracer() {
+    return trace.getTracer('main');
+}
 
 // =============================================================================
 // Process Error Handlers
@@ -163,6 +170,93 @@ async function discoverLicensesFromConfig(
   return licenses;
 }
 
+async function discoverLicensesByOwner(
+  config: CheckerConfig,
+  signer: KeyPairSigner,
+  rpc: RpcClient
+): Promise<Array<{ index: number; address: Address }>> {
+  logger.info(
+    { checkerAddress: signer.address, whitelistedOwners: config.checkerOwners, network: config.solanaNetwork },
+    'Searching for activated licenses from whitelisted owners...'
+  );
+
+  const checkerAccounts = await getTracer().startActiveSpan('find-delegated-licenses', async (span) => {
+    span.setAttribute('delegate', signer.address);
+    const accounts = await CheckerMetadataAccount.getActiveAccountsByDelegate(
+      rpc.getProgramAccounts,
+      signer.address
+    );
+    span.end();
+    return accounts;
+  });
+
+  if (!checkerAccounts.length) {
+    logger.warn(
+      { checkerAddress: signer.address },
+      'No active checker licenses found where I\'m the delegate'
+    );
+    return [];
+  }
+
+  logger.info(
+    {
+      foundLicenses: checkerAccounts.length,
+      checkerAddress: signer.address
+    },
+    'Found active checker licenses on-chain, filtering by whitelisted owners'
+  );
+
+  const checkerTree = getCheckerTree(config.solanaNetwork);
+  const licenses: Array<{ index: number; address: Address }> = [];
+  const ownerSet = new Set(config.checkerOwners);
+
+  logger.debug({ merkleTree: checkerTree }, 'Resolving license addresses from on-chain accounts');
+
+  for (const account of checkerAccounts) {
+    const licenseAddress = findLeafAssetIdPda(rpc.umi, {
+      leafIndex: account.data.licenseIndex,
+      merkleTree: publicKey(checkerTree)
+    });
+
+    const license = {
+      index: account.data.licenseIndex,
+      address: address(licenseAddress[0])
+    };
+
+    // Get the license asset to check the owner
+    try {
+      const licenseAsset = await rpc.getLicenseWithProof(license.address);
+      const licenseOwner = address(licenseAsset.leafOwner);
+
+      // Only include if the owner is in the whitelist
+      if (ownerSet.has(licenseOwner)) {
+        licenses.push(license);
+        logger.info(
+          { licenseAddress: license.address, licenseIndex: license.index, owner: licenseOwner },
+          'License from whitelisted owner accepted'
+        );
+      } else {
+        logger.debug(
+          { licenseAddress: license.address, licenseIndex: license.index, owner: licenseOwner },
+          'License owner not in whitelist, skipping'
+        );
+      }
+    } catch (err) {
+      logger.error(
+        { licenseAddress: license.address, err },
+        'Error fetching license asset, skipping'
+      );
+    }
+  }
+
+  logger.info(
+    { resolvedLicenses: licenses.length, totalFound: checkerAccounts.length },
+    'Completed license discovery by owner'
+  );
+
+  return licenses;
+}
+
 
 // =============================================================================
 // Checker Node Management
@@ -253,6 +347,7 @@ async function main() {
     {
       network: config.solanaNetwork,
       configuredLicenses: config.checkerLicenses.length,
+      configuredOwners: config.checkerOwners.length,
       skipBrand: config.skipBrand
     },
     'Configuration loaded'
@@ -264,12 +359,32 @@ async function main() {
 
   const rpc = createRpcClient(signer, config);
 
-  // Validate and activate configured licenses
-  const licenses = await discoverLicensesFromConfig(config, signer, rpc);
+  // Discover licenses from both explicit licenses and whitelisted owners
+  const licensesFromConfig = config.checkerLicenses.length > 0
+    ? await discoverLicensesFromConfig(config, signer, rpc)
+    : [];
+
+  const licensesFromOwners = config.checkerOwners.length > 0
+    ? await discoverLicensesByOwner(config, signer, rpc)
+    : [];
+
+  // Combine and deduplicate licenses
+  const licenseMap = new Map<string, { index: number; address: Address }>();
+
+  for (const license of [...licensesFromConfig, ...licensesFromOwners]) {
+    licenseMap.set(license.address, license);
+  }
+
+  const licenses = Array.from(licenseMap.values());
 
   if (!licenses.length) {
     logger.fatal(
-      { checkerAddress: signer.address, network: config.solanaNetwork },
+      {
+        checkerAddress: signer.address,
+        network: config.solanaNetwork,
+        configuredLicenses: config.checkerLicenses.length,
+        configuredOwners: config.checkerOwners.length
+      },
       'No valid checker licenses found after validation, exiting'
     );
     process.exit(1);

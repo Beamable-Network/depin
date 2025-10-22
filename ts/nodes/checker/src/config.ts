@@ -17,6 +17,7 @@ export class CheckerConfig {
   public readonly heliusApiKey: string;
   public readonly checkerPrivateKey: string;
   public readonly checkerLicenses: string[];
+  public readonly checkerOwners: string[];
   public readonly skipBrand: boolean;
   public readonly throttle: {
     sendTransaction: ThrottleConfig;
@@ -32,6 +33,7 @@ export class CheckerConfig {
     const heliusApiKey = process.env.HELIUS_API_KEY;
     const checkerPrivateKey = process.env.CHECKER_PRIVATE_KEY;
     const checkerLicenses = process.env.CHECKER_LICENSES;
+    const checkerOwners = process.env.CHECKER_OWNERS;
     const skipBrand = process.env.SKIP_BRAND;
 
     if (!solanaNetwork) {
@@ -50,21 +52,42 @@ export class CheckerConfig {
       throw new Error('CHECKER_PRIVATE_KEY environment variable is required');
     }
 
-    if (!checkerLicenses) {
-      throw new Error('CHECKER_LICENSES environment variable is required');
+    // At least one of CHECKER_LICENSES or CHECKER_OWNERS must be specified
+    if (!checkerLicenses && !checkerOwners) {
+      throw new Error('Either CHECKER_LICENSES or CHECKER_OWNERS (or both) must be specified');
     }
 
     this.solanaNetwork = solanaNetwork;
     this.checkerPrivateKey = checkerPrivateKey;
 
-    this.checkerLicenses = checkerLicenses.split(',').map(l => l.trim()).filter(l => l.length > 0);
+    // Parse and validate CHECKER_LICENSES if provided
+    if (checkerLicenses) {
+      this.checkerLicenses = checkerLicenses.split(',').map(l => l.trim()).filter(l => l.length > 0);
 
-    if (this.checkerLicenses.length === 0) {
-      throw new Error('CHECKER_LICENSES cannot be empty');
+      if (this.checkerLicenses.length === 0) {
+        throw new Error('CHECKER_LICENSES cannot be empty');
+      }
+
+      if (this.checkerLicenses.some(l => !isAddress(l))) {
+        throw new Error('One or more CHECKER_LICENSES are not valid Solana addresses');
+      }
+    } else {
+      this.checkerLicenses = [];
     }
 
-    if (this.checkerLicenses.some(l => !isAddress(l))) {
-      throw new Error('One or more CHECKER_LICENSES are not valid Solana addresses');
+    // Parse and validate CHECKER_OWNERS if provided
+    if (checkerOwners) {
+      this.checkerOwners = checkerOwners.split(',').map(o => o.trim()).filter(o => o.length > 0);
+
+      if (this.checkerOwners.length === 0) {
+        throw new Error('CHECKER_OWNERS cannot be empty');
+      }
+
+      if (this.checkerOwners.some(o => !isAddress(o))) {
+        throw new Error('One or more CHECKER_OWNERS are not valid Solana addresses');
+      }
+    } else {
+      this.checkerOwners = [];
     }
 
     this.heliusApiKey = heliusApiKey;
