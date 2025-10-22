@@ -52,8 +52,12 @@ export class CheckerConfig {
       throw new Error('CHECKER_PRIVATE_KEY environment variable is required');
     }
 
+    // Normalize empty strings to undefined
+    const normalizedLicenses = checkerLicenses?.trim() || undefined;
+    const normalizedOwners = checkerOwners?.trim() || undefined;
+
     // At least one of CHECKER_LICENSES or CHECKER_OWNERS must be specified
-    if (!checkerLicenses && !checkerOwners) {
+    if (!normalizedLicenses && !normalizedOwners) {
       throw new Error('Either CHECKER_LICENSES or CHECKER_OWNERS (or both) must be specified');
     }
 
@@ -61,8 +65,8 @@ export class CheckerConfig {
     this.checkerPrivateKey = checkerPrivateKey;
 
     // Parse and validate CHECKER_LICENSES if provided
-    if (checkerLicenses) {
-      this.checkerLicenses = checkerLicenses.split(',').map(l => l.trim()).filter(l => l.length > 0);
+    if (normalizedLicenses) {
+      this.checkerLicenses = normalizedLicenses.split(',').map(l => l.trim()).filter(l => l.length > 0);
 
       if (this.checkerLicenses.length === 0) {
         throw new Error('CHECKER_LICENSES cannot be empty');
@@ -76,8 +80,8 @@ export class CheckerConfig {
     }
 
     // Parse and validate CHECKER_OWNERS if provided
-    if (checkerOwners) {
-      this.checkerOwners = checkerOwners.split(',').map(o => o.trim()).filter(o => o.length > 0);
+    if (normalizedOwners) {
+      this.checkerOwners = normalizedOwners.split(',').map(o => o.trim()).filter(o => o.length > 0);
 
       if (this.checkerOwners.length === 0) {
         throw new Error('CHECKER_OWNERS cannot be empty');

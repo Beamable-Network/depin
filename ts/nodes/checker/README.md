@@ -134,26 +134,35 @@ services:
       # THROTTLE_GET_ACCOUNT_INTERVAL: 1100
 ```
 
-Create a `.env` file with your secrets:
+Create a `.env` file with your configuration:
 
 **Option 1: Explicit licenses only**
 ```bash
+# API credentials (keep these secret!)
 HELIUS_API_KEY=your_helius_api_key_here
 CHECKER_PRIVATE_KEY=your_base58_private_key_here
+
+# License configuration (public addresses)
 CHECKER_LICENSES=license1,license2,license3
 ```
 
 **Option 2: Auto-discovery by whitelisted owners**
 ```bash
+# API credentials (keep these secret!)
 HELIUS_API_KEY=your_helius_api_key_here
 CHECKER_PRIVATE_KEY=your_base58_private_key_here
+
+# Owner whitelist (public addresses)
 CHECKER_OWNERS=owner1,owner2
 ```
 
 **Option 3: Hybrid (both explicit and auto-discovery)**
 ```bash
+# API credentials (keep these secret!)
 HELIUS_API_KEY=your_helius_api_key_here
 CHECKER_PRIVATE_KEY=your_base58_private_key_here
+
+# License and owner configuration (public addresses)
 CHECKER_LICENSES=specific_license1
 CHECKER_OWNERS=trusted_owner1,trusted_owner2
 ```
