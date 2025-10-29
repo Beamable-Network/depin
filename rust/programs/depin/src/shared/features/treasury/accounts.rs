@@ -1,7 +1,8 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
 
-use crate::shared::{constants::seeds::{LOCK_SEED, STATE_SEED, TREASURY_SEED, CONFIG_SEED}, types::account::DepinAccountType};
+use crate::shared::constants::seeds::{LOCK_SEED, STATE_SEED, TREASURY_SEED, CONFIG_SEED};
+use depin_core::types::account::DepinAccountType;
 
 pub struct TreasuryAuthority;
 

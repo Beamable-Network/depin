@@ -1,6 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
-use crate::shared::{constants::seeds::{GLOBAL_SEED, STATE_SEED}, types::{account::DepinAccountType, ring_buffer::RingBuffer}};
+use crate::shared::{constants::seeds::{GLOBAL_SEED, STATE_SEED}, types::ring_buffer::RingBuffer};
+use depin_core::types::account::DepinAccountType;
 
 /// Encoded period-checker data as u64
 /// - Period: 16 bits (0-65535)

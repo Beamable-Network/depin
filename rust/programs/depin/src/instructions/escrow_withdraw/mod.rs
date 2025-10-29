@@ -12,7 +12,7 @@ use std::convert::TryInto;
 use crate::shared::constants::seeds::{ESCROW_SEED, TOKEN_SEED};
 
 #[cfg(not(feature = "test"))]
-use crate::shared::constants::accounts::{BMB_MINT, USDC_MINT};
+use depin_core::constants::{BMB_MINT, USDC_MINT};
 
 pub fn process_withdrawal_request(
     program_id: &Pubkey,

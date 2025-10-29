@@ -1,6 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
-use crate::shared::{constants::seeds::{CHECKER_SEED, LICENSE_SEED, METADATA_SEED}, types::account::DepinAccountType};
+use crate::shared::constants::seeds::{CHECKER_SEED, LICENSE_SEED, METADATA_SEED};
+use depin_core::types::account::DepinAccountType;
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct CheckerMetadata {

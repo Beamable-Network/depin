@@ -1,7 +1,8 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{pubkey::Pubkey, program_error::ProgramError};
 
-use crate::shared::constants::{seeds::{GLOBAL_REWARDS_SEED, GLOBAL_SEED}, accounts::DISC_SIZE};
+use crate::shared::constants::seeds::{GLOBAL_REWARDS_SEED, GLOBAL_SEED};
+use depin_core::constants::DISC_SIZE;
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct GlobalRewards {
@@ -17,7 +18,7 @@ impl GlobalRewards {
     }
 
     pub fn get_checker_reward(period: u16) -> u16 {
-        let month = crate::shared::utils::bmb::get_month_from_period(period);
+        let month = depin_core::utils::bmb::get_month_from_period(period);
 
         match month {
             // Year 1 (2025-2026) - Months 0-11

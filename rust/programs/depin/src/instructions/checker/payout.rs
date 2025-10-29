@@ -9,12 +9,16 @@ use solana_program::{
 };
 use crate::shared::{
     features::{
-        bubblegum::cnft_context::CnftContext,
         checker::accounts::{CheckerLicenseMetadata, CheckerMetadata},
         rewards::accounts::GlobalRewards,
         treasury::{accounts::TreasuryConfig, utils::grant_locked}
     },
-    utils::{account::read_account_data, bgum::verify_license, bmb::validate_checker_tree}
+};
+use depin_core::utils::{
+    account::read_account_data,
+    bgum::verify_license,
+    bmb::validate_checker_tree,
+    cnft_context::CnftContext,
 };
 use super::input;
 

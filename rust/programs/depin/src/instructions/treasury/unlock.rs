@@ -7,9 +7,9 @@ use solana_program::{
     pubkey::Pubkey
 };
 use crate::shared::{
-    features::treasury::{accounts::{TreasuryState, LockedTokens}, utils::unlock as unlock_tokens},
-    utils::account::read_account_data
+    features::treasury::{accounts::{TreasuryState, LockedTokens}, utils::unlock as unlock_tokens}
 };
+use depin_core::utils::account::read_account_data;
 use super::input;
 
 pub fn process_unlock<'info>(

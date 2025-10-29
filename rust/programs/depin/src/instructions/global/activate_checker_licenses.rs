@@ -12,11 +12,16 @@ use solana_program::{
 use crate::shared::{
     constants::seeds::{GLOBAL_SEED, STATE_SEED},
     features::global::accounts::BMBState,
+};
+use depin_core::{
     types::account::DepinAccountType,
-    utils::{account::{read_account_data, write_account_data}, bmb::get_current_period},
+    utils::{
+        account::{read_account_data, write_account_data},
+        bmb::get_current_period
+    }
 };
 #[cfg(not(feature = "test"))]
-use crate::shared::constants::accounts::BMB_LICENSE_ADMIN;
+use depin_core::constants::LICENSE_ADMIN;
 use super::input::ActivateCheckersInput;
 
 pub fn process_activate_checker_licenses<'info>(
@@ -43,7 +48,7 @@ pub fn process_activate_checker_licenses<'info>(
 
     // Verify admin authority (skip in test builds)
     #[cfg(not(feature = "test"))]
-    if *admin_account.key != BMB_LICENSE_ADMIN {
+    if *admin_account.key != LICENSE_ADMIN {
         msg!("Error: Only BMB License Admin can update BMB state");
         return Err(ProgramError::InvalidAccountOwner);
     }

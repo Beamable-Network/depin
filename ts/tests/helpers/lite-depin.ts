@@ -1,4 +1,4 @@
-import { DEPIN_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM, periodToTimestamp, timestampToPeriod, MPL_BUBBLEGUM_PROGRAM, REV_SHARE_PROGRAM } from '@beamable-network/depin';
+import { DEPIN_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM, periodToTimestamp, timestampToPeriod, MPL_BUBBLEGUM_PROGRAM } from '@beamable-network/depin';
 import { MPL_NOOP_PROGRAM_ID } from '@metaplex-foundation/mpl-account-compression';
 import { AssetWithProof, createTreeV2, findLeafAssetIdPda, hashAssetData, hashCollection, hashMetadataCreators, hashMetadataDataV2, mintV2 } from '@metaplex-foundation/mpl-bubblegum';
 import { createCollection, MPL_CORE_PROGRAM_ID } from '@metaplex-foundation/mpl-core';
@@ -155,7 +155,6 @@ export class LiteDepin {
         const externalPath = DEPIN_CONFIG.PROGRAMS.EXTERNAL_PATH;
 
         this.svm.addProgramFromFile(new PublicKey(DEPIN_PROGRAM), DEPIN_CONFIG.PROGRAMS.DEPIN_PATH);
-        this.svm.addProgramFromFile(new PublicKey(REV_SHARE_PROGRAM), DEPIN_CONFIG.PROGRAMS.REV_SHARE_PATH);
         this.svm.addProgramFromFile(new PublicKey(MPL_ACCOUNT_COMPRESSION_PROGRAM), `${externalPath}/${MPL_ACCOUNT_COMPRESSION_PROGRAM}.so`);
         this.svm.addProgramFromFile(new PublicKey(MPL_BUBBLEGUM_PROGRAM), `${externalPath}/${MPL_BUBBLEGUM_PROGRAM}.so`);
         this.svm.addProgramFromFile(new PublicKey(MPL_NOOP_PROGRAM_ID), `${externalPath}/${MPL_NOOP_PROGRAM_ID}.so`);

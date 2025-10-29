@@ -1,6 +1,6 @@
 // use borsh::BorshDeserialize;
-// use crate::shared::utils::account::write_account_data;
-// use crate::shared::types::account::DepinAccountType;
+// use depin_core::utils::account::write_account_data;
+// use depin_core::types::account::DepinAccountType;
 // use solana_program::{
 //     account_info::{next_account_info, AccountInfo},
 //     entrypoint::ProgramResult,

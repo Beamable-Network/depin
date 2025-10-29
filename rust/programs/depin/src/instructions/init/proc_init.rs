@@ -1,8 +1,8 @@
 use crate::shared::constants::seeds::{GLOBAL_REWARDS_SEED, GLOBAL_SEED, TREASURY_SEED, STATE_SEED};
 use crate::shared::features::rewards::accounts::GlobalRewards;
 use crate::shared::features::treasury::accounts::{TreasuryState, TreasuryConfig};
-use crate::shared::types::account::DepinAccountType;
-use crate::shared::utils::account::write_account_data;
+use depin_core::types::account::DepinAccountType;
+use depin_core::utils::account::write_account_data;
 use solana_program::program::invoke_signed;
 use solana_program::rent::Rent;
 use solana_program::{system_instruction};
