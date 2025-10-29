@@ -1,5 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{program_error::ProgramError, pubkey::Pubkey};
+use depin_core::utils::cnft_context::CnftContext;
 
 // Parameter structs with Borsh serialization
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
@@ -37,6 +38,7 @@ pub struct WorkerUnstakeParams {
 pub struct StakeParams {
     pub amount: u64,
     pub checker_count: u16,
+    pub license_context: CnftContext,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]

@@ -2,10 +2,13 @@ use depin_core::{
     constants::{BMB_MINT, BMB_DECIMALS},
     utils::{
         account::{read_account_data, reallocate_account_if_needed, write_account_data},
-        bmb::{get_current_period, get_month_from_period, get_month_end_timestamp, days_between, days_in_month},
+        bmb::{get_current_period, get_month_from_period, get_month_end_timestamp, days_between, days_in_month, validate_worker_tree},
         tokens::initialize_ata_if_needed,
+        bgum::verify_license_and_owner,
     },
 };
+use mpl_bubblegum::types::LeafSchema;
+use mpl_bubblegum::utils::get_asset_id;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     clock::Clock,
@@ -20,27 +23,27 @@ use solana_program::{
 };
 use spl_token::instruction::transfer_checked;
 use crate::{
+    instruction::StakeParams,
     state::{WorkerStakeConfig, MonthlyPool, UserStakePosition, StakeEntry},
     types::WorkerStakeAccountType,
     utils::{
-        validate_collection_authority,
         find_community_stake_vault_pda,
         initialize_pool_with_inheritance,
         BMB_PER_POINT,
     },
 };
+use borsh::BorshDeserialize;
 
 const USER_POSITION_SEED: &[u8] = b"user_position";
 
 pub fn process_stake<'a>(
     program_id: &Pubkey,
     accounts: &'a [AccountInfo<'a>],
-    amount: u64,
-    checker_count: u16,
+    instruction_data: &[u8],
 ) -> ProgramResult {
     // Expected Accounts:
     // 0. [signer, writable] User (payer for account creation/realloc)
-    // 1. [signer] Worker collection update authority (vouching for checker_count)
+    // 1. [signer] Worker (co-signing to vouch for checker_count)
     // 2. [readonly] Worker collection account
     // 3. [writable] WorkerStakeConfig PDA
     // 4. [writable] MonthlyPool for current month
@@ -52,11 +55,14 @@ pub fn process_stake<'a>(
     // 10. [readonly] Token program
     // 11. [readonly] Associated token program
     // 12. [readonly] System program
-    // Remaining accounts: [writable, optional] Previous MonthlyPool (if last_active_pool_month > 0)
+    // 13. [readonly] mpl_account_compression program
+    // 14. [readonly] Merkle tree account (worker license tree)
+    // 15. [writable] Previous MonthlyPool (if not needed, pass system program)
+    // Remaining accounts: [readonly] Proof accounts for Merkle tree verification
 
     let account_info_iter = &mut accounts.iter();
     let user_account = next_account_info(account_info_iter)?;
-    let collection_authority_account = next_account_info(account_info_iter)?;
+    let worker_account = next_account_info(account_info_iter)?;
     let worker_collection_account = next_account_info(account_info_iter)?;
     let worker_stake_config_account = next_account_info(account_info_iter)?;
     let monthly_pool_account = next_account_info(account_info_iter)?;
@@ -68,11 +74,20 @@ pub fn process_stake<'a>(
     let token_program = next_account_info(account_info_iter)?;
     let associated_token_program = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
+    let _mpl_account_compression_program = next_account_info(account_info_iter)?;
+    let merkle_tree_account = next_account_info(account_info_iter)?;
+    let prev_pool_account = next_account_info(account_info_iter)?;
 
     let rent = Rent::get()?;
 
-    // Remaining accounts (optional previous pool)
-    let remaining_accounts: Vec<&AccountInfo> = account_info_iter.collect();
+    // Remaining accounts (proof accounts for Merkle tree verification)
+    let proof_accounts: Vec<AccountInfo> = account_info_iter.cloned().collect();
+
+    // Parse instruction data
+    let params = StakeParams::try_from_slice(instruction_data)?;
+    let amount = params.amount;
+    let checker_count = params.checker_count;
+    let license = params.license_context;
 
     // Validate amount > 0
     if amount == 0 {
@@ -80,13 +95,55 @@ pub fn process_stake<'a>(
         return Err(ProgramError::InvalidArgument);
     }
 
-    // Validate both signatures
+    // Validate user signature
     if !user_account.is_signer {
         msg!("Error: User must sign the transaction");
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    validate_collection_authority(worker_collection_account, collection_authority_account)?;
+    // --- WORKER LICENSE VERIFICATION ---
+
+    // Calculate the leaf asset ID (worker license)
+    let leaf_asset_id = get_asset_id(merkle_tree_account.key, license.nonce);
+
+    let license_leaf = LeafSchema::V2 {
+        id: leaf_asset_id,
+        owner: license.owner,
+        delegate: license.delegate,
+        nonce: license.nonce,
+        data_hash: license.data_hash,
+        creator_hash: license.creator_hash,
+        collection_hash: license.get_collection_hash(),
+        asset_data_hash: license.asset_data_hash,
+        flags: license.flags,
+    };
+
+    let license_leaf_hash = license_leaf.hash();
+
+    // Validate Merkle tree
+    validate_worker_tree(merkle_tree_account.key)?;
+
+    // Verify worker license ownership
+    verify_license_and_owner(
+        merkle_tree_account,
+        &proof_accounts,
+        &license,
+        license_leaf_hash,
+        worker_account,
+    )?;
+
+    // Verify license collection matches worker_collection
+    if let Some(collection) = license.collection {
+        if &collection != worker_collection_account.key {
+            msg!("Error: Worker license collection does not match worker_collection");
+            return Err(ProgramError::InvalidArgument);
+        }
+    } else {
+        msg!("Error: Worker license must have a collection");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    msg!("Worker license verified for worker: {}", worker_account.key);
 
     // Validate BMB mint
     if *bmb_mint_account.key != BMB_MINT {
@@ -130,8 +187,15 @@ pub fn process_stake<'a>(
     drop(pool_data);
 
     // Initialize pool if needed (with inheritance)
-    let prev_pool_account = if config.last_active_pool_month > 0 {
-        remaining_accounts.get(0).copied()
+    // If last_active_pool_month > 0, use prev_pool_account (account #15)
+    // Otherwise, pass None
+    let prev_pool_option = if config.last_active_pool_month > 0 {
+        // Check if prev_pool_account is the system program (indicates no previous pool needed)
+        if prev_pool_account.key == system_program.key {
+            None
+        } else {
+            Some(prev_pool_account)
+        }
     } else {
         None
     };
@@ -142,7 +206,7 @@ pub fn process_stake<'a>(
         current_month_period,
         &mut monthly_pool,
         &mut config,
-        prev_pool_account,
+        prev_pool_option,
     )?;
 
     // Validate UserStakePosition PDA

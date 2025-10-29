@@ -13,7 +13,6 @@ use crate::{
         SetMonthlyPoolParams,
         WorkerStakeParams,
         WorkerUnstakeParams,
-        StakeParams,
         ClaimRewardsParams,
         DepositRevenueParams,
         DepositEmissionsParams,
@@ -94,9 +93,7 @@ pub fn process<'a>(
         }
         WorkerStakeInstruction::Stake => {
             msg!("Instruction: Stake");
-            let params = StakeParams::try_from_slice(data)
-                .map_err(|_| ProgramError::InvalidInstructionData)?;
-            process_stake(program_id, accounts, params.amount, params.checker_count)
+            process_stake(program_id, accounts, data)
         }
         WorkerStakeInstruction::Unstake => {
             msg!("Instruction: Unstake");

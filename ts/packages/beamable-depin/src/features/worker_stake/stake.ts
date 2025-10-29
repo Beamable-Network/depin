@@ -11,7 +11,9 @@ import {
     getProgramDerivedAddress
 } from "gill";
 
-import { BMB_MINT, COMMUNITY_STAKE_VAULT_SEED, SYSTEM_PROGRAM_ADDRESS, WORKER_STAKE_PROGRAM } from "../../constants.js";
+import { AssetWithProof } from "@metaplex-foundation/mpl-bubblegum";
+import { BMB_MINT, COMMUNITY_STAKE_VAULT_SEED, SYSTEM_PROGRAM_ADDRESS, WORKER_STAKE_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM } from "../../constants.js";
+import { assetToCNftContext, CNftContext, CNftContextCodec } from "../../utils/bubblegum.js";
 import { WorkerStakeInstruction } from "../../enums.js";
 import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
 import { UserStakePositionAccount } from "./user-stake-position-account.js";
@@ -23,16 +25,19 @@ const addressEncoder = getAddressEncoder();
 export interface StakeParams {
     amount: bigint;
     checker_count: number;
+    license_context: CNftContext;
 }
 
 export const StakeParamsCodec: Codec<StakeParams> = getStructCodec([
     ["amount", getU64Codec({ endian: Endian.Little })],
-    ["checker_count", getU16Codec({ endian: Endian.Little })]
+    ["checker_count", getU16Codec({ endian: Endian.Little })],
+    ["license_context", CNftContextCodec]
 ]);
 
 export interface CreateStakeInput {
     user: Address;
-    collection_authority: Address;
+    worker: Address;
+    worker_license: AssetWithProof;
     worker_collection: Address;
     amount: bigint;
     checker_count: number;
@@ -43,7 +48,8 @@ export interface CreateStakeInput {
 
 export class Stake {
     user: Address;
-    collection_authority: Address;
+    worker: Address;
+    worker_license: AssetWithProof;
     worker_collection: Address;
     user_token_account: Address;
     current_month_period: number;
@@ -53,10 +59,12 @@ export class Stake {
     constructor(input: CreateStakeInput) {
         this.params = {
             amount: input.amount,
-            checker_count: input.checker_count
+            checker_count: input.checker_count,
+            license_context: assetToCNftContext(input.worker_license)
         };
         this.user = input.user;
-        this.collection_authority = input.collection_authority;
+        this.worker = input.worker;
+        this.worker_license = input.worker_license;
         this.worker_collection = input.worker_collection;
         this.user_token_account = input.user_token_account;
         this.current_month_period = input.current_month_period;
@@ -88,28 +96,39 @@ export class Stake {
 
         const accounts = [
             { address: this.user, role: AccountRole.WRITABLE_SIGNER },
-            { address: this.collection_authority, role: AccountRole.READONLY_SIGNER },
+            { address: this.worker, role: AccountRole.READONLY_SIGNER },
             { address: this.worker_collection, role: AccountRole.READONLY },
             { address: configPda[0], role: AccountRole.WRITABLE },
-            { address: userPositionPda[0], role: AccountRole.WRITABLE },
             { address: currentPoolPda[0], role: AccountRole.WRITABLE },
+            { address: userPositionPda[0], role: AccountRole.WRITABLE },
             { address: this.user_token_account, role: AccountRole.WRITABLE },
-            { address: communityStakeVaultAta[0], role: AccountRole.WRITABLE },
             { address: communityStakeVaultPda[0], role: AccountRole.READONLY },
+            { address: communityStakeVaultAta[0], role: AccountRole.WRITABLE },
             { address: BMB_MINT, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
             { address: ASSOCIATED_TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
-            { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY }
+            { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY },
+            { address: MPL_ACCOUNT_COMPRESSION_PROGRAM, role: AccountRole.READONLY },
+            { address: address(this.worker_license.merkleTree), role: AccountRole.READONLY }
         ];
 
-        // Add optional previous pool account if provided
+        // Add previous pool account (required as account #15, use system program if not needed)
         if (this.previous_pool_month_period !== undefined) {
             const previousPoolPda = await MonthlyPoolAccount.findMonthlyPoolPDA(
                 this.worker_collection,
                 this.previous_pool_month_period
             );
-            accounts.push({ address: previousPoolPda[0], role: AccountRole.READONLY });
+            accounts.push({ address: previousPoolPda[0], role: AccountRole.WRITABLE });
+        } else {
+            accounts.push({ address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY });
         }
+
+        // Add proof accounts for Merkle tree verification
+        const proofAccounts = this.worker_license.proof.map(proof => ({
+            address: address(proof),
+            role: AccountRole.READONLY
+        }));
+        accounts.push(...proofAccounts);
 
         return {
             programAddress: WORKER_STAKE_PROGRAM,
