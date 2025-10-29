@@ -7,10 +7,12 @@ use crate::shared::{
         global::accounts::BMBState,
         rewards::accounts::GlobalRewards,
         worker::accounts::{WorkerLicenseMetadata, WorkerMetadata, WorkerProof},
-    }, utils::{
-        account::{read_account_data, write_account_data},
-        bgum::verify_license, bmb::validate_worker_tree,
-    }
+    },
+};
+use depin_core::utils::{
+    account::{read_account_data, write_account_data},
+    bgum::verify_license,
+    bmb::validate_worker_tree
 };
 use solana_program::{
     account_info::{next_account_info, AccountInfo}, entrypoint::ProgramResult, msg, program::invoke_signed, program_error::ProgramError, pubkey::Pubkey, system_instruction, sysvar::{rent::Rent, Sysvar}
@@ -100,7 +102,7 @@ pub fn process_submit_worker_proof(
         &leaf_asset_id
     )?;
 
-    let current_period = crate::shared::utils::bmb::get_current_period();
+    let current_period = depin_core::utils::bmb::get_current_period();
 
     // Workers can only submit for the previous period (current_period - 1)
     // This gives them 24h from period end to submit

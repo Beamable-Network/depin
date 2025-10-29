@@ -16,9 +16,15 @@ use spl_token::{
 use spl_associated_token_account::get_associated_token_address;
 
 use crate::shared::{
-    constants::{accounts::BMB_MINT, seeds::{TREASURY_SEED, LOCK_SEED}},
+    constants::seeds::{TREASURY_SEED, LOCK_SEED},
     features::treasury::accounts::{TreasuryState, TreasuryAuthority, LockedTokens},
-    utils::{account::{read_account_data, write_account_data}, bmb::get_current_period},
+};
+use depin_core::{
+    constants::BMB_MINT,
+    utils::{
+        account::{read_account_data, write_account_data},
+        bmb::get_current_period
+    }
 };
 
 /// Creates or adds to locked tokens for a user with period-based accumulation
@@ -59,6 +65,12 @@ pub fn grant_locked<'a>(
         msg!("Error: Treasury ATA account does not match expected address. Expected: {}, Provided: {}", 
             expected_treasury_ata, treasury_ata_account.key);
         return Err(ProgramError::InvalidArgument);
+    }
+
+    // Check that treasury ATA account exists and is initialized
+    if treasury_ata_account.data_is_empty() {
+        msg!("Error: Treasury ATA account does not exist. Please initialize the treasury ATA account first.");
+        return Err(ProgramError::UninitializedAccount);
     }
 
     // Check treasury has sufficient available balance

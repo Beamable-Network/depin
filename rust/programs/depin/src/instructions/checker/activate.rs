@@ -12,7 +12,15 @@ use solana_program::{
     program::invoke_signed
 };
 use crate::shared::{
-    features::checker::accounts::CheckerMetadata, types::account::DepinAccountType, utils::{account::{read_account_data, reallocate_account_if_needed, write_account_data}, bgum::verify_license_and_owner, bmb::validate_checker_tree}
+    features::checker::accounts::CheckerMetadata,
+};
+use depin_core::{
+    types::account::DepinAccountType,
+    utils::{
+        account::{read_account_data, reallocate_account_if_needed, write_account_data},
+        bgum::verify_license_and_owner,
+        bmb::validate_checker_tree
+    }
 };
 use super::input;
 

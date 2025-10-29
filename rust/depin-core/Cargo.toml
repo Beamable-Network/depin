@@ -1,0 +1,22 @@
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = [
+    'cfg(feature, values("test"))'
+]
+
+[package]
+name = "depin-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+borsh = "1.5.7"
+solana-program = "2.2.1"
+spl-token = { version = "8.0.0", features = ["no-entrypoint"] }
+spl-associated-token-account = { version = "7.0.0", features = ["no-entrypoint"] }
+
+[lib]
+crate-type = ["lib"]
+
+[features]
+test = []

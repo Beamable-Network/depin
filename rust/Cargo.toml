@@ -2,5 +2,6 @@
 resolver = "2"
 members = [
     "programs/depin",
-    "programs/rev-share"
+    "programs/worker_stake",
+    "depin-core"
 ]

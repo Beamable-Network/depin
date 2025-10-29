@@ -1,5 +1,3 @@
-# CLAUDE.md
-
 ## Project Overview
 
 This is a Beamable.Network DePIN (Decentralized Physical Infrastructure Networks) proof-of-concept implementing a decentralized network for game workloads. The system connects three actors: Workers (infrastructure providers), Checkers (independent verifiers), and End Users (game studios/consumers).

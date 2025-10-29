@@ -12,7 +12,15 @@ use solana_program::{
     program::invoke_signed
 };
 use crate::shared::{
-    features::worker::accounts::WorkerMetadata, types::account::DepinAccountType, utils::{account::{read_account_data, reallocate_account_if_needed, write_account_data}, bgum::verify_license_and_owner, bmb::validate_worker_tree}
+    features::worker::accounts::WorkerMetadata,
+};
+use depin_core::{
+    types::account::DepinAccountType,
+    utils::{
+        account::{read_account_data, reallocate_account_if_needed, write_account_data},
+        bgum::verify_license_and_owner,
+        bmb::validate_worker_tree
+    }
 };
 use super::input;
 

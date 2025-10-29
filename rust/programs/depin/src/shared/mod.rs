@@ -1,27 +1,22 @@
+// Depin-specific types
 pub mod types {
-    pub mod account;
     pub mod ring_buffer;
 }
 
+// Depin-specific utils
 pub mod utils {
-    pub mod account;
-    pub mod bgum;
-    pub mod bmb;
     pub mod brand;
 }
 
+// Depin-specific constants
 pub mod constants {
     pub mod seeds;
-    pub mod accounts;
     pub mod programs;
 }
 
 pub mod features {
     pub mod rewards {
         pub mod accounts;
-    }
-    pub mod bubblegum {
-        pub mod cnft_context;
     }
     pub mod worker {
         pub mod accounts;

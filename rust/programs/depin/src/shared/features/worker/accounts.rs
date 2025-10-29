@@ -1,6 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
-use crate::shared::{constants::seeds::{LICENSE_SEED, METADATA_SEED, PROOF_SEED, WORKER_SEED}, types::account::DepinAccountType};
+use crate::shared::constants::seeds::{LICENSE_SEED, METADATA_SEED, PROOF_SEED, WORKER_SEED};
+use depin_core::types::account::DepinAccountType;
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct WorkerLicenseMetadata {
