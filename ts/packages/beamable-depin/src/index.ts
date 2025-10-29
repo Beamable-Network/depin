@@ -32,3 +32,6 @@ export * from './features/treasury/unlock.js';
 export * from './utils/brand.js';
 export * from './utils/proof.js';
 export * from './signatures/index.js';
+
+// Worker Stake feature
+export * from './features/worker_stake/index.js';

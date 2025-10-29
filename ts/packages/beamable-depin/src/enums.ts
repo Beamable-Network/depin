@@ -21,3 +21,24 @@ export enum DepinAccountType {
     LockedTokens = 9,
     TreasuryConfig = 10
 }
+
+export enum WorkerStakeInstruction {
+    InitializeWorkerStakeConfig = 0x01,
+    UpdateWorkerWallet = 0x02,
+    UpdateMinStakeRequirement = 0x03,
+    SetMonthlyPool = 0x04,
+    WorkerStake = 0x05,
+    WorkerUnstake = 0x06,
+    Stake = 0x07,
+    Unstake = 0x08,
+    Withdraw = 0x09,
+    ClaimRewards = 0x0a,
+    DepositRevenue = 0x0b,
+    DepositEmissions = 0x0c
+}
+
+export enum WorkerStakeAccountType {
+    WorkerStakeConfig = 0x01,
+    MonthlyPool = 0x02,
+    UserStakePosition = 0x03
+}
