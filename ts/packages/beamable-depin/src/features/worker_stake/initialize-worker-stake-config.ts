@@ -5,13 +5,17 @@ import {
     Codec,
     Endian,
     getAddressCodec,
+    getAddressEncoder,
+    getProgramDerivedAddress,
     getStructCodec,
     getU64Codec
 } from "gill";
 
-import { SYSTEM_PROGRAM_ADDRESS, WORKER_STAKE_PROGRAM } from "../../constants.js";
+import { BPF_LOADER_UPGRADEABLE_PROGRAM, SYSTEM_PROGRAM_ADDRESS, WORKER_STAKE_PROGRAM } from "../../constants.js";
 import { WorkerStakeInstruction } from "../../enums.js";
 import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
+
+const addressEncoder = getAddressEncoder();
 
 export interface InitializeWorkerStakeConfigParams {
     worker_collection: Address;
@@ -26,16 +30,17 @@ export const InitializeWorkerStakeConfigParamsCodec: Codec<InitializeWorkerStake
 ]);
 
 export interface CreateInitializeWorkerStakeConfigInput {
-    collection_authority: Address;
-    network_admin: Address;
+    payer: Address;
+    upgrade_authority: Address;
     worker_collection: Address;
     worker_wallet: Address;
     min_stake_requirement: bigint;
 }
 
 export class InitializeWorkerStakeConfig {
-    collection_authority: Address;
-    network_admin: Address;
+    payer: Address;
+    upgrade_authority: Address;
+    worker_collection: Address;
     readonly params: InitializeWorkerStakeConfigParams;
 
     constructor(input: CreateInitializeWorkerStakeConfigInput) {
@@ -44,8 +49,9 @@ export class InitializeWorkerStakeConfig {
             worker_wallet: input.worker_wallet,
             min_stake_requirement: input.min_stake_requirement
         };
-        this.collection_authority = input.collection_authority;
-        this.network_admin = input.network_admin;
+        this.payer = input.payer;
+        this.upgrade_authority = input.upgrade_authority;
+        this.worker_collection = input.worker_collection;
     }
 
     private serialize(): Uint8Array {
@@ -54,12 +60,20 @@ export class InitializeWorkerStakeConfig {
     }
 
     public async getInstruction() {
-        const configPda = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(this.params.worker_collection);
+        const configPda = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(this.worker_collection);
+
+        // Calculate ProgramData PDA
+        // Need to encode the worker_stake program address to bytes for the seed        
+        const programBytes = addressEncoder.encode(WORKER_STAKE_PROGRAM);
+        const [programDataAddress] = await getProgramDerivedAddress({
+            programAddress: BPF_LOADER_UPGRADEABLE_PROGRAM,
+            seeds: [programBytes]
+        });
 
         const accounts = [
-            { address: this.collection_authority, role: AccountRole.WRITABLE_SIGNER },
-            { address: this.network_admin, role: AccountRole.READONLY_SIGNER },
-            { address: this.params.worker_collection, role: AccountRole.READONLY },
+            { address: this.upgrade_authority, role: AccountRole.READONLY_SIGNER },
+            { address: programDataAddress, role: AccountRole.READONLY },
+            { address: this.payer, role: AccountRole.WRITABLE_SIGNER },
             { address: configPda[0], role: AccountRole.WRITABLE },
             { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY }
         ];

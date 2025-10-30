@@ -1,4 +1,4 @@
-import { DEPIN_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM, periodToTimestamp, timestampToPeriod, MPL_BUBBLEGUM_PROGRAM } from '@beamable-network/depin';
+import { DEPIN_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM, periodToTimestamp, timestampToPeriod, MPL_BUBBLEGUM_PROGRAM, WORKER_STAKE_PROGRAM, BPF_LOADER_UPGRADEABLE_PROGRAM } from '@beamable-network/depin';
 import { MPL_NOOP_PROGRAM_ID } from '@metaplex-foundation/mpl-account-compression';
 import { AssetWithProof, createTreeV2, findLeafAssetIdPda, hashAssetData, hashCollection, hashMetadataCreators, hashMetadataDataV2, mintV2 } from '@metaplex-foundation/mpl-bubblegum';
 import { createCollection, MPL_CORE_PROGRAM_ID } from '@metaplex-foundation/mpl-core';
@@ -28,6 +28,7 @@ const DEPIN_CONFIG = {
     },
     PROGRAMS: {
         DEPIN_PATH: '../../rust/target/test/depin.so',
+        WORKER_STAKE_PATH: '../../rust/target/test/worker_stake.so',
         REV_SHARE_PATH: '../../rust/target/test/rev_share.so',
         EXTERNAL_PATH: '../../rust/external',
     },
@@ -155,6 +156,7 @@ export class LiteDepin {
         const externalPath = DEPIN_CONFIG.PROGRAMS.EXTERNAL_PATH;
 
         this.svm.addProgramFromFile(new PublicKey(DEPIN_PROGRAM), DEPIN_CONFIG.PROGRAMS.DEPIN_PATH);
+        this.svm.addProgramFromFile(new PublicKey(WORKER_STAKE_PROGRAM), DEPIN_CONFIG.PROGRAMS.WORKER_STAKE_PATH);
         this.svm.addProgramFromFile(new PublicKey(MPL_ACCOUNT_COMPRESSION_PROGRAM), `${externalPath}/${MPL_ACCOUNT_COMPRESSION_PROGRAM}.so`);
         this.svm.addProgramFromFile(new PublicKey(MPL_BUBBLEGUM_PROGRAM), `${externalPath}/${MPL_BUBBLEGUM_PROGRAM}.so`);
         this.svm.addProgramFromFile(new PublicKey(MPL_NOOP_PROGRAM_ID), `${externalPath}/${MPL_NOOP_PROGRAM_ID}.so`);
@@ -671,5 +673,57 @@ export class LiteDepin {
     goToPeriod(period: number): void {
         const timestamp = BigInt(periodToTimestamp(period));
         this.setTime(timestamp);
+    }
+
+    /**
+     * Sets the upgrade authority for a deployed program.
+     * This allows tests to use any keypair as the program's upgrade authority.
+     * Creates a ProgramData account that is used by the BPF Loader Upgradeable.
+     * @param programAddress The program address to set the upgrade authority for
+     * @param upgradeAuthority The public key of the new upgrade authority
+     */
+    setProgramUpgradeAuthority(programAddress: string, upgradeAuthority: PublicKey): void {
+        const programPubkey = new PublicKey(programAddress);
+        const BPF_LOADER_UPGRADEABLE = new PublicKey(BPF_LOADER_UPGRADEABLE_PROGRAM);
+
+        // Find ProgramData PDA: seeds = [program_id]
+        const [programDataAddress] = PublicKey.findProgramAddressSync(
+            [programPubkey.toBuffer()],
+            BPF_LOADER_UPGRADEABLE
+        );
+
+        // Create the UpgradeableLoaderState::ProgramData structure
+        // Reference: https://github.com/solana-labs/solana/blob/master/sdk/program/src/bpf_loader_upgradeable.rs
+        // UpgradeableLoaderState is an enum serialized with bincode
+        // ProgramData variant = 3 (u32)
+        // slot: u64
+        // upgrade_authority_address: Option<Pubkey> (1 byte + 32 bytes)
+
+        const data = Buffer.alloc(45); // 4 (discriminator) + 8 (slot) + 1 (option) + 32 (pubkey)
+        let offset = 0;
+
+        // Write discriminator (3 = ProgramData variant)
+        data.writeUInt32LE(3, offset);
+        offset += 4;
+
+        // Write slot (u64) - set to 0
+        data.writeBigUInt64LE(0n, offset);
+        offset += 8;
+
+        // Write Option<Pubkey> (1 = Some)
+        data.writeUInt8(1, offset);
+        offset += 1;
+
+        // Write Pubkey (32 bytes)
+        upgradeAuthority.toBuffer().copy(data, offset);
+
+        // Set the ProgramData account in LiteSVM
+        this.svm.setAccount(programDataAddress, {
+            lamports: LAMPORTS_PER_SOL * 5, // 5 SOL
+            data: data,
+            owner: BPF_LOADER_UPGRADEABLE,
+            executable: false,
+            rentEpoch: 0
+        });
     }
 }

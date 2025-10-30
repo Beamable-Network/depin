@@ -5,6 +5,7 @@ use depin_core::utils::cnft_context::CnftContext;
 // Parameter structs with Borsh serialization
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
 pub struct InitializeWorkerStakeConfigParams {
+    pub worker_collection: Pubkey,
     pub worker_wallet: Pubkey,
     pub min_stake_requirement: u64,
 }
@@ -16,6 +17,7 @@ pub struct UpdateWorkerWalletParams {
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
 pub struct UpdateMinStakeRequirementParams {
+    pub worker_collection: Pubkey,
     pub new_min_stake_requirement: u64,
 }
 

@@ -3,6 +3,7 @@ import { address } from 'gill';
 export const DEPIN_PROGRAM = address('BMBpXq5RaoRf5pGsQpuwjcozaLF2TuNCmYKKcFJjFiFS');
 export const WORKER_STAKE_PROGRAM = address('WSTKhDg9nQ8h2ZmnmNdR6heSGU6uYJSwdUNpzSYXBSe');
 export const MPL_ACCOUNT_COMPRESSION_PROGRAM = address("mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW");
+export const BPF_LOADER_UPGRADEABLE_PROGRAM = address('BPFLoaderUpgradeab1e11111111111111111111111');
 export const USDC_MINT = address('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 export const BMB_MINT = address('BMBtwz6LFDJVJd2aZvL5F64fdvWP3RPn4NP5q9Xe15UD');
 export const BMB_DECIMALS = 9;

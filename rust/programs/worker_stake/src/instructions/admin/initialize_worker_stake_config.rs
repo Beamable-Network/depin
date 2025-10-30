@@ -1,4 +1,7 @@
-use depin_core::{constants::NETWORK_ADMIN, utils::account::write_account_data};
+use depin_core::utils::{
+    account::write_account_data,
+    program_data::validate_upgrade_authority,
+};
 use solana_program::{
     account_info::{AccountInfo, next_account_info},
     entrypoint::ProgramResult,
@@ -13,46 +16,44 @@ use solana_program::{
 use crate::{
     state::worker_stake_config::WorkerStakeConfig,
     types::WorkerStakeAccountType,
-    utils::{validate_collection_authority},
 };
 
 pub fn process_initialize_worker_stake_config<'a>(
     program_id: &Pubkey,
     accounts: &'a [AccountInfo<'a>],
+    worker_collection: Pubkey,
     worker_wallet: Pubkey,
     min_stake_requirement: u64,
 ) -> ProgramResult {
     // Expected Accounts:
-    // 0. [signer] Worker collection update authority
-    // 1. [signer] Network admin
-    // 2. [readonly] Worker collection account (Metaplex Core collection)
+    // 0. [signer] Program upgrade authority
+    // 1. [readonly] ProgramData account (contains upgrade authority)
+    // 2. [writable, signer] Payer (pays for account creation)
     // 3. [writable] WorkerStakeConfig PDA
     // 4. [readonly] System program
 
     let account_info_iter = &mut accounts.iter();
-    let collection_authority_account = next_account_info(account_info_iter)?;
-    let network_admin_account = next_account_info(account_info_iter)?;
-    let worker_collection_account = next_account_info(account_info_iter)?;
+    let upgrade_authority_account = next_account_info(account_info_iter)?;
+    let program_data_account = next_account_info(account_info_iter)?;
+    let payer_account = next_account_info(account_info_iter)?;
     let worker_stake_config_account = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
-    // Validate network admin signature
-    if !network_admin_account.is_signer {
-        msg!("Error: Network admin must sign the transaction");
+    // Validate upgrade authority signature
+    if !upgrade_authority_account.is_signer {
+        msg!("Error: Program upgrade authority must sign the transaction");
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    // Validate network admin pubkey
-    if network_admin_account.key != &NETWORK_ADMIN {
-        msg!("Error: Invalid network admin pubkey");
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    // Validate worker collection and authority
-    validate_collection_authority(worker_collection_account, collection_authority_account)?;
+    // Validate upgrade authority from ProgramData account
+    validate_upgrade_authority(
+        program_id,
+        program_data_account,
+        upgrade_authority_account.key
+    )?;
 
     // Validate WorkerStakeConfig PDA
-    let (config_pda, config_bump) = WorkerStakeConfig::find_pda(program_id, worker_collection_account.key);
+    let (config_pda, config_bump) = WorkerStakeConfig::find_pda(program_id, &worker_collection);
     if *worker_stake_config_account.key != config_pda {
         msg!("Error: WorkerStakeConfig account does not match expected PDA");
         return Err(ProgramError::InvalidArgument);
@@ -64,6 +65,12 @@ pub fn process_initialize_worker_stake_config<'a>(
         return Err(ProgramError::AccountAlreadyInitialized);
     }
 
+    // Validate payer is signer
+    if !payer_account.is_signer {
+        msg!("Error: Payer must sign the transaction");
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
     // Create WorkerStakeConfig account
     let rent = Rent::get()?;
     let space = WorkerStakeConfig::required_size(0);
@@ -72,27 +79,27 @@ pub fn process_initialize_worker_stake_config<'a>(
     msg!("Creating WorkerStakeConfig PDA");
     invoke_signed(
         &system_instruction::create_account(
-            collection_authority_account.key,
+            payer_account.key,
             &config_pda,
             rent_lamports,
             space as u64,
             program_id,
         ),
         &[
-            collection_authority_account.clone(),
+            payer_account.clone(),
             worker_stake_config_account.clone(),
             system_program.clone(),
         ],
         &[&[
             WorkerStakeConfig::SEED,
-            worker_collection_account.key.as_ref(),
+            worker_collection.as_ref(),
             &[config_bump],
         ]],
     )?;
 
     // Initialize WorkerStakeConfig data
     let config = WorkerStakeConfig::new(
-        *worker_collection_account.key,
+        worker_collection,
         worker_wallet,
         min_stake_requirement,
     );

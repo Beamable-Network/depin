@@ -57,6 +57,7 @@ pub fn process<'a>(
             process_initialize_worker_stake_config(
                 program_id,
                 accounts,
+                params.worker_collection,
                 params.worker_wallet,
                 params.min_stake_requirement
             )
@@ -71,7 +72,7 @@ pub fn process<'a>(
             msg!("Instruction: UpdateMinStakeRequirement");
             let params = UpdateMinStakeRequirementParams::try_from_slice(data)
                 .map_err(|_| ProgramError::InvalidInstructionData)?;
-            process_update_min_stake_requirement(program_id, accounts, params.new_min_stake_requirement)
+            process_update_min_stake_requirement(program_id, accounts, params.worker_collection, params.new_min_stake_requirement)
         }
         WorkerStakeInstruction::SetMonthlyPool => {
             msg!("Instruction: SetMonthlyPool");
