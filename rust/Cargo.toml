@@ -3,5 +3,5 @@ resolver = "2"
 members = [
     "programs/depin",
     "programs/worker_stake",
-    "depin-core"
+    "depin_core"
 ]

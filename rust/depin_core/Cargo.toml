@@ -5,7 +5,7 @@ check-cfg = [
 ]
 
 [package]
-name = "depin-core"
+name = "depin_core"
 version = "0.1.0"
 edition = "2021"
 
