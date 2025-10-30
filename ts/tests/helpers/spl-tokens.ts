@@ -1,4 +1,4 @@
-import { BMB_MINT, USDC_MINT } from '@beamable-network/depin';
+import { BMB_DECIMALS, BMB_MINT, USDC_MINT } from '@beamable-network/depin';
 import { Address } from 'gill';
 import { LiteDepin, LiteKeyPair, TransactionResult } from './lite-depin.js';
 
@@ -29,8 +29,8 @@ export async function setupTokens(lite: LiteDepin): Promise<TokenAuthorities> {
     await lite.airdrop(usdcMintAuthority, 10);
 
     // Create the token mints
-    await lite.createToken(BMB_MINT, bmbMintAuthority);
-    await lite.createToken(USDC_MINT, usdcMintAuthority);
+    await lite.createToken(BMB_MINT, bmbMintAuthority, BMB_DECIMALS);
+    await lite.createToken(USDC_MINT, usdcMintAuthority, 6);  // USDC has 6 decimals
 
     return {
         bmbMintAuthority,

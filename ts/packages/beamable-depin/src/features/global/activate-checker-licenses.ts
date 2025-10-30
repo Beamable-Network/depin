@@ -50,7 +50,7 @@ export class ActivateCheckerLicenses {
         const bmbStatePda = await BMBStateAccount.findPDA();
 
         let accounts = [
-            { address: this.signer, role: AccountRole.READONLY_SIGNER },
+            { address: this.signer, role: AccountRole.WRITABLE_SIGNER },
             { address: bmbStatePda[0], role: AccountRole.WRITABLE },
             { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY },
         ];

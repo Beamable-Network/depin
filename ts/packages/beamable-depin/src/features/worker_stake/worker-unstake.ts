@@ -71,9 +71,10 @@ export class WorkerUnstake {
             { address: this.collection_authority, role: AccountRole.READONLY_SIGNER },
             { address: this.worker_collection, role: AccountRole.READONLY },
             { address: configPda[0], role: AccountRole.WRITABLE },
+            { address: workerStakeVaultPda[0], role: AccountRole.READONLY },
             { address: workerStakeVaultAta[0], role: AccountRole.WRITABLE },
             { address: this.worker_token_account, role: AccountRole.WRITABLE },
-            { address: workerStakeVaultPda[0], role: AccountRole.READONLY },
+            { address: BMB_MINT, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY }
         ];
 

@@ -530,17 +530,18 @@ export class LiteDepin {
     }
 
     /**
-     * Creates an SPL Token mint account using the proper encoder
-     * @param mintAddress The address where the mint should be created
+     * Creates a new SPL token with the given mint address and authority
+     * @param mintAddress The mint address
      * @param mintAuthority The mint authority keypair
+     * @param decimals The number of decimals for the token (defaults to 9 for BMB)
      */
-    async createToken(mintAddress: Address, mintAuthority: LiteKeyPair): Promise<void> {
+    async createToken(mintAddress: Address, mintAuthority: LiteKeyPair, decimals: number = 9): Promise<void> {
         const mintEncoder = getMintEncoder();
 
         const mintData = mintEncoder.encode({
             mintAuthority: mintAuthority.web3PublicKey.toBase58() as Address,
             supply: 0n,
-            decimals: 6,
+            decimals: decimals,
             isInitialized: true,
             freezeAuthority: null,
         });
