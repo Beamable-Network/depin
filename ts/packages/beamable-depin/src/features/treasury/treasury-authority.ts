@@ -2,8 +2,6 @@ import { getAddressEncoder, getProgramDerivedAddress, ProgramDerivedAddress } fr
 import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import { DEPIN_PROGRAM, TREASURY_SEED, BMB_MINT } from "../../constants.js";
 
-const addressEncoder = getAddressEncoder();
-
 export class TreasuryAuthority {
     // Treasury authority PDA
     public static async findTreasuryPDA(): Promise<ProgramDerivedAddress> {
