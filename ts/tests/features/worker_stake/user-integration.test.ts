@@ -51,6 +51,11 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
+        // Query config to get last_active_pool_month
+        const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
+        const configData = lite.getAccountData(configPda);
+        const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
+
         const stake = new Stake({
             user: user.address,
             worker: worker.address,
@@ -61,8 +66,10 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             current_month_period: monthPeriod,
             user_token_account: userTokenAccount,
         });
-        if (monthPeriod > 0) {
-            stake.previous_pool_month_period = monthPeriod - 1;
+
+        // Only set previous pool if last_active_pool_month exists and is different from current
+        if (config.last_active_pool_month > 0 && config.last_active_pool_month !== monthPeriod) {
+            stake.previous_pool_month_period = config.last_active_pool_month;
         }
 
         lite.buildTransaction()
@@ -87,6 +94,11 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
+        // Query config to get last_active_pool_month
+        const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
+        const configData = lite.getAccountData(configPda);
+        const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
+
         const depositRev = new DepositRevenue({
             revenue_source: revenueSource.address,
             worker_collection: workerCollection,
@@ -97,6 +109,11 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             worker_wallet_usdc_account: workerWalletUsdcAccount,
             has_monthly_pool: true,
         });
+
+        // Only set previous pool if last_active_pool_month exists
+        if (config.last_active_pool_month > 0) {
+            depositRev.previous_pool_month_period = config.last_active_pool_month;
+        }
 
         lite.buildTransaction()
             .addInstruction(await depositRev.getInstruction())

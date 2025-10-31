@@ -140,6 +140,7 @@ pub fn initialize_pool_with_inheritance<'a>(
     prev_pool_account: Option<&AccountInfo<'a>>,
 ) -> Result<(), ProgramError> {
     use depin_core::utils::account::read_account_data;
+    use depin_core::utils::bmb::days_in_month;
     use crate::{state::MonthlyPool, types::WorkerStakeAccountType};
 
     // Check if already initialized
@@ -193,7 +194,16 @@ pub fn initialize_pool_with_inheritance<'a>(
                 msg!("Error: Arithmetic overflow in addon pool inheritance");
                 ProgramError::ArithmeticOverflow
             })?;
-        monthly_pool.addon_pool.total_weighted = monthly_pool.addon_pool.total;
+
+        // Calculate weighted total for addon pool: checker_count × days_in_month
+        // Inherited checkers get 100% weight (full month of days)
+        let days = days_in_month(current_month_period) as u64;
+        monthly_pool.addon_pool.total_weighted = (monthly_pool.addon_pool.total as u64)
+            .checked_mul(days)
+            .ok_or_else(|| {
+                msg!("Error: Arithmetic overflow in addon pool weighted calculation");
+                ProgramError::ArithmeticOverflow
+            })?;
 
         msg!(
             "Inherited from month {}: base_total={}, addon_total={}",
