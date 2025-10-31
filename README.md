@@ -25,7 +25,7 @@ A decentralized physical infrastructure network (DePIN) proof-of-concept for gam
 
 ```bash
 # Build Rust program
-cd rust && cargo build
+cd rust && cargo build-sbf
 
 # Install TypeScript dependencies
 cd ts && pnpm install
@@ -33,6 +33,6 @@ cd ts && pnpm install
 # Build SDK
 cd ts/packages/beamable-depin && pnpm run build
 
-# Run tests (requires local Solana validator)
+# Run tests
 cd ts/tests && pnpm test
 ```
