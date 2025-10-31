@@ -61,6 +61,9 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             current_month_period: monthPeriod,
             user_token_account: userTokenAccount,
         });
+        if (monthPeriod > 0) {
+            stake.previous_pool_month_period = monthPeriod - 1;
+        }
 
         lite.buildTransaction()
             .addInstruction(await stake.getInstruction())
@@ -454,7 +457,8 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             expect(pool.addon_pool.total_opted_out).toBe(4n); // 2 + 2 points
 
             // Trigger month 6 pool initialization (should inherit only user3's stake)
-            const { user: user4 } = await createStakedUser(bmbToBaseUnits(2000), 1, 6);
+            lite.goToMonthPeriod(6);
+            const { user: user4 } = await createStakedUser(bmbToBaseUnits(2500), 1, 6);
 
             // Verify month 6 inherited only non-opted-out stake
             [poolPda] = await MonthlyPoolAccount.findMonthlyPoolPDA(workerCollection, 6);
@@ -462,7 +466,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             pool = MonthlyPoolAccount.deserializeFrom(poolData!);
 
             // Should have: user3's 5000 (inherited) + user4's 2000 (new) = 7000
-            expect(pool.base_pool.total).toBe(bmbToBaseUnits(7000));
+            expect(pool.base_pool.total).toBe(bmbToBaseUnits(7500));
             // Should have: user3's 2 points (inherited) + user4's 1 point (new) = 3
             expect(pool.addon_pool.total).toBe(3n);
         });
