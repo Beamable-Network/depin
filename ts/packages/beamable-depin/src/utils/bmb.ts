@@ -57,3 +57,33 @@ export function getPeriodEndMs(period: number): number {
     const endSec = periodToTimestamp(period + 1);
     return Number(endSec * BigInt(1000));
 }
+
+
+/**
+ * Calculates the Unix timestamp for the start of a given month period.
+ * Month period 0 = June 2025, 1 = July 2025, etc.
+ *
+ * This mirrors the Rust function get_month_start_timestamp.
+ */
+export function getMonthStartTimestamp(monthPeriod: number): bigint {
+    if (monthPeriod === 0) {
+        return BigInt(PERIOD_ZERO);
+    }
+
+    // Convert month_period to calendar year and month
+    const monthOffset = monthPeriod;
+    const totalMonths = 5 + monthOffset; // 5 = June (0-indexed from January)
+    const year = 2025 + Math.floor(totalMonths / 12);
+    const month = (totalMonths % 12) + 1;
+
+    // Civil calendar algorithm: days_from_civil(year, month, 1)
+    const y = month <= 2 ? year - 1 : year;
+    const era = y >= 0 ? Math.floor(y / 400) : Math.floor((y - 399) / 400);
+    const yoe = y - era * 400;
+    const mAdj = month > 2 ? month - 3 : month + 9;
+    const doy = Math.floor((153 * mAdj + 2) / 5);
+    const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+    const daysSinceEpoch = era * 146097 + doe - 719468;
+
+    return BigInt(daysSinceEpoch * 86400);
+}

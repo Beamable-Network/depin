@@ -58,9 +58,10 @@ export class Withdraw {
             { address: this.worker_collection, role: AccountRole.READONLY },
             { address: configPda[0], role: AccountRole.WRITABLE },
             { address: userPositionPda[0], role: AccountRole.WRITABLE },
+            { address: communityStakeVaultPda[0], role: AccountRole.READONLY },
             { address: communityStakeVaultAta[0], role: AccountRole.WRITABLE },
             { address: this.user_token_account, role: AccountRole.WRITABLE },
-            { address: communityStakeVaultPda[0], role: AccountRole.READONLY },
+            { address: BMB_MINT, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY }
         ];
 

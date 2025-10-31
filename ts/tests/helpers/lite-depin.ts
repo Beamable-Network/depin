@@ -80,8 +80,8 @@ function convertGillToWeb3Instruction(gillInstruction: Instruction): Transaction
         programId: new PublicKey(gillInstruction.programAddress),
         keys: gillInstruction.accounts.map((acc) => ({
             pubkey: new PublicKey(acc.address),
-            isSigner: acc.role === AccountRole.READONLY_SIGNER,
-            isWritable: acc.role === AccountRole.WRITABLE
+            isSigner: acc.role === AccountRole.READONLY_SIGNER || acc.role === AccountRole.WRITABLE_SIGNER,
+            isWritable: acc.role === AccountRole.WRITABLE || acc.role === AccountRole.WRITABLE_SIGNER
         })),
         data: Buffer.from(gillInstruction.data)
     });

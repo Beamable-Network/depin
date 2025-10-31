@@ -2,7 +2,8 @@ use depin_core::{
     constants::{BMB_MINT, BMB_DECIMALS, USDC_MINT},
     utils::{
         account::{read_account_data, write_account_data},
-        bmb::{get_month_end_timestamp, get_month_start_timestamp, days_between, days_in_month},
+        bmb::{get_month_end_timestamp, get_month_start_timestamp, days_between, days_in_month, get_current_period, get_month_from_period},
+        tokens::initialize_ata_if_needed,
     },
 };
 use solana_program::{
@@ -35,7 +36,7 @@ pub fn process_claim_rewards<'a>(
     month_period: u16,
 ) -> ProgramResult {
     // Expected Accounts:
-    // 0. [signer] User
+    // 0. [signer, writable] User (payer for ATA creation)
     // 1. [readonly] Worker collection account
     // 2. [readonly] WorkerStakeConfig PDA
     // 3. [readonly] MonthlyPool for claimed month
@@ -49,6 +50,8 @@ pub fn process_claim_rewards<'a>(
     // 11. [readonly] USDC mint
     // 12. [readonly] BMB mint
     // 13. [readonly] Token program
+    // 14. [readonly] Associated token program
+    // 15. [readonly] System program
 
     let account_info_iter = &mut accounts.iter();
     let user_account = next_account_info(account_info_iter)?;
@@ -65,6 +68,8 @@ pub fn process_claim_rewards<'a>(
     let usdc_mint_account = next_account_info(account_info_iter)?;
     let bmb_mint_account = next_account_info(account_info_iter)?;
     let token_program = next_account_info(account_info_iter)?;
+    let associated_token_program = next_account_info(account_info_iter)?;
+    let system_program = next_account_info(account_info_iter)?;
 
     // Validate user signature
     if !user_account.is_signer {
@@ -131,6 +136,17 @@ pub fn process_claim_rewards<'a>(
             );
             return Err(ProgramError::InvalidArgument);
         }
+    }
+
+    // Validate not claiming current or future months
+    let current_month_period = get_month_from_period(get_current_period());
+    if month_period >= current_month_period {
+        msg!(
+            "Error: Cannot claim current or future months (current: {}, attempting: {}). Wait until month ends.",
+            current_month_period,
+            month_period
+        );
+        return Err(ProgramError::InvalidArgument);
     }
 
     // Validate not opted out before this month
@@ -280,6 +296,17 @@ pub fn process_claim_rewards<'a>(
             return Err(ProgramError::InvalidArgument);
         }
 
+        // Initialize user USDC ATA if needed (lazy, idempotent)
+        initialize_ata_if_needed(
+            user_account,
+            user_account,
+            usdc_mint_account,
+            user_usdc_account,
+            token_program,
+            associated_token_program,
+            system_program,
+        )?;
+
         // Transfer USDC
         let transfer_ix = transfer_checked(
             token_program.key,
@@ -329,6 +356,17 @@ pub fn process_claim_rewards<'a>(
             msg!("Error: BMB treasury ATA does not match expected address");
             return Err(ProgramError::InvalidArgument);
         }
+
+        // Initialize user BMB ATA if needed (lazy, idempotent)
+        initialize_ata_if_needed(
+            user_account,
+            user_account,
+            bmb_mint_account,
+            user_bmb_account,
+            token_program,
+            associated_token_program,
+            system_program,
+        )?;
 
         // Transfer BMB
         let transfer_ix = transfer_checked(

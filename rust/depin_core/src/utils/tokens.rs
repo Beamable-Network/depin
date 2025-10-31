@@ -40,6 +40,7 @@ pub fn initialize_ata_if_needed<'a>(
     ata_account: &AccountInfo<'a>,
     token_program: &AccountInfo<'a>,
     associated_token_program: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
 ) -> ProgramResult {
     // Verify the provided ATA account matches the expected derived address
     let expected_ata = spl_associated_token_account::get_associated_token_address(
@@ -68,6 +69,7 @@ pub fn initialize_ata_if_needed<'a>(
             ata_account.clone(),
             wallet.clone(),
             mint.clone(),
+            system_program.clone(),
             token_program.clone(),
             associated_token_program.clone(),
         ],
@@ -100,6 +102,7 @@ pub fn initialize_ata_if_needed_with_signer<'a>(
     ata_account: &AccountInfo<'a>,
     token_program: &AccountInfo<'a>,
     associated_token_program: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
     signer_seeds: &[&[u8]],
 ) -> ProgramResult {
     // Verify the provided ATA account matches the expected derived address
@@ -129,6 +132,7 @@ pub fn initialize_ata_if_needed_with_signer<'a>(
             ata_account.clone(),
             wallet.clone(),
             mint.clone(),
+            system_program.clone(),
             token_program.clone(),
             associated_token_program.clone(),
         ],

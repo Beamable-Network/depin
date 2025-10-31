@@ -47,7 +47,7 @@ pub fn process_worker_stake<'a>(
     let bmb_mint_account = next_account_info(account_info_iter)?;
     let token_program = next_account_info(account_info_iter)?;
     let associated_token_program = next_account_info(account_info_iter)?;
-    let _system_program = next_account_info(account_info_iter)?;
+    let system_program = next_account_info(account_info_iter)?;
 
     // Validate amount > 0
     if amount == 0 {
@@ -96,6 +96,7 @@ pub fn process_worker_stake<'a>(
         worker_stake_vault_ata,
         token_program,
         associated_token_program,
+        system_program,
     )?;
 
     // Transfer BMB from worker to worker stake vault

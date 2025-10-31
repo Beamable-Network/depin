@@ -34,11 +34,12 @@ pub fn process_deposit_emissions<'a>(
     // 3. [writable] Foundation BMB token account (source)
     // 4. [readonly] BMB treasury PDA
     // 5. [writable] BMB treasury ATA (destination)
-    // 6. [writable] Worker wallet BMB account (destination)
-    // 7. [readonly] BMB mint
-    // 8. [readonly] Token program
-    // 9. [readonly] Associated token program
-    // 10. [readonly] System program
+    // 6. [writable] Worker wallet (for ATA creation)
+    // 7. [writable] Worker wallet BMB account (destination)
+    // 8. [readonly] BMB mint
+    // 9. [readonly] Token program
+    // 10. [readonly] Associated token program
+    // 11. [readonly] System program
     // Remaining accounts:
     // - [writable] MonthlyPool for specified month (if exists)
 
@@ -49,11 +50,12 @@ pub fn process_deposit_emissions<'a>(
     let foundation_bmb_account = next_account_info(account_info_iter)?;
     let bmb_treasury_pda = next_account_info(account_info_iter)?;
     let bmb_treasury_ata = next_account_info(account_info_iter)?;
+    let worker_wallet_account = next_account_info(account_info_iter)?;
     let worker_wallet_bmb = next_account_info(account_info_iter)?;
     let bmb_mint_account = next_account_info(account_info_iter)?;
     let token_program = next_account_info(account_info_iter)?;
     let associated_token_program = next_account_info(account_info_iter)?;
-    let _system_program = next_account_info(account_info_iter)?;
+    let system_program = next_account_info(account_info_iter)?;
 
     // Remaining accounts (optional pool account)
     let remaining_accounts: Vec<&AccountInfo> = account_info_iter.collect();
@@ -94,6 +96,7 @@ pub fn process_deposit_emissions<'a>(
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
     let config: WorkerStakeConfig = read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
+    let worker_wallet = config.worker_wallet; // Extract for later use
     drop(config_data);
 
     // Check if pool exists for this month
@@ -164,6 +167,24 @@ pub fn process_deposit_emissions<'a>(
             bmb_treasury_ata,
             token_program,
             associated_token_program,
+            system_program,
+        )?;
+
+        // Validate worker wallet account matches config
+        if *worker_wallet_account.key != worker_wallet {
+            msg!("Error: Worker wallet account does not match config");
+            return Err(ProgramError::InvalidArgument);
+        }
+
+        // Initialize worker wallet BMB ATA if needed (lazy, idempotent)
+        initialize_ata_if_needed(
+            depositor_wallet,
+            worker_wallet_account,
+            bmb_mint_account,
+            worker_wallet_bmb,
+            token_program,
+            associated_token_program,
+            system_program,
         )?;
 
         // Transfer base share to BMB treasury
@@ -234,6 +255,24 @@ pub fn process_deposit_emissions<'a>(
         );
     } else {
         // No pool - full amount to worker wallet
+
+        // Validate worker wallet account matches config
+        if *worker_wallet_account.key != worker_wallet {
+            msg!("Error: Worker wallet account does not match config");
+            return Err(ProgramError::InvalidArgument);
+        }
+
+        // Initialize worker wallet BMB ATA if needed (lazy, idempotent)
+        initialize_ata_if_needed(
+            depositor_wallet,
+            worker_wallet_account,
+            bmb_mint_account,
+            worker_wallet_bmb,
+            token_program,
+            associated_token_program,
+            system_program,
+        )?;
+
         let transfer_ix = transfer_checked(
             token_program.key,
             foundation_bmb_account.key,

@@ -37,6 +37,7 @@ export const DepositEmissionsParamsCodec: Codec<DepositEmissionsParams> = getStr
 export interface CreateDepositEmissionsInput {
     depositor: Address; // Authority that has BMB to deposit
     worker_collection: Address;
+    worker_wallet: Address; // Worker wallet address (for ATA creation)
     month_period: number;
     amount: bigint;
     depositor_bmb_account: Address;
@@ -48,6 +49,7 @@ export interface CreateDepositEmissionsInput {
 export class DepositEmissions {
     depositor: Address;
     worker_collection: Address;
+    worker_wallet: Address;
     depositor_bmb_account: Address;
     worker_wallet_bmb_account: Address;
     has_monthly_pool: boolean;
@@ -61,6 +63,7 @@ export class DepositEmissions {
         };
         this.depositor = input.depositor;
         this.worker_collection = input.worker_collection;
+        this.worker_wallet = input.worker_wallet;
         this.depositor_bmb_account = input.depositor_bmb_account;
         this.worker_wallet_bmb_account = input.worker_wallet_bmb_account;
         this.has_monthly_pool = input.has_monthly_pool;
@@ -93,9 +96,10 @@ export class DepositEmissions {
             { address: this.worker_collection, role: AccountRole.READONLY },
             { address: configPda[0], role: AccountRole.READONLY },
             { address: this.depositor_bmb_account, role: AccountRole.WRITABLE },
-            { address: this.worker_wallet_bmb_account, role: AccountRole.WRITABLE },
-            { address: bmbTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: bmbTreasuryPda[0], role: AccountRole.READONLY },
+            { address: bmbTreasuryAta[0], role: AccountRole.WRITABLE },
+            { address: this.worker_wallet, role: AccountRole.WRITABLE },
+            { address: this.worker_wallet_bmb_account, role: AccountRole.WRITABLE },
             { address: BMB_MINT, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
             { address: ASSOCIATED_TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },

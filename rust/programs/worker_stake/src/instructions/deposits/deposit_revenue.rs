@@ -35,11 +35,12 @@ pub fn process_deposit_revenue<'a>(
     // 2. [writable] Revenue source USDC account
     // 3. [readonly] USDC treasury PDA
     // 4. [writable] USDC treasury ATA (destination)
-    // 5. [writable] Worker wallet USDC account (destination)
-    // 6. [readonly] USDC mint
-    // 7. [readonly] Token program
-    // 8. [readonly] Associated token program
-    // 9. [readonly] System program
+    // 5. [writable] Worker wallet (for ATA creation)
+    // 6. [writable] Worker wallet USDC account (destination)
+    // 7. [readonly] USDC mint
+    // 8. [readonly] Token program
+    // 9. [readonly] Associated token program
+    // 10. [readonly] System program
     // Remaining accounts:
     // - [writable] MonthlyPool for current month (if exists)
     // - [writable, optional] Previous MonthlyPool (if last_active_pool_month > 0)
@@ -50,11 +51,12 @@ pub fn process_deposit_revenue<'a>(
     let revenue_source_account = next_account_info(account_info_iter)?;
     let usdc_treasury_pda = next_account_info(account_info_iter)?;
     let usdc_treasury_ata = next_account_info(account_info_iter)?;
+    let worker_wallet_account = next_account_info(account_info_iter)?;
     let worker_wallet_usdc = next_account_info(account_info_iter)?;
     let usdc_mint_account = next_account_info(account_info_iter)?;
     let token_program = next_account_info(account_info_iter)?;
     let associated_token_program = next_account_info(account_info_iter)?;
-    let _system_program = next_account_info(account_info_iter)?;
+    let system_program = next_account_info(account_info_iter)?;
 
     // Collect remaining accounts (pool accounts only)
     let pool_accounts: Vec<&AccountInfo> = account_info_iter.collect();
@@ -85,6 +87,7 @@ pub fn process_deposit_revenue<'a>(
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
     let mut config: WorkerStakeConfig = read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
+    let worker_wallet = config.worker_wallet; // Extract for later use
     drop(config_data);
 
     // Check if current month has pool
@@ -171,6 +174,24 @@ pub fn process_deposit_revenue<'a>(
             usdc_treasury_ata,
             token_program,
             associated_token_program,
+            system_program,
+        )?;
+
+        // Validate worker wallet account matches config
+        if *worker_wallet_account.key != worker_wallet {
+            msg!("Error: Worker wallet account does not match config");
+            return Err(ProgramError::InvalidArgument);
+        }
+
+        // Initialize worker wallet USDC ATA if needed (lazy, idempotent)
+        initialize_ata_if_needed(
+            revenue_authority,
+            worker_wallet_account,
+            usdc_mint_account,
+            worker_wallet_usdc,
+            token_program,
+            associated_token_program,
+            system_program,
         )?;
 
         // Transfer community share to USDC treasury
@@ -248,6 +269,24 @@ pub fn process_deposit_revenue<'a>(
         );
     } else {
         // No pool - full revenue to worker wallet
+
+        // Validate worker wallet account matches config
+        if *worker_wallet_account.key != worker_wallet {
+            msg!("Error: Worker wallet account does not match config");
+            return Err(ProgramError::InvalidArgument);
+        }
+
+        // Initialize worker wallet USDC ATA if needed (lazy, idempotent)
+        initialize_ata_if_needed(
+            revenue_authority,
+            worker_wallet_account,
+            usdc_mint_account,
+            worker_wallet_usdc,
+            token_program,
+            associated_token_program,
+            system_program,
+        )?;
+
         let transfer_ix = transfer_checked(
             token_program.key,
             revenue_source_account.key,

@@ -14,7 +14,7 @@ use solana_program::{
     clock::Clock,
     entrypoint::ProgramResult,
     msg,
-    program::invoke,
+    program::{invoke, invoke_signed},
     program_error::ProgramError,
     pubkey::Pubkey,
     rent::Rent,
@@ -241,7 +241,13 @@ pub fn process_stake<'a>(
         let rent_lamports = rent.minimum_balance(space);
 
         msg!("Creating UserStakePosition PDA");
-        invoke(
+        let user_position_seeds = &[
+            USER_POSITION_SEED,
+            user_account.key.as_ref(),
+            worker_collection_account.key.as_ref(),
+            &[_user_position_bump],
+        ];
+        invoke_signed(
             &system_instruction::create_account(
                 user_account.key,
                 &user_position_pda,
@@ -254,6 +260,7 @@ pub fn process_stake<'a>(
                 user_position_account.clone(),
                 system_program.clone(),
             ],
+            &[user_position_seeds],
         )?;
     }
 
@@ -319,6 +326,7 @@ pub fn process_stake<'a>(
         community_vault_ata,
         token_program,
         associated_token_program,
+        system_program,
     )?;
 
     // Transfer BMB from user to community vault
@@ -393,11 +401,9 @@ pub fn process_stake<'a>(
             .ok_or(ProgramError::ArithmeticOverflow)?;
     }
 
-    // Update weighted total with time-weighting
+    // Update weighted total with time-weighting (point-days, not normalized)
     let weighted_points_delta = ((points_delta.abs() as u128)
         .checked_mul(days_remaining as u128)
-        .ok_or(ProgramError::ArithmeticOverflow)?
-        .checked_div(days_in_month_val as u128)
         .ok_or(ProgramError::ArithmeticOverflow)?) as u64;
 
     if points_delta >= 0 {
