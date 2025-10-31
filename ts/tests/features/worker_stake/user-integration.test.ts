@@ -134,6 +134,11 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
+        // Query config to get last_active_pool_month
+        const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
+        const configData = lite.getAccountData(configPda);
+        const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
+
         const depositEmiss = new DepositEmissions({
             depositor: revenueSource.address,
             worker_collection: workerCollection,
@@ -144,6 +149,11 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             worker_wallet_bmb_account: workerWalletBmbAccount,
             has_monthly_pool: true,
         });
+
+        // Only set previous pool if last_active_pool_month exists
+        if (config.last_active_pool_month > 0) {
+            depositEmiss.previous_pool_month_period = config.last_active_pool_month;
+        }
 
         lite.buildTransaction()
             .addInstruction(await depositEmiss.getInstruction())

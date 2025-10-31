@@ -113,6 +113,11 @@ describe('User Claim Rewards Instructions', async () => {
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
+        // Query config to get last_active_pool_month
+        const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
+        const configData = lite.getAccountData(configPda);
+        const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
+
         const depositEmiss = new DepositEmissions({
             depositor: revenueSource.address,
             worker_collection: workerCollection,
@@ -123,6 +128,11 @@ describe('User Claim Rewards Instructions', async () => {
             worker_wallet_bmb_account: workerWalletBmbAccount,
             has_monthly_pool: true,
         });
+
+        // Only set previous pool if last_active_pool_month exists
+        if (config.last_active_pool_month > 0) {
+            depositEmiss.previous_pool_month_period = config.last_active_pool_month;
+        }
 
         await lite.buildTransaction()
             .addInstruction(await depositEmiss.getInstruction())
@@ -423,6 +433,87 @@ describe('User Claim Rewards Instructions', async () => {
 
             const bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
             expect(bmbBalance).toBe(0n);
+        });
+
+        it('should allow claiming when only emissions deposited (no revenue, pool initialized by emissions)', async () => {
+            // User stakes in month 5
+            const { user } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
+
+            // Advance to month 6 (after month 5 ends)
+            lite.goToMonthPeriod(6);
+
+            // Create pool for month 6
+            const pools: MonthlyPoolConfig[] = [{
+                month_period: 6,
+                base_revenue_percentage: 2000, // 20%
+                addon_revenue_percentage: 1000, // 10%
+                base_emission_percentage: 1500, // 15%
+            }];
+
+            const setPool = new SetMonthlyPool({
+                collection_authority: collectionCreator.address,
+                worker_collection: workerCollection,
+                pools,
+            });
+
+            await lite.buildTransaction()
+                .addInstruction(await setPool.getInstruction())
+                .sendTransaction({ payer: collectionCreator });
+
+            // Only deposit emissions for month 6 - no revenue, no staking
+            // This should initialize the pool and inherit stake from month 5
+            const emissionAmount = bmbToBaseUnits(1000);
+            await lite.mintToken(BMB_MINT, revenueSource.address, emissionAmount, tokenAuthorities.bmbMintAuthority);
+            await depositEmissions(emissionAmount, 6);
+
+            // Advance to month 7 to allow claiming month 6
+            lite.goToMonthPeriod(7);
+
+            const [userUsdcAccount] = await findAssociatedTokenPda({
+                mint: USDC_MINT,
+                owner: user.address,
+                tokenProgram: TOKEN_PROGRAM_ADDRESS
+            });
+
+            const [userBmbAccount] = await findAssociatedTokenPda({
+                mint: BMB_MINT,
+                owner: user.address,
+                tokenProgram: TOKEN_PROGRAM_ADDRESS
+            });
+
+            // First claim month 5 (required for sequential claiming)
+            const claimMonth5 = new ClaimRewards({
+                user: user.address,
+                worker_collection: workerCollection,
+                month_period: 5,
+                user_usdc_account: userUsdcAccount,
+                user_bmb_account: userBmbAccount,
+            });
+
+            await lite.buildTransaction()
+                .addInstruction(await claimMonth5.getInstruction())
+                .sendTransaction({ payer: user });
+
+            // Now claim month 6 - should succeed even though pool was only initialized by emissions
+            const claimMonth6 = new ClaimRewards({
+                user: user.address,
+                worker_collection: workerCollection,
+                month_period: 6,
+                user_usdc_account: userUsdcAccount,
+                user_bmb_account: userBmbAccount,
+            });
+
+            await lite.buildTransaction()
+                .addInstruction(await claimMonth6.getInstruction())
+                .sendTransaction({ payer: user });
+
+            // Verify user received BMB emissions (15% of 1000 = 150 BMB) but no USDC
+            const bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
+            expect(bmbBalance).toBe(bmbToBaseUnits(150)); // 15% of 1000 BMB
+
+            // No USDC since no revenue was deposited
+            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            expect(usdcBalance).toBe(0n);
         });
     });
 

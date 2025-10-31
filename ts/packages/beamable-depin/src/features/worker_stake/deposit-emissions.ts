@@ -94,7 +94,7 @@ export class DepositEmissions {
         const accounts = [
             { address: this.depositor, role: AccountRole.WRITABLE_SIGNER },
             { address: this.worker_collection, role: AccountRole.READONLY },
-            { address: configPda[0], role: AccountRole.READONLY },
+            { address: configPda[0], role: AccountRole.WRITABLE },
             { address: this.depositor_bmb_account, role: AccountRole.WRITABLE },
             { address: bmbTreasuryPda[0], role: AccountRole.READONLY },
             { address: bmbTreasuryAta[0], role: AccountRole.WRITABLE },

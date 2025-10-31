@@ -18,7 +18,7 @@ use spl_token::instruction::transfer_checked;
 use crate::{
     state::{WorkerStakeConfig, MonthlyPool},
     types::WorkerStakeAccountType,
-    utils::{find_bmb_treasury_pda, MAX_BASIS_POINTS}
+    utils::{find_bmb_treasury_pda, initialize_pool_with_inheritance, MAX_BASIS_POINTS}
 };
 
 pub fn process_deposit_emissions<'a>(
@@ -30,7 +30,7 @@ pub fn process_deposit_emissions<'a>(
     // Expected Accounts:
     // 0. [signer, writable] Foundation treasury wallet (payer for ATA)
     // 1. [readonly] Worker collection (Metaplex Core collection)
-    // 2. [readonly] WorkerStakeConfig PDA
+    // 2. [writable] WorkerStakeConfig PDA
     // 3. [writable] Foundation BMB token account (source)
     // 4. [readonly] BMB treasury PDA
     // 5. [writable] BMB treasury ATA (destination)
@@ -42,6 +42,7 @@ pub fn process_deposit_emissions<'a>(
     // 11. [readonly] System program
     // Remaining accounts:
     // - [writable] MonthlyPool for specified month (if exists)
+    // - [writable, optional] Previous MonthlyPool (if last_active_pool_month > 0)
 
     let account_info_iter = &mut accounts.iter();
     let depositor_wallet = next_account_info(account_info_iter)?;
@@ -95,7 +96,7 @@ pub fn process_deposit_emissions<'a>(
 
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
-    let config: WorkerStakeConfig = read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
+    let mut config: WorkerStakeConfig = read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
     let worker_wallet = config.worker_wallet; // Extract for later use
     drop(config_data);
 
@@ -120,6 +121,22 @@ pub fn process_deposit_emissions<'a>(
         let pool_data = monthly_pool_account.try_borrow_data()?;
         let mut monthly_pool: MonthlyPool = read_account_data(&pool_data, WorkerStakeAccountType::MonthlyPool)?;
         drop(pool_data);
+
+        // Initialize pool if needed (with inheritance)
+        let prev_pool_account = if config.last_active_pool_month > 0 {
+            remaining_accounts.get(1).copied()
+        } else {
+            None
+        };
+
+        initialize_pool_with_inheritance(
+            program_id,
+            worker_collection_account.key,
+            month_period,
+            &mut monthly_pool,
+            &mut config,
+            prev_pool_account,
+        )?;
 
         // For past months: validate collected_bmb_base == 0 (one-time retroactive deposit)
         if month_period < current_month_period && monthly_pool.collected_bmb_base > 0 {
@@ -245,6 +262,10 @@ pub fn process_deposit_emissions<'a>(
         // Save updated pool
         let mut pool_data = monthly_pool_account.try_borrow_mut_data()?;
         write_account_data(&mut pool_data, WorkerStakeAccountType::MonthlyPool, &monthly_pool)?;
+
+        // Save updated config (in case inheritance ran)
+        let mut config_data = worker_stake_config_account.try_borrow_mut_data()?;
+        write_account_data(&mut config_data, WorkerStakeAccountType::WorkerStakeConfig, &config)?;
 
         msg!(
             "Deposited emissions for month {}: {} BMB total (base: {}, worker: {})",
