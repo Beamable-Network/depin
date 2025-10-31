@@ -20,7 +20,6 @@ import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { setupTokens, TokenAuthorities } from '../../helpers/spl-tokens.js';
-import { setMonthPeriod } from '../../helpers/month-period.js';
 import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 
@@ -135,7 +134,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
         lite = new LiteDepin();
 
         // Set clock to period 5
-        setMonthPeriod(lite, 5);
+        lite.goToMonthPeriod(5);
 
         // Setup admin
         stakeAdmin = await lite.generateKeyPair();
@@ -235,7 +234,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             await depositEmissions(emissionAmount, 7);
 
             // Advance to month 8 (after all months end) to allow claiming
-            setMonthPeriod(lite, 8);
+            lite.goToMonthPeriod(8);
 
             // Claim rewards for all months sequentially
             const [userUsdcAccount] = await findAssociatedTokenPda({
@@ -796,6 +795,8 @@ describe('User Integration Tests - Complex Scenarios', async () => {
                 worker_collection: workerCollection,
                 user_token_account: userTokenAccount,
             });
+
+            lite.goToMonthPeriod(6);
 
             await expect(async () => {
                 lite.buildTransaction()

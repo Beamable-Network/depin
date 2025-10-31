@@ -18,7 +18,6 @@ import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { setupTokens, TokenAuthorities } from '../../helpers/spl-tokens.js';
-import { setMonthPeriod } from '../../helpers/month-period.js';
 import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 
@@ -72,7 +71,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
         lite = new LiteDepin();
 
         // Set clock to period 5
-        setMonthPeriod(lite, 5);
+        lite.goToMonthPeriod(5);
 
         // Setup admin
         stakeAdmin = await lite.generateKeyPair();
@@ -284,7 +283,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
                 .sendTransaction({ payer: user });
 
             // Advance to month 6 to allow withdrawal
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
 
             // Claim month 5 rewards before withdrawing (even though no rewards were deposited)
             const [userUsdcAccount] = await findAssociatedTokenPda({
@@ -391,7 +390,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
             const { user, userTokenAccount } = await createStakedUser(stakeAmount, 0, 5);
 
             // Advance to month 6 without creating a pool for month 6
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
 
             // Get config
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
@@ -490,7 +489,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
                 .sendTransaction({ payer: user2 });
 
             // Advance to month 6 to allow withdrawal
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
 
             // Both users claim month 5 rewards before withdrawing
             const [user1UsdcAccount] = await findAssociatedTokenPda({
@@ -613,7 +612,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
             expect(pool.addon_pool.total_opted_out).toBe(4n); // 4 points
 
             // Advance to month 6 to allow withdrawal
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
 
             // Claim month 5 rewards before withdrawing
             const [userUsdcAccount] = await findAssociatedTokenPda({

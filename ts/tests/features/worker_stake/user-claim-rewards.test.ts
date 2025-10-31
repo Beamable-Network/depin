@@ -18,7 +18,6 @@ import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { setupTokens, TokenAuthorities } from '../../helpers/spl-tokens.js';
-import { setMonthPeriod } from '../../helpers/month-period.js';
 import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 
@@ -134,7 +133,7 @@ describe('User Claim Rewards Instructions', async () => {
         lite = new LiteDepin();
 
         // Set clock to period 5
-        setMonthPeriod(lite, 5);
+        lite.goToMonthPeriod(5);
 
         // Setup admin
         stakeAdmin = await lite.generateKeyPair();
@@ -208,7 +207,7 @@ describe('User Claim Rewards Instructions', async () => {
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
 
             // Get user token accounts for claiming
             const [userUsdcAccount] = await findAssociatedTokenPda({
@@ -257,7 +256,7 @@ describe('User Claim Rewards Instructions', async () => {
             await depositEmissions(emissionAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
 
             const [userUsdcAccount] = await findAssociatedTokenPda({
                 mint: USDC_MINT,
@@ -299,7 +298,7 @@ describe('User Claim Rewards Instructions', async () => {
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
 
             const [userUsdcAccount] = await findAssociatedTokenPda({
                 mint: USDC_MINT,
@@ -347,7 +346,7 @@ describe('User Claim Rewards Instructions', async () => {
             await depositEmissions(emissionAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
 
             const [userUsdcAccount] = await findAssociatedTokenPda({
                 mint: USDC_MINT,
@@ -391,7 +390,7 @@ describe('User Claim Rewards Instructions', async () => {
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
 
             const [userUsdcAccount] = await findAssociatedTokenPda({
                 mint: USDC_MINT,
@@ -465,15 +464,15 @@ describe('User Claim Rewards Instructions', async () => {
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 and deposit
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
             await depositRevenue(revenueAmount, 6, 5); // Inherit from month 5
 
             // Advance to month 7 and deposit
-            setMonthPeriod(lite, 7);
+            lite.goToMonthPeriod(7);
             await depositRevenue(revenueAmount, 7, 6); // Inherit from month 6
 
             // Advance to month 8 (after all months end) to allow claiming
-            setMonthPeriod(lite, 8);
+            lite.goToMonthPeriod(8);
 
             const [userUsdcAccount] = await findAssociatedTokenPda({
                 mint: USDC_MINT,
@@ -560,7 +559,7 @@ describe('User Claim Rewards Instructions', async () => {
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
 
             const [userUsdcAccount] = await findAssociatedTokenPda({
                 mint: USDC_MINT,
@@ -612,7 +611,7 @@ describe('User Claim Rewards Instructions', async () => {
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
 
             // User 1 claims
             const [user1UsdcAccount] = await findAssociatedTokenPda({
@@ -686,7 +685,7 @@ describe('User Claim Rewards Instructions', async () => {
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
 
             // User 1 claims
             const [user1UsdcAccount] = await findAssociatedTokenPda({
@@ -843,7 +842,7 @@ describe('User Claim Rewards Instructions', async () => {
             // Don't deposit any revenue or emissions
 
             // Advance to month 6 to allow claiming
-            setMonthPeriod(lite, 6);
+            lite.goToMonthPeriod(6);
 
             const [userUsdcAccount] = await findAssociatedTokenPda({
                 mint: USDC_MINT,
