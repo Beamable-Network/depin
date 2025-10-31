@@ -4,6 +4,7 @@ import {
     Address,
     Codec,
     Endian,
+    getAddressCodec,
     getAddressEncoder,
     getStructCodec,
     getU64Codec,
@@ -24,16 +25,19 @@ import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS, ASSOCIATED_TOKEN_PROGRAM
 const addressEncoder = getAddressEncoder();
 
 export interface DepositRevenueParams {
+    worker_collection: Address;
     total_revenue: bigint;
 }
 
 export const DepositRevenueParamsCodec: Codec<DepositRevenueParams> = getStructCodec([
+    ["worker_collection", getAddressCodec()],
     ["total_revenue", getU64Codec({ endian: Endian.Little })]
 ]);
 
 export interface CreateDepositRevenueInput {
     revenue_source: Address; // Authority that has USDC to deposit
     worker_collection: Address;
+    worker_wallet: Address; // Worker wallet address (for ATA creation)
     total_revenue: bigint;
     current_month_period: number;
     revenue_source_usdc_account: Address;
@@ -45,6 +49,7 @@ export interface CreateDepositRevenueInput {
 export class DepositRevenue {
     revenue_source: Address;
     worker_collection: Address;
+    worker_wallet: Address;
     revenue_source_usdc_account: Address;
     worker_wallet_usdc_account: Address;
     current_month_period: number;
@@ -54,10 +59,12 @@ export class DepositRevenue {
 
     constructor(input: CreateDepositRevenueInput) {
         this.params = {
+            worker_collection: input.worker_collection,
             total_revenue: input.total_revenue
         };
         this.revenue_source = input.revenue_source;
         this.worker_collection = input.worker_collection;
+        this.worker_wallet = input.worker_wallet;
         this.revenue_source_usdc_account = input.revenue_source_usdc_account;
         this.worker_wallet_usdc_account = input.worker_wallet_usdc_account;
         this.current_month_period = input.current_month_period;
@@ -88,12 +95,12 @@ export class DepositRevenue {
 
         const accounts = [
             { address: this.revenue_source, role: AccountRole.WRITABLE_SIGNER },
-            { address: this.worker_collection, role: AccountRole.READONLY },
             { address: configPda[0], role: AccountRole.WRITABLE },
             { address: this.revenue_source_usdc_account, role: AccountRole.WRITABLE },
-            { address: this.worker_wallet_usdc_account, role: AccountRole.WRITABLE },
-            { address: usdcTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: usdcTreasuryPda[0], role: AccountRole.READONLY },
+            { address: usdcTreasuryAta[0], role: AccountRole.WRITABLE },
+            { address: this.worker_wallet, role: AccountRole.WRITABLE },
+            { address: this.worker_wallet_usdc_account, role: AccountRole.WRITABLE },
             { address: USDC_MINT, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
             { address: ASSOCIATED_TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },

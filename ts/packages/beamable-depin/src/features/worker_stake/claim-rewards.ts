@@ -20,7 +20,8 @@ import { WorkerStakeInstruction } from "../../enums.js";
 import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
 import { UserStakePositionAccount } from "./user-stake-position-account.js";
 import { MonthlyPoolAccount } from "./monthly-pool-account.js";
-import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS, ASSOCIATED_TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+import { SYSTEM_PROGRAM_ADDRESS } from "@solana-program/system";
 
 const addressEncoder = getAddressEncoder();
 
@@ -92,18 +93,22 @@ export class ClaimRewards {
         });
 
         const accounts = [
-            { address: this.user, role: AccountRole.READONLY_SIGNER },
+            { address: this.user, role: AccountRole.WRITABLE_SIGNER },
             { address: this.worker_collection, role: AccountRole.READONLY },
             { address: configPda[0], role: AccountRole.READONLY },
-            { address: userPositionPda[0], role: AccountRole.WRITABLE },
             { address: monthlyPoolPda[0], role: AccountRole.READONLY },
+            { address: userPositionPda[0], role: AccountRole.WRITABLE },
+            { address: usdcTreasuryPda[0], role: AccountRole.READONLY },
             { address: usdcTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: this.user_usdc_account, role: AccountRole.WRITABLE },
-            { address: usdcTreasuryPda[0], role: AccountRole.READONLY },
+            { address: bmbTreasuryPda[0], role: AccountRole.READONLY },
             { address: bmbTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: this.user_bmb_account, role: AccountRole.WRITABLE },
-            { address: bmbTreasuryPda[0], role: AccountRole.READONLY },
-            { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY }
+            { address: USDC_MINT, role: AccountRole.READONLY },
+            { address: BMB_MINT, role: AccountRole.READONLY },
+            { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
+            { address: ASSOCIATED_TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
+            { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY }
         ];
 
         return {

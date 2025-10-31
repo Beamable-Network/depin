@@ -2,7 +2,8 @@ use depin_core::{
     constants::{BMB_MINT, BMB_DECIMALS, USDC_MINT},
     utils::{
         account::{read_account_data, write_account_data},
-        bmb::{get_month_end_timestamp, get_month_start_timestamp, days_between, days_in_month},
+        bmb::{get_month_end_timestamp, get_month_start_timestamp, days_between, days_in_month, get_current_period, get_month_from_period},
+        tokens::initialize_ata_if_needed,
     },
 };
 use solana_program::{
@@ -20,6 +21,7 @@ use crate::{
     utils::{
         find_usdc_treasury_pda,
         find_bmb_treasury_pda,
+        calculate_time_weighted,
         USDC_TREASURY_SEED,
         BMB_TREASURY_SEED,
         BMB_PER_POINT,
@@ -35,7 +37,7 @@ pub fn process_claim_rewards<'a>(
     month_period: u16,
 ) -> ProgramResult {
     // Expected Accounts:
-    // 0. [signer] User
+    // 0. [signer, writable] User (payer for ATA creation)
     // 1. [readonly] Worker collection account
     // 2. [readonly] WorkerStakeConfig PDA
     // 3. [readonly] MonthlyPool for claimed month
@@ -49,6 +51,8 @@ pub fn process_claim_rewards<'a>(
     // 11. [readonly] USDC mint
     // 12. [readonly] BMB mint
     // 13. [readonly] Token program
+    // 14. [readonly] Associated token program
+    // 15. [readonly] System program
 
     let account_info_iter = &mut accounts.iter();
     let user_account = next_account_info(account_info_iter)?;
@@ -65,6 +69,8 @@ pub fn process_claim_rewards<'a>(
     let usdc_mint_account = next_account_info(account_info_iter)?;
     let bmb_mint_account = next_account_info(account_info_iter)?;
     let token_program = next_account_info(account_info_iter)?;
+    let associated_token_program = next_account_info(account_info_iter)?;
+    let system_program = next_account_info(account_info_iter)?;
 
     // Validate user signature
     if !user_account.is_signer {
@@ -91,20 +97,8 @@ pub fn process_claim_rewards<'a>(
 
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
-    let _config: WorkerStakeConfig = read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
+    let config: WorkerStakeConfig = read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
     drop(config_data);
-
-    // Validate MonthlyPool PDA
-    let (pool_pda, _pool_bump) = MonthlyPool::find_pda(program_id, worker_collection_account.key, month_period);
-    if *monthly_pool_account.key != pool_pda {
-        msg!("Error: MonthlyPool account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    // Load monthly pool
-    let pool_data = monthly_pool_account.try_borrow_data()?;
-    let monthly_pool: MonthlyPool = read_account_data(&pool_data, WorkerStakeAccountType::MonthlyPool)?;
-    drop(pool_data);
 
     // Validate UserStakePosition PDA
     let (user_position_pda, _user_bump) = Pubkey::find_program_address(
@@ -133,36 +127,69 @@ pub fn process_claim_rewards<'a>(
         }
     }
 
+    // Validate not claiming current or future months
+    let current_month_period = get_month_from_period(get_current_period());
+    if month_period >= current_month_period {
+        msg!(
+            "Error: Cannot claim current or future months (current: {}, attempting: {}). Wait until month ends.",
+            current_month_period,
+            month_period
+        );
+        return Err(ProgramError::InvalidArgument);
+    }
+
     // Validate not opted out before this month
     if user_position.opted_out_at_month_period > 0 && month_period >= user_position.opted_out_at_month_period {
         msg!("Error: Cannot claim - opted out before this month");
         return Err(ProgramError::InvalidArgument);
     }
 
-    // Calculate user's time-weighted stake for base pool (BMB-weighted)
-    let mut total_bmb_weight: u64 = 0;
+    // Check if pool exists - if not, skip with 0 rewards
+    if !config.created_pools.contains(&month_period) {
+        user_position.last_claimed_month_period = month_period;
+        let mut position_data = user_position_account.try_borrow_mut_data()?;
+        write_account_data(&mut position_data, WorkerStakeAccountType::UserStakePosition, &user_position)?;
+
+        msg!("No pool exists for month {}, skipping with 0 rewards", month_period);
+        return Ok(());
+    }
+
+    // Pool exists - validate and load it
+    let (pool_pda, _pool_bump) = MonthlyPool::find_pda(program_id, worker_collection_account.key, month_period);
+    if *monthly_pool_account.key != pool_pda {
+        msg!("Error: MonthlyPool account does not match expected PDA");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    let pool_data = monthly_pool_account.try_borrow_data()?;
+    let monthly_pool: MonthlyPool = read_account_data(&pool_data, WorkerStakeAccountType::MonthlyPool)?;
+    drop(pool_data);
+
+    if !monthly_pool.initialized {
+        msg!("Error: MonthlyPool for month {} is not initialized", month_period);
+        return Err(ProgramError::UninitializedAccount);
+    }
+
+    // Calculate user's stake-days for base pool (absolute stake-days)
+    let mut total_stake_days: u64 = 0;
     let month_end = get_month_end_timestamp(month_period);
     let days_in_month_val = days_in_month(month_period) as u64;
 
     for entry in user_position.stake_entries.iter() {
         if entry.month_period < month_period {
-            // Full weight for stakes before target month
-            total_bmb_weight = total_bmb_weight
-                .checked_add(entry.amount)
+            // Full month weight for stakes before target month
+            let stake_days = calculate_time_weighted(entry.amount, days_in_month_val)?;
+            total_stake_days = total_stake_days
+                .checked_add(stake_days)
                 .ok_or(ProgramError::ArithmeticOverflow)?;
         } else if entry.month_period == month_period {
             // Partial weight based on time in month
             let days_remaining_i64 = days_between(entry.timestamp, month_end);
             let days_remaining = days_remaining_i64.max(0) as u64;
 
-            let weighted = ((entry.amount as u128)
-                .checked_mul(days_remaining as u128)
-                .ok_or(ProgramError::ArithmeticOverflow)?
-                .checked_div(days_in_month_val as u128)
-                .ok_or(ProgramError::ArithmeticOverflow)?) as u64;
-
-            total_bmb_weight = total_bmb_weight
-                .checked_add(weighted)
+            let stake_days = calculate_time_weighted(entry.amount, days_remaining)?;
+            total_stake_days = total_stake_days
+                .checked_add(stake_days)
                 .ok_or(ProgramError::ArithmeticOverflow)?;
         }
         // Skip if entry.month_period > month_period
@@ -223,10 +250,10 @@ pub fn process_claim_rewards<'a>(
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
     // Calculate rewards using proportional arithmetic
-    // Base pool rewards (BMB-weighted, time-weighted)
-    let usdc_base_reward = if monthly_pool.base_pool.total_weighted > 0 && total_bmb_weight > 0 {
+    // Base pool rewards (stake-days weighted)
+    let usdc_base_reward = if monthly_pool.base_pool.total_weighted > 0 && total_stake_days > 0 {
         ((monthly_pool.base_pool.collected as u128)
-            .checked_mul(total_bmb_weight as u128)
+            .checked_mul(total_stake_days as u128)
             .ok_or(ProgramError::ArithmeticOverflow)?
             .checked_div(monthly_pool.base_pool.total_weighted as u128)
             .ok_or(ProgramError::ArithmeticOverflow)?) as u64
@@ -234,9 +261,9 @@ pub fn process_claim_rewards<'a>(
         0
     };
 
-    let bmb_base_reward = if monthly_pool.base_pool.total_weighted > 0 && total_bmb_weight > 0 {
+    let bmb_base_reward = if monthly_pool.base_pool.total_weighted > 0 && total_stake_days > 0 {
         ((monthly_pool.collected_bmb_base as u128)
-            .checked_mul(total_bmb_weight as u128)
+            .checked_mul(total_stake_days as u128)
             .ok_or(ProgramError::ArithmeticOverflow)?
             .checked_div(monthly_pool.base_pool.total_weighted as u128)
             .ok_or(ProgramError::ArithmeticOverflow)?) as u64
@@ -279,6 +306,17 @@ pub fn process_claim_rewards<'a>(
             msg!("Error: USDC treasury ATA does not match expected address");
             return Err(ProgramError::InvalidArgument);
         }
+
+        // Initialize user USDC ATA if needed (lazy, idempotent)
+        initialize_ata_if_needed(
+            user_account,
+            user_account,
+            usdc_mint_account,
+            user_usdc_account,
+            token_program,
+            associated_token_program,
+            system_program,
+        )?;
 
         // Transfer USDC
         let transfer_ix = transfer_checked(
@@ -329,6 +367,17 @@ pub fn process_claim_rewards<'a>(
             msg!("Error: BMB treasury ATA does not match expected address");
             return Err(ProgramError::InvalidArgument);
         }
+
+        // Initialize user BMB ATA if needed (lazy, idempotent)
+        initialize_ata_if_needed(
+            user_account,
+            user_account,
+            bmb_mint_account,
+            user_bmb_account,
+            token_program,
+            associated_token_program,
+            system_program,
+        )?;
 
         // Transfer BMB
         let transfer_ix = transfer_checked(

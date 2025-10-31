@@ -14,7 +14,7 @@ use solana_program::{
     clock::Clock,
     entrypoint::ProgramResult,
     msg,
-    program::invoke,
+    program::{invoke, invoke_signed},
     program_error::ProgramError,
     pubkey::Pubkey,
     rent::Rent,
@@ -29,6 +29,7 @@ use crate::{
     utils::{
         find_community_stake_vault_pda,
         initialize_pool_with_inheritance,
+        calculate_time_weighted,
         BMB_PER_POINT,
     },
 };
@@ -241,7 +242,13 @@ pub fn process_stake<'a>(
         let rent_lamports = rent.minimum_balance(space);
 
         msg!("Creating UserStakePosition PDA");
-        invoke(
+        let user_position_seeds = &[
+            USER_POSITION_SEED,
+            user_account.key.as_ref(),
+            worker_collection_account.key.as_ref(),
+            &[_user_position_bump],
+        ];
+        invoke_signed(
             &system_instruction::create_account(
                 user_account.key,
                 &user_position_pda,
@@ -254,6 +261,7 @@ pub fn process_stake<'a>(
                 user_position_account.clone(),
                 system_program.clone(),
             ],
+            &[user_position_seeds],
         )?;
     }
 
@@ -319,6 +327,7 @@ pub fn process_stake<'a>(
         community_vault_ata,
         token_program,
         associated_token_program,
+        system_program,
     )?;
 
     // Transfer BMB from user to community vault
@@ -365,12 +374,8 @@ pub fn process_stake<'a>(
         return Err(ProgramError::InvalidArgument);
     }
 
-    // Update base pool: weighted by BMB amount (time-weighted)
-    let weighted_amount = ((amount as u128)
-        .checked_mul(days_remaining as u128)
-        .ok_or(ProgramError::ArithmeticOverflow)?
-        .checked_div(days_in_month_val as u128)
-        .ok_or(ProgramError::ArithmeticOverflow)?) as u64;
+    // Update base pool: weighted by BMB amount (absolute stake-days)
+    let weighted_amount = calculate_time_weighted(amount, days_remaining)?;
 
     monthly_pool.base_pool.total = monthly_pool.base_pool.total
         .checked_add(amount)
@@ -379,7 +384,7 @@ pub fn process_stake<'a>(
         .checked_add(weighted_amount)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
-    // Update addon pool: weighted by points (time-weighted)
+    // Update addon pool: weighted by points (absolute point-days)
     let points_delta = new_points as i64 - old_points as i64;
 
     // Update total (can be positive or negative delta)
@@ -393,12 +398,8 @@ pub fn process_stake<'a>(
             .ok_or(ProgramError::ArithmeticOverflow)?;
     }
 
-    // Update weighted total with time-weighting
-    let weighted_points_delta = ((points_delta.abs() as u128)
-        .checked_mul(days_remaining as u128)
-        .ok_or(ProgramError::ArithmeticOverflow)?
-        .checked_div(days_in_month_val as u128)
-        .ok_or(ProgramError::ArithmeticOverflow)?) as u64;
+    // Update weighted total with time-weighting (absolute point-days)
+    let weighted_points_delta = calculate_time_weighted(points_delta.unsigned_abs(), days_remaining)?;
 
     if points_delta >= 0 {
         monthly_pool.addon_pool.total_weighted = monthly_pool.addon_pool.total_weighted

@@ -35,6 +35,35 @@ export function timestampToPeriod(timestamp: bigint): number {
 }
 
 /**
+ * Converts a period (days since 2025-06-01) to a month period.
+ * Month period 0 = June 2025, 1 = July 2025, etc.
+ * 
+ * This mirrors the Rust function get_month_from_period.
+ * Uses the civil calendar algorithm to convert days to calendar dates.
+ */
+export function getMonthFromPeriod(period: number): number {
+    const DAYS_1970_TO_2025_06_01 = 20240;
+
+    // Convert "period" (days since 2025-06-01) into days since 1970-01-01
+    let z = DAYS_1970_TO_2025_06_01 + period;
+
+    // --- civil_from_days (proleptic Gregorian), all integer math ---
+    z += 719468;
+    const era = z >= 0 ? Math.floor(z / 146097) : Math.floor((z - 146096) / 146097);
+    const doe = z - era * 146097; // [0, 146096]
+    const yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365); // [0, 399]
+    let y = yoe + era * 400; // year
+    const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100)); // [0, 365]
+    const mp = Math.floor((5 * doy + 2) / 153); // [0, 11]
+    const m = mp + (mp < 10 ? 3 : -9); // month [1..=12]
+    if (m <= 2) { y += 1; }
+
+    // Month index where 2025-06 => 0, 2025-07 => 1, ...
+    const monthIndex = (y - 2025) * 12 + (m - 6);
+    return monthIndex;
+}
+
+/**
  * Returns remaining time in the specified period in milliseconds.
  * If no period is provided, uses the current period.
  */
@@ -56,4 +85,34 @@ export function getPeriodEndMs(period: number): number {
     if (period < 0) throw new Error('Period cannot be negative');
     const endSec = periodToTimestamp(period + 1);
     return Number(endSec * BigInt(1000));
+}
+
+
+/**
+ * Calculates the Unix timestamp for the start of a given month period.
+ * Month period 0 = June 2025, 1 = July 2025, etc.
+ *
+ * This mirrors the Rust function get_month_start_timestamp.
+ */
+export function getMonthStartTimestamp(monthPeriod: number): bigint {
+    if (monthPeriod === 0) {
+        return BigInt(PERIOD_ZERO);
+    }
+
+    // Convert month_period to calendar year and month
+    const monthOffset = monthPeriod;
+    const totalMonths = 5 + monthOffset; // 5 = June (0-indexed from January)
+    const year = 2025 + Math.floor(totalMonths / 12);
+    const month = (totalMonths % 12) + 1;
+
+    // Civil calendar algorithm: days_from_civil(year, month, 1)
+    const y = month <= 2 ? year - 1 : year;
+    const era = y >= 0 ? Math.floor(y / 400) : Math.floor((y - 399) / 400);
+    const yoe = y - era * 400;
+    const mAdj = month > 2 ? month - 3 : month + 9;
+    const doy = Math.floor((153 * mAdj + 2) / 5);
+    const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+    const daysSinceEpoch = era * 146097 + doe - 719468;
+
+    return BigInt(daysSinceEpoch * 86400);
 }

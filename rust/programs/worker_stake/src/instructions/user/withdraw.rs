@@ -95,26 +95,26 @@ pub fn process_withdraw<'a>(
     let has_active_pool = config.created_pools.contains(&current_month_period);
 
     // Check if user can withdraw (must have opted out and waited)
-    if has_active_pool {
-        if user_position.opted_out_at_month_period == 0 {
-            msg!("Error: Must call unstake first when active pool exists");
-            return Err(ProgramError::InvalidArgument);
-        }
+    // Always require unstake first to properly update last active pool's opted_out accounting
+    if user_position.opted_out_at_month_period == 0 {
+        msg!("Error: Must call unstake first before withdrawing");
+        return Err(ProgramError::InvalidArgument);
+    }
 
-        if current_month_period < user_position.opted_out_at_month_period {
-            msg!(
-                "Error: Must wait until month {} to withdraw",
-                user_position.opted_out_at_month_period
-            );
-            return Err(ProgramError::InvalidArgument);
-        }
+    // Only enforce waiting period if there's an active pool
+    if has_active_pool && current_month_period < user_position.opted_out_at_month_period {
+        msg!(
+            "Error: Must wait until month {} to withdraw",
+            user_position.opted_out_at_month_period
+        );
+        return Err(ProgramError::InvalidArgument);
     }
 
     // Check all rewards claimed (find last claimable month)
     let last_claimable_month = if user_position.opted_out_at_month_period > 0 {
         user_position.opted_out_at_month_period.saturating_sub(1)  // Can only claim up to month before opted out
     } else {
-        current_month_period  // Can claim up to current month
+        current_month_period.saturating_sub(1)  // Can claim up to previous month (not current)
     };
 
     if last_claimable_month > 0 && user_position.last_claimed_month_period < last_claimable_month {

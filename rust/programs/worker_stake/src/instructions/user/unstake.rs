@@ -74,6 +74,12 @@ pub fn process_unstake<'a>(
     let mut user_position: UserStakePosition = read_account_data(&position_data, WorkerStakeAccountType::UserStakePosition)?;
     drop(position_data);
 
+    // Check if already unstaked
+    if user_position.opted_out_at_month_period > 0 {
+        msg!("Error: User has already unstaked");
+        return Err(ProgramError::InvalidArgument);
+    }
+
     // Check if has active pool
     let has_active_pool = config.created_pools.contains(&current_month_period);
 

@@ -1,3 +1,4 @@
+use depin_core::constants::BMB_DECIMALS;
 use solana_program::{
     account_info::AccountInfo,
     msg,
@@ -16,7 +17,42 @@ pub const MAX_BASIS_POINTS: u16 = 10_000;
 
 /// BMB tokens required per checker point (for addon pool eligibility)
 /// Points = min(checker_count, floor(staked_bmb / BMB_PER_POINT))
-pub const BMB_PER_POINT: u64 = 2500;
+/// This is 2500 BMB in base units
+pub const BMB_PER_POINT: u64 = 2_500 * 10_u64.pow(BMB_DECIMALS as u32);
+
+/// Calculate time-weighted contribution for a given amount and time period
+/// Used by both base pool (BMB stake) and addon pool (points)
+///
+/// # Arguments
+/// * `amount` - The amount being weighted (BMB for base pool, points for addon pool)
+/// * `days_active` - Number of days the amount was active in the month
+///
+/// # Returns
+/// * Weighted value: amount × days_active (absolute days, not normalized)
+///
+/// # Examples
+/// ```
+/// // Stake 1000 BMB for full 30-day month
+/// let weighted = calculate_time_weighted(1000, 30); // = 30,000 stake-days
+///
+/// // Stake 1000 BMB for 15 days (mid-month)
+/// let weighted = calculate_time_weighted(1000, 15); // = 15,000 stake-days
+/// ```
+pub fn calculate_time_weighted(amount: u64, days_active: u64) -> Result<u64, ProgramError> {
+    (amount as u128)
+        .checked_mul(days_active as u128)
+        .and_then(|result| {
+            if result > u64::MAX as u128 {
+                None
+            } else {
+                Some(result as u64)
+            }
+        })
+        .ok_or_else(|| {
+            msg!("Error: Arithmetic overflow in time-weighted calculation");
+            ProgramError::ArithmeticOverflow
+        })
+}
 
 /// Find worker stake vault PDA (the authority/owner of the token account)
 pub fn find_worker_stake_vault_pda(program_id: &Pubkey, worker_collection: &Pubkey) -> (Pubkey, u8) {
@@ -138,6 +174,7 @@ pub fn initialize_pool_with_inheritance<'a>(
     prev_pool_account: Option<&AccountInfo<'a>>,
 ) -> Result<(), ProgramError> {
     use depin_core::utils::account::read_account_data;
+    use depin_core::utils::bmb::days_in_month;
     use crate::{state::MonthlyPool, types::WorkerStakeAccountType};
 
     // Check if already initialized
@@ -174,24 +211,35 @@ pub fn initialize_pool_with_inheritance<'a>(
         drop(prev_pool_data);
 
         // Inherit base pool stake (excluding opted-out positions)
-        // Inherited stake gets 100% weight (staked before month started)
+        // Inherited stake gets full month weight (staked before month started)
         monthly_pool.base_pool.total = prev_pool.base_pool.total
             .checked_sub(prev_pool.base_pool.total_opted_out)
             .ok_or_else(|| {
                 msg!("Error: Arithmetic overflow in base pool inheritance");
                 ProgramError::ArithmeticOverflow
             })?;
-        monthly_pool.base_pool.total_weighted = monthly_pool.base_pool.total;
+
+        // Calculate weighted total: inherited_stake × days_in_month
+        let days = days_in_month(current_month_period) as u64;
+        monthly_pool.base_pool.total_weighted = calculate_time_weighted(
+            monthly_pool.base_pool.total,
+            days
+        )?;
 
         // Inherit addon pool points (excluding opted-out points)
-        // Inherited points get 100% weight (qualified before month started)
+        // Inherited points get full month weight (qualified before month started)
         monthly_pool.addon_pool.total = prev_pool.addon_pool.total
             .checked_sub(prev_pool.addon_pool.total_opted_out)
             .ok_or_else(|| {
                 msg!("Error: Arithmetic overflow in addon pool inheritance");
                 ProgramError::ArithmeticOverflow
             })?;
-        monthly_pool.addon_pool.total_weighted = monthly_pool.addon_pool.total;
+
+        // Calculate weighted total: inherited_points × days_in_month (reuse days from above)
+        monthly_pool.addon_pool.total_weighted = calculate_time_weighted(
+            monthly_pool.addon_pool.total,
+            days
+        )?;
 
         msg!(
             "Inherited from month {}: base_total={}, addon_total={}",
