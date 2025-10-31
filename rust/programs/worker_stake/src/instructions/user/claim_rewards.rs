@@ -165,6 +165,11 @@ pub fn process_claim_rewards<'a>(
     let monthly_pool: MonthlyPool = read_account_data(&pool_data, WorkerStakeAccountType::MonthlyPool)?;
     drop(pool_data);
 
+    if !monthly_pool.initialized {
+        msg!("Error: MonthlyPool for month {} is not initialized", month_period);
+        return Err(ProgramError::UninitializedAccount);
+    }
+
     // Calculate user's stake-days for base pool (absolute stake-days)
     let mut total_stake_days: u64 = 0;
     let month_end = get_month_end_timestamp(month_period);
