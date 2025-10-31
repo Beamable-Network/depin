@@ -21,6 +21,7 @@ use crate::{
     utils::{
         find_usdc_treasury_pda,
         find_bmb_treasury_pda,
+        calculate_time_weighted,
         USDC_TREASURY_SEED,
         BMB_TREASURY_SEED,
         BMB_PER_POINT,
@@ -155,30 +156,26 @@ pub fn process_claim_rewards<'a>(
         return Err(ProgramError::InvalidArgument);
     }
 
-    // Calculate user's time-weighted stake for base pool (BMB-weighted)
-    let mut total_bmb_weight: u64 = 0;
+    // Calculate user's stake-days for base pool (absolute stake-days)
+    let mut total_stake_days: u64 = 0;
     let month_end = get_month_end_timestamp(month_period);
     let days_in_month_val = days_in_month(month_period) as u64;
 
     for entry in user_position.stake_entries.iter() {
         if entry.month_period < month_period {
-            // Full weight for stakes before target month
-            total_bmb_weight = total_bmb_weight
-                .checked_add(entry.amount)
+            // Full month weight for stakes before target month
+            let stake_days = calculate_time_weighted(entry.amount, days_in_month_val)?;
+            total_stake_days = total_stake_days
+                .checked_add(stake_days)
                 .ok_or(ProgramError::ArithmeticOverflow)?;
         } else if entry.month_period == month_period {
             // Partial weight based on time in month
             let days_remaining_i64 = days_between(entry.timestamp, month_end);
             let days_remaining = days_remaining_i64.max(0) as u64;
 
-            let weighted = ((entry.amount as u128)
-                .checked_mul(days_remaining as u128)
-                .ok_or(ProgramError::ArithmeticOverflow)?
-                .checked_div(days_in_month_val as u128)
-                .ok_or(ProgramError::ArithmeticOverflow)?) as u64;
-
-            total_bmb_weight = total_bmb_weight
-                .checked_add(weighted)
+            let stake_days = calculate_time_weighted(entry.amount, days_remaining)?;
+            total_stake_days = total_stake_days
+                .checked_add(stake_days)
                 .ok_or(ProgramError::ArithmeticOverflow)?;
         }
         // Skip if entry.month_period > month_period
@@ -239,10 +236,10 @@ pub fn process_claim_rewards<'a>(
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
     // Calculate rewards using proportional arithmetic
-    // Base pool rewards (BMB-weighted, time-weighted)
-    let usdc_base_reward = if monthly_pool.base_pool.total_weighted > 0 && total_bmb_weight > 0 {
+    // Base pool rewards (stake-days weighted)
+    let usdc_base_reward = if monthly_pool.base_pool.total_weighted > 0 && total_stake_days > 0 {
         ((monthly_pool.base_pool.collected as u128)
-            .checked_mul(total_bmb_weight as u128)
+            .checked_mul(total_stake_days as u128)
             .ok_or(ProgramError::ArithmeticOverflow)?
             .checked_div(monthly_pool.base_pool.total_weighted as u128)
             .ok_or(ProgramError::ArithmeticOverflow)?) as u64
@@ -250,9 +247,9 @@ pub fn process_claim_rewards<'a>(
         0
     };
 
-    let bmb_base_reward = if monthly_pool.base_pool.total_weighted > 0 && total_bmb_weight > 0 {
+    let bmb_base_reward = if monthly_pool.base_pool.total_weighted > 0 && total_stake_days > 0 {
         ((monthly_pool.collected_bmb_base as u128)
-            .checked_mul(total_bmb_weight as u128)
+            .checked_mul(total_stake_days as u128)
             .ok_or(ProgramError::ArithmeticOverflow)?
             .checked_div(monthly_pool.base_pool.total_weighted as u128)
             .ok_or(ProgramError::ArithmeticOverflow)?) as u64
