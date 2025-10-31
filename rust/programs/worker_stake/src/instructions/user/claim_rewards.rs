@@ -97,20 +97,8 @@ pub fn process_claim_rewards<'a>(
 
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
-    let _config: WorkerStakeConfig = read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
+    let config: WorkerStakeConfig = read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
     drop(config_data);
-
-    // Validate MonthlyPool PDA
-    let (pool_pda, _pool_bump) = MonthlyPool::find_pda(program_id, worker_collection_account.key, month_period);
-    if *monthly_pool_account.key != pool_pda {
-        msg!("Error: MonthlyPool account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    // Load monthly pool
-    let pool_data = monthly_pool_account.try_borrow_data()?;
-    let monthly_pool: MonthlyPool = read_account_data(&pool_data, WorkerStakeAccountType::MonthlyPool)?;
-    drop(pool_data);
 
     // Validate UserStakePosition PDA
     let (user_position_pda, _user_bump) = Pubkey::find_program_address(
@@ -155,6 +143,27 @@ pub fn process_claim_rewards<'a>(
         msg!("Error: Cannot claim - opted out before this month");
         return Err(ProgramError::InvalidArgument);
     }
+
+    // Check if pool exists - if not, skip with 0 rewards
+    if !config.created_pools.contains(&month_period) {
+        user_position.last_claimed_month_period = month_period;
+        let mut position_data = user_position_account.try_borrow_mut_data()?;
+        write_account_data(&mut position_data, WorkerStakeAccountType::UserStakePosition, &user_position)?;
+
+        msg!("No pool exists for month {}, skipping with 0 rewards", month_period);
+        return Ok(());
+    }
+
+    // Pool exists - validate and load it
+    let (pool_pda, _pool_bump) = MonthlyPool::find_pda(program_id, worker_collection_account.key, month_period);
+    if *monthly_pool_account.key != pool_pda {
+        msg!("Error: MonthlyPool account does not match expected PDA");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    let pool_data = monthly_pool_account.try_borrow_data()?;
+    let monthly_pool: MonthlyPool = read_account_data(&pool_data, WorkerStakeAccountType::MonthlyPool)?;
+    drop(pool_data);
 
     // Calculate user's stake-days for base pool (absolute stake-days)
     let mut total_stake_days: u64 = 0;

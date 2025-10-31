@@ -764,6 +764,167 @@ describe('User Integration Tests - Complex Scenarios', async () => {
         });
     });
 
+    describe('Pool Inheritance with Gaps', () => {
+        it('should handle pool inheritance with a gap (months 5 and 9 only)', async () => {
+            // Create pools for months 5 and 9 only (no pools for 6, 7, 8)
+            const pools: MonthlyPoolConfig[] = [
+                {
+                    month_period: 5,
+                    base_revenue_percentage: 2000, // 20%
+                    addon_revenue_percentage: 1000, // 10%
+                    base_emission_percentage: 1500, // 15%
+                },
+                {
+                    month_period: 9,
+                    base_revenue_percentage: 2000,
+                    addon_revenue_percentage: 1000,
+                    base_emission_percentage: 1500,
+                }
+            ];
+
+            const setPool = new SetMonthlyPool({
+                collection_authority: collectionCreator.address,
+                worker_collection: workerCollection,
+                pools,
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await setPool.getInstruction())
+                .sendTransaction({ payer: collectionCreator });
+
+            // User stakes in month 5
+            const { user } = await createStakedUser(bmbToBaseUnits(10000), 4, 5);
+
+            // Verify month 5 pool state
+            let [poolPda] = await MonthlyPoolAccount.findMonthlyPoolPDA(workerCollection, 5);
+            let poolData = lite.getAccountData(poolPda);
+            let pool = MonthlyPoolAccount.deserializeFrom(poolData!);
+            expect(pool.base_pool.total).toBe(bmbToBaseUnits(10000));
+            expect(pool.addon_pool.total).toBe(4n); // 4 points
+
+            // Deposit revenue and emissions for month 5
+            const revenueAmount = 1000n * 1000000n; // 1000 USDC
+            const emissionAmount = bmbToBaseUnits(500); // 500 BMB
+
+            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount * 2n, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(BMB_MINT, revenueSource.address, emissionAmount * 2n, tokenAuthorities.bmbMintAuthority);
+
+            await depositRevenue(revenueAmount, 5);
+            await depositEmissions(emissionAmount, 5);
+
+            // Advance to month 6 and claim month 5 rewards
+            lite.goToMonthPeriod(6);
+
+            const [userUsdcAccount] = await findAssociatedTokenPda({
+                mint: USDC_MINT,
+                owner: user.address,
+                tokenProgram: TOKEN_PROGRAM_ADDRESS
+            });
+
+            const [userBmbAccount] = await findAssociatedTokenPda({
+                mint: BMB_MINT,
+                owner: user.address,
+                tokenProgram: TOKEN_PROGRAM_ADDRESS
+            });
+
+            let claimRewards = new ClaimRewards({
+                user: user.address,
+                worker_collection: workerCollection,
+                month_period: 5,
+                user_usdc_account: userUsdcAccount,
+                user_bmb_account: userBmbAccount,
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await claimRewards.getInstruction())
+                .sendTransaction({ payer: user });
+
+            // Verify month 5 rewards received
+            // Base USDC: 20% of 1000 = 200 USDC
+            // Addon USDC: 10% of 1000 = 100 USDC
+            // Total USDC: 300 USDC
+            // Base BMB: 15% of 500 = 75 BMB
+            let usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            let bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
+            expect(usdcBalance).toBe(300n * 1000000n);
+            expect(bmbBalance).toBe(bmbToBaseUnits(75));
+
+            // Advance to month 9 (skipping months 6, 7, 8)
+            lite.goToMonthPeriod(9);
+
+            // Deposit revenue and emissions for month 9
+            // This should trigger inheritance from month 5 (last_active_pool_month)
+            await depositRevenue(revenueAmount, 9);
+            await depositEmissions(emissionAmount, 9);
+
+            // Verify month 9 pool inherited from month 5
+            [poolPda] = await MonthlyPoolAccount.findMonthlyPoolPDA(workerCollection, 9);
+            poolData = lite.getAccountData(poolPda);
+            pool = MonthlyPoolAccount.deserializeFrom(poolData!);
+
+            // Should have inherited user's stake (10000 BMB)
+            expect(pool.base_pool.total).toBe(bmbToBaseUnits(10000));
+            // Weighted value is now stake × days_in_month (month 9 = March = 31 days)
+            // 10000 BMB × 31 days = 310000
+            expect(pool.base_pool.total_weighted).toBe(bmbToBaseUnits(310000));
+            // Should have inherited user's points (4 points)
+            expect(pool.addon_pool.total).toBe(4n);
+            // Weighted points is now points × days_in_month (4 points × 31 days = 124)
+            expect(pool.addon_pool.total_weighted).toBe(124n);
+
+            // Verify revenue and emissions were collected
+            expect(pool.base_pool.collected).toBe(200n * 1000000n); // 20% of 1000
+            expect(pool.addon_pool.collected).toBe(100n * 1000000n); // 10% of 1000
+            expect(pool.collected_bmb_base).toBe(bmbToBaseUnits(75)); // 15% of 500
+
+            // Claim months 6, 7, 8 (no pools exist, will skip with 0 rewards)
+            for (const skipMonth of [6, 7, 8]) {
+                claimRewards = new ClaimRewards({
+                    user: user.address,
+                    worker_collection: workerCollection,
+                    month_period: skipMonth,
+                    user_usdc_account: userUsdcAccount,
+                    user_bmb_account: userBmbAccount,
+                });
+
+                lite.buildTransaction()
+                    .addInstruction(await claimRewards.getInstruction())
+                    .sendTransaction({ payer: user });
+            }
+
+            // Advance to month 10 and claim month 9 rewards
+            lite.goToMonthPeriod(10);
+
+            claimRewards = new ClaimRewards({
+                user: user.address,
+                worker_collection: workerCollection,
+                month_period: 9,
+                user_usdc_account: userUsdcAccount,
+                user_bmb_account: userBmbAccount,
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await claimRewards.getInstruction())
+                .sendTransaction({ payer: user });
+
+            // Verify month 9 rewards received (same amounts as month 5)
+            // User had full weight in month 9 (inherited stake)
+            usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
+
+            // Total USDC should be: month 5 (300) + month 9 (300) = 600
+            expect(usdcBalance).toBe(600n * 1000000n);
+            // Total BMB should be: month 5 (75) + month 9 (75) = 150
+            expect(bmbBalance).toBe(bmbToBaseUnits(150));
+
+            // Verify user's last claimed month was updated
+            const [userPositionPda] = await UserStakePositionAccount.findUserStakePositionPDA(user.address, workerCollection);
+            const positionData = lite.getAccountData(userPositionPda);
+            const position = UserStakePositionAccount.deserializeFrom(positionData!);
+            expect(position.last_claimed_month_period).toBe(9);
+        });
+    });
+
     describe('Edge Cases and Error Handling', () => {
         it('should prevent withdrawal with pending unclaimed rewards', async () => {
             const pools: MonthlyPoolConfig[] = [
