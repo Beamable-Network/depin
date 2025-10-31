@@ -18,7 +18,6 @@ import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { setupTokens, TokenAuthorities, usdcToBaseUnits } from '../../helpers/spl-tokens.js';
-import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 
 describe('User Claim Rewards Instructions', async () => {
@@ -37,17 +36,11 @@ describe('User Claim Rewards Instructions', async () => {
         stakeAmount: bigint,
         checkerCount: number,
         monthPeriod: number
-    ): Promise<{ user: LiteKeyPair; userTokenAccount: Address }> {
+    ): Promise<{ user: LiteKeyPair }> {
         const user = await lite.generateKeyPair();
         await lite.airdrop(user, 2);
 
         await lite.mintToken(BMB_MINT, user.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
-
-        const [userTokenAccount] = await findAssociatedTokenPda({
-            mint: BMB_MINT,
-            owner: user.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS
-        });
 
         const stake = new Stake({
             user: user.address,
@@ -57,7 +50,6 @@ describe('User Claim Rewards Instructions', async () => {
             amount: stakeAmount,
             checker_count: checkerCount,
             current_month_period: monthPeriod,
-            user_token_account: userTokenAccount,
         });
 
         await lite.buildTransaction()
@@ -65,31 +57,17 @@ describe('User Claim Rewards Instructions', async () => {
             .sign(worker)
             .sendTransaction({ payer: user });
 
-        return { user, userTokenAccount };
+        return { user };
     }
 
     // Helper to deposit revenue
     async function depositRevenue(amount: bigint, monthPeriod: number, previousPoolMonth?: number) {
-        const [revenueSourceUsdcAccount] = await findAssociatedTokenPda({
-            mint: USDC_MINT,
-            owner: revenueSource.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS
-        });
-
-        const [workerWalletUsdcAccount] = await findAssociatedTokenPda({
-            mint: USDC_MINT,
-            owner: workerWallet.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS
-        });
-
         const depositRev = new DepositRevenue({
             revenue_source: revenueSource.address,
             worker_collection: workerCollection,
             worker_wallet: workerWallet.address,
             total_revenue: amount,
             current_month_period: monthPeriod,
-            revenue_source_usdc_account: revenueSourceUsdcAccount,
-            worker_wallet_usdc_account: workerWalletUsdcAccount,
             has_monthly_pool: true,
             previous_pool_month_period: previousPoolMonth,
         });
@@ -101,18 +79,6 @@ describe('User Claim Rewards Instructions', async () => {
 
     // Helper to deposit emissions
     async function depositEmissions(amount: bigint, monthPeriod: number) {
-        const [depositorBmbAccount] = await findAssociatedTokenPda({
-            mint: BMB_MINT,
-            owner: revenueSource.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS
-        });
-
-        const [workerWalletBmbAccount] = await findAssociatedTokenPda({
-            mint: BMB_MINT,
-            owner: workerWallet.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS
-        });
-
         // Query config to get last_active_pool_month
         const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
         const configData = lite.getAccountData(configPda);
@@ -124,8 +90,6 @@ describe('User Claim Rewards Instructions', async () => {
             worker_wallet: workerWallet.address,
             month_period: monthPeriod,
             amount: amount,
-            depositor_bmb_account: depositorBmbAccount,
-            worker_wallet_bmb_account: workerWalletBmbAccount,
             has_monthly_pool: true,
         });
 
@@ -219,26 +183,11 @@ describe('User Claim Rewards Instructions', async () => {
             // Advance to month 6 (after month 5 ends) to allow claiming
             lite.goToMonthPeriod(6);
 
-            // Get user token accounts for claiming
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             // Claim rewards
             const claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             await lite.buildTransaction()
@@ -268,25 +217,11 @@ describe('User Claim Rewards Instructions', async () => {
             // Advance to month 6 (after month 5 ends) to allow claiming
             lite.goToMonthPeriod(6);
 
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             // Claim rewards
             const claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             await lite.buildTransaction()
@@ -310,24 +245,10 @@ describe('User Claim Rewards Instructions', async () => {
             // Advance to month 6 (after month 5 ends) to allow claiming
             lite.goToMonthPeriod(6);
 
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             await lite.buildTransaction()
@@ -358,24 +279,10 @@ describe('User Claim Rewards Instructions', async () => {
             // Advance to month 6 (after month 5 ends) to allow claiming
             lite.goToMonthPeriod(6);
 
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             await lite.buildTransaction()
@@ -402,25 +309,11 @@ describe('User Claim Rewards Instructions', async () => {
             // Advance to month 6 (after month 5 ends) to allow claiming
             lite.goToMonthPeriod(6);
 
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             // Should succeed even without emissions
             const claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             await lite.buildTransaction()
@@ -469,25 +362,11 @@ describe('User Claim Rewards Instructions', async () => {
             // Advance to month 7 to allow claiming month 6
             lite.goToMonthPeriod(7);
 
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             // First claim month 5 (required for sequential claiming)
             const claimMonth5 = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             await lite.buildTransaction()
@@ -499,8 +378,6 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 6,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             await lite.buildTransaction()
@@ -565,25 +442,11 @@ describe('User Claim Rewards Instructions', async () => {
             // Advance to month 8 (after all months end) to allow claiming
             lite.goToMonthPeriod(8);
 
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             // Claim month 5 - should succeed
             let claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             await lite.buildTransaction()
@@ -595,8 +458,6 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 7,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             await expect(async () => {
@@ -610,8 +471,6 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 6,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             await lite.buildTransaction()
@@ -623,8 +482,6 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 7,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             await lite.buildTransaction()
@@ -652,24 +509,10 @@ describe('User Claim Rewards Instructions', async () => {
             // Advance to month 6 (after month 5 ends) to allow claiming
             lite.goToMonthPeriod(6);
 
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             // First claim - should succeed
@@ -705,24 +548,10 @@ describe('User Claim Rewards Instructions', async () => {
             lite.goToMonthPeriod(6);
 
             // User 1 claims
-            const [user1UsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user1.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [user1BmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user1.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             let claimRewards = new ClaimRewards({
                 user: user1.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: user1UsdcAccount,
-                user_bmb_account: user1BmbAccount,
             });
 
             await lite.buildTransaction()
@@ -730,24 +559,10 @@ describe('User Claim Rewards Instructions', async () => {
                 .sendTransaction({ payer: user1 });
 
             // User 2 claims
-            const [user2UsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user2.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [user2BmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user2.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             claimRewards = new ClaimRewards({
                 user: user2.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: user2UsdcAccount,
-                user_bmb_account: user2BmbAccount,
             });
 
             await lite.buildTransaction()
@@ -779,24 +594,10 @@ describe('User Claim Rewards Instructions', async () => {
             lite.goToMonthPeriod(6);
 
             // User 1 claims
-            const [user1UsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user1.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [user1BmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user1.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             let claimRewards = new ClaimRewards({
                 user: user1.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: user1UsdcAccount,
-                user_bmb_account: user1BmbAccount,
             });
 
             await lite.buildTransaction()
@@ -804,24 +605,10 @@ describe('User Claim Rewards Instructions', async () => {
                 .sendTransaction({ payer: user1 });
 
             // User 2 claims
-            const [user2UsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user2.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [user2BmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user2.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             claimRewards = new ClaimRewards({
                 user: user2.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: user2UsdcAccount,
-                user_bmb_account: user2BmbAccount,
             });
 
             await lite.buildTransaction()
@@ -862,24 +649,10 @@ describe('User Claim Rewards Instructions', async () => {
                 .sendTransaction({ payer: collectionCreator });
 
             // Try to claim month 10 (user only staked in month 5)
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 10,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             await expect(async () => {
@@ -899,24 +672,10 @@ describe('User Claim Rewards Instructions', async () => {
 
             // Don't advance time - still in month 5
 
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             // Should fail because we're still in month 5
@@ -935,24 +694,10 @@ describe('User Claim Rewards Instructions', async () => {
             // Advance to month 6 to allow claiming
             lite.goToMonthPeriod(6);
 
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             // Should succeed with 0 rewards

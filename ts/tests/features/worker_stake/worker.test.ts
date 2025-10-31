@@ -15,7 +15,6 @@ import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { setupTokens, TokenAuthorities } from '../../helpers/spl-tokens.js';
-import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 
 describe('Worker Instructions', async () => {
     let lite: LiteDepin;
@@ -406,18 +405,10 @@ describe('Worker Instructions', async () => {
             const initialBalance = await lite.getTokenBalance(BMB_MINT, collectionCreator.address);
             expect(initialBalance).toBe(stakeAmount);
 
-            // Get collection creator's token account
-            const [workerTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: collectionCreator.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const workerStake = new WorkerStake({
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: stakeAmount,
-                worker_token_account: workerTokenAccount,
             });
 
             lite.buildTransaction()
@@ -444,18 +435,11 @@ describe('Worker Instructions', async () => {
             // Setup: Mint BMB to collection creator
             await lite.mintToken(BMB_MINT, collectionCreator.address, totalMint, tokenAuthorities.bmbMintAuthority);
 
-            const [workerTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: collectionCreator.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             // First stake
             let workerStake = new WorkerStake({
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: firstStake,
-                worker_token_account: workerTokenAccount,
             });
 
             lite.buildTransaction()
@@ -471,7 +455,6 @@ describe('Worker Instructions', async () => {
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: secondStake,
-                worker_token_account: workerTokenAccount,
             });
 
             lite.buildTransaction()
@@ -491,17 +474,10 @@ describe('Worker Instructions', async () => {
         });
 
         it('should fail when staking zero amount', async () => {
-            const [workerTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: collectionCreator.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const workerStake = new WorkerStake({
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: 0n,
-                worker_token_account: workerTokenAccount,
             });
 
             await expect(async () => {
@@ -515,17 +491,10 @@ describe('Worker Instructions', async () => {
             const unauthorizedUser = await lite.generateKeyPair();
             await lite.airdrop(unauthorizedUser, 2);
 
-            const [workerTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: unauthorizedUser.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const workerStake = new WorkerStake({
                 collection_authority: unauthorizedUser.address,
                 worker_collection: workerCollection,
                 amount: bmbToBaseUnits(100),
-                worker_token_account: workerTokenAccount,
             });
 
             await expect(async () => {
@@ -542,17 +511,10 @@ describe('Worker Instructions', async () => {
             const stakeAmount = bmbToBaseUnits(200); // 200 BMB (above min requirement of 100)
             await lite.mintToken(BMB_MINT, collectionCreator.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
 
-            const [workerTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: collectionCreator.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const workerStake = new WorkerStake({
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: stakeAmount,
-                worker_token_account: workerTokenAccount,
             });
 
             lite.buildTransaction()
@@ -567,17 +529,10 @@ describe('Worker Instructions', async () => {
             let balance = await lite.getTokenBalance(BMB_MINT, collectionCreator.address);
             expect(balance).toBe(0n);
 
-            const [workerTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: collectionCreator.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const workerUnstake = new WorkerUnstake({
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: unstakeAmount,
-                worker_token_account: workerTokenAccount,
             });
 
             lite.buildTransaction()
@@ -599,17 +554,10 @@ describe('Worker Instructions', async () => {
         it('should fail when unstaking below minimum requirement', async () => {
             const unstakeAmount = bmbToBaseUnits(150); // Would leave 50, below min of 100
 
-            const [workerTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: collectionCreator.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const workerUnstake = new WorkerUnstake({
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: unstakeAmount,
-                worker_token_account: workerTokenAccount,
             });
 
             await expect(async () => {
@@ -620,17 +568,10 @@ describe('Worker Instructions', async () => {
         });
 
         it('should fail when unstaking zero amount', async () => {
-            const [workerTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: collectionCreator.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const workerUnstake = new WorkerUnstake({
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: 0n,
-                worker_token_account: workerTokenAccount,
             });
 
             await expect(async () => {
@@ -644,17 +585,10 @@ describe('Worker Instructions', async () => {
             const unauthorizedUser = await lite.generateKeyPair();
             await lite.airdrop(unauthorizedUser, 2);
 
-            const [workerTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: unauthorizedUser.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const workerUnstake = new WorkerUnstake({
                 collection_authority: unauthorizedUser.address,
                 worker_collection: workerCollection,
                 amount: bmbToBaseUnits(50),
-                worker_token_account: workerTokenAccount,
             });
 
             await expect(async () => {
@@ -667,17 +601,10 @@ describe('Worker Instructions', async () => {
         it('should allow unstaking to exactly the minimum requirement', async () => {
             const unstakeAmount = bmbToBaseUnits(100); // Unstake 100, leaving exactly 100 (min requirement)
 
-            const [workerTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: collectionCreator.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const workerUnstake = new WorkerUnstake({
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: unstakeAmount,
-                worker_token_account: workerTokenAccount,
             });
 
             lite.buildTransaction()
@@ -696,18 +623,11 @@ describe('Worker Instructions', async () => {
             const firstUnstake = bmbToBaseUnits(30);
             const secondUnstake = bmbToBaseUnits(20);
 
-            const [workerTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: collectionCreator.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             // First unstake
             let workerUnstake = new WorkerUnstake({
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: firstUnstake,
-                worker_token_account: workerTokenAccount,
             });
 
             lite.buildTransaction()
@@ -723,7 +643,6 @@ describe('Worker Instructions', async () => {
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: secondUnstake,
-                worker_token_account: workerTokenAccount,
             });
 
             lite.buildTransaction()
@@ -749,17 +668,10 @@ describe('Worker Instructions', async () => {
             const stakeAmount = bmbToBaseUnits(250);
             await lite.mintToken(BMB_MINT, collectionCreator.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
 
-            const [workerTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: collectionCreator.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const workerStake = new WorkerStake({
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: stakeAmount,
-                worker_token_account: workerTokenAccount,
             });
 
             lite.buildTransaction()
@@ -788,7 +700,6 @@ describe('Worker Instructions', async () => {
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: unstakeAmount,
-                worker_token_account: workerTokenAccount,
             });
 
             lite.buildTransaction()
@@ -839,17 +750,10 @@ describe('Worker Instructions', async () => {
             const stakeAmount = bmbToBaseUnits(300);
             await lite.mintToken(BMB_MINT, collectionCreator.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
 
-            const [workerTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: collectionCreator.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const workerStake = new WorkerStake({
                 collection_authority: collectionCreator.address,
                 worker_collection: workerCollection,
                 amount: stakeAmount,
-                worker_token_account: workerTokenAccount,
             });
 
             lite.buildTransaction()

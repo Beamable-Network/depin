@@ -37,15 +37,11 @@ export interface CreateClaimRewardsInput {
     user: Address;
     worker_collection: Address;
     month_period: number;
-    user_usdc_account: Address;
-    user_bmb_account: Address;
 }
 
 export class ClaimRewards {
     user: Address;
     worker_collection: Address;
-    user_usdc_account: Address;
-    user_bmb_account: Address;
     readonly params: ClaimRewardsParams;
 
     constructor(input: CreateClaimRewardsInput) {
@@ -54,8 +50,6 @@ export class ClaimRewards {
         };
         this.user = input.user;
         this.worker_collection = input.worker_collection;
-        this.user_usdc_account = input.user_usdc_account;
-        this.user_bmb_account = input.user_bmb_account;
     }
 
     private serialize(): Uint8Array {
@@ -92,6 +86,18 @@ export class ClaimRewards {
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
+        // ATAs for user's tokens
+        const userUsdcAccount = await findAssociatedTokenPda({
+            mint: USDC_MINT,
+            owner: this.user,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+        const userBmbAccount = await findAssociatedTokenPda({
+            mint: BMB_MINT,
+            owner: this.user,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+
         const accounts = [
             { address: this.user, role: AccountRole.WRITABLE_SIGNER },
             { address: this.worker_collection, role: AccountRole.READONLY },
@@ -100,10 +106,10 @@ export class ClaimRewards {
             { address: userPositionPda[0], role: AccountRole.WRITABLE },
             { address: usdcTreasuryPda[0], role: AccountRole.READONLY },
             { address: usdcTreasuryAta[0], role: AccountRole.WRITABLE },
-            { address: this.user_usdc_account, role: AccountRole.WRITABLE },
+            { address: userUsdcAccount[0], role: AccountRole.WRITABLE },
             { address: bmbTreasuryPda[0], role: AccountRole.READONLY },
             { address: bmbTreasuryAta[0], role: AccountRole.WRITABLE },
-            { address: this.user_bmb_account, role: AccountRole.WRITABLE },
+            { address: userBmbAccount[0], role: AccountRole.WRITABLE },
             { address: USDC_MINT, role: AccountRole.READONLY },
             { address: BMB_MINT, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },

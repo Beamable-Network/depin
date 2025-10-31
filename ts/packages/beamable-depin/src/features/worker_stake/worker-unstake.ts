@@ -28,13 +28,11 @@ export interface CreateWorkerUnstakeInput {
     collection_authority: Address;
     worker_collection: Address;
     amount: bigint;
-    worker_token_account: Address;
 }
 
 export class WorkerUnstake {
     collection_authority: Address;
     worker_collection: Address;
-    worker_token_account: Address;
     readonly params: WorkerUnstakeParams;
 
     constructor(input: CreateWorkerUnstakeInput) {
@@ -43,7 +41,6 @@ export class WorkerUnstake {
         };
         this.collection_authority = input.collection_authority;
         this.worker_collection = input.worker_collection;
-        this.worker_token_account = input.worker_token_account;
     }
 
     private serialize(): Uint8Array {
@@ -67,13 +64,20 @@ export class WorkerUnstake {
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
+        // ATA for collection authority's BMB tokens
+        const workerTokenAccount = await findAssociatedTokenPda({
+            mint: BMB_MINT,
+            owner: this.collection_authority,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+
         const accounts = [
             { address: this.collection_authority, role: AccountRole.READONLY_SIGNER },
             { address: this.worker_collection, role: AccountRole.READONLY },
             { address: configPda[0], role: AccountRole.WRITABLE },
             { address: workerStakeVaultPda[0], role: AccountRole.READONLY },
             { address: workerStakeVaultAta[0], role: AccountRole.WRITABLE },
-            { address: this.worker_token_account, role: AccountRole.WRITABLE },
+            { address: workerTokenAccount[0], role: AccountRole.WRITABLE },
             { address: BMB_MINT, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY }
         ];

@@ -17,18 +17,15 @@ const addressEncoder = getAddressEncoder();
 export interface CreateWithdrawInput {
     user: Address;
     worker_collection: Address;
-    user_token_account: Address;
 }
 
 export class Withdraw {
     user: Address;
     worker_collection: Address;
-    user_token_account: Address;
 
     constructor(input: CreateWithdrawInput) {
         this.user = input.user;
         this.worker_collection = input.worker_collection;
-        this.user_token_account = input.user_token_account;
     }
 
     private serialize(): Uint8Array {
@@ -53,6 +50,13 @@ export class Withdraw {
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
+        // ATA for user's BMB tokens
+        const userTokenAccount = await findAssociatedTokenPda({
+            mint: BMB_MINT,
+            owner: this.user,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+
         const accounts = [
             { address: this.user, role: AccountRole.WRITABLE_SIGNER },
             { address: this.worker_collection, role: AccountRole.READONLY },
@@ -60,7 +64,7 @@ export class Withdraw {
             { address: userPositionPda[0], role: AccountRole.WRITABLE },
             { address: communityStakeVaultPda[0], role: AccountRole.READONLY },
             { address: communityStakeVaultAta[0], role: AccountRole.WRITABLE },
-            { address: this.user_token_account, role: AccountRole.WRITABLE },
+            { address: userTokenAccount[0], role: AccountRole.WRITABLE },
             { address: BMB_MINT, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY }
         ];

@@ -18,7 +18,6 @@ import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { setupTokens, TokenAuthorities } from '../../helpers/spl-tokens.js';
-import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 
 describe('User Unstake and Withdraw Instructions', async () => {
@@ -36,17 +35,11 @@ describe('User Unstake and Withdraw Instructions', async () => {
         stakeAmount: bigint,
         checkerCount: number,
         monthPeriod: number
-    ): Promise<{ user: LiteKeyPair; userTokenAccount: Address }> {
+    ): Promise<{ user: LiteKeyPair }> {
         const user = await lite.generateKeyPair();
         await lite.airdrop(user, 2);
 
         await lite.mintToken(BMB_MINT, user.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
-
-        const [userTokenAccount] = await findAssociatedTokenPda({
-            mint: BMB_MINT,
-            owner: user.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS
-        });
 
         const stake = new Stake({
             user: user.address,
@@ -56,7 +49,6 @@ describe('User Unstake and Withdraw Instructions', async () => {
             amount: stakeAmount,
             checker_count: checkerCount,
             current_month_period: monthPeriod,
-            user_token_account: userTokenAccount,
         });
 
         lite.buildTransaction()
@@ -64,7 +56,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
             .sign(worker)
             .sendTransaction({ payer: user });
 
-        return { user, userTokenAccount };
+        return { user };
     }
 
     beforeEach(async () => {
@@ -261,7 +253,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
     describe('Withdraw', () => {
         it('should successfully withdraw after unstaking and waiting', async () => {
             const stakeAmount = bmbToBaseUnits(5000);
-            const { user, userTokenAccount } = await createStakedUser(stakeAmount, 0, 5);
+            const { user } = await createStakedUser(stakeAmount, 0, 5);
 
             // Get initial balance (should be 0 after staking)
             let balance = await lite.getTokenBalance(BMB_MINT, user.address);
@@ -286,23 +278,10 @@ describe('User Unstake and Withdraw Instructions', async () => {
             lite.goToMonthPeriod(6);
 
             // Claim month 5 rewards before withdrawing (even though no rewards were deposited)
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             lite.buildTransaction()
@@ -313,7 +292,6 @@ describe('User Unstake and Withdraw Instructions', async () => {
             const withdraw = new Withdraw({
                 user: user.address,
                 worker_collection: workerCollection,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -336,12 +314,11 @@ describe('User Unstake and Withdraw Instructions', async () => {
         });
 
         it('should fail when trying to withdraw without unstaking first', async () => {
-            const { user, userTokenAccount } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
+            const { user } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
 
             const withdraw = new Withdraw({
                 user: user.address,
                 worker_collection: workerCollection,
-                user_token_account: userTokenAccount,
             });
 
             await expect(async () => {
@@ -352,7 +329,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
         });
 
         it('should fail when trying to withdraw before waiting period ends', async () => {
-            const { user, userTokenAccount } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
+            const { user } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
 
             // Unstake
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
@@ -373,7 +350,6 @@ describe('User Unstake and Withdraw Instructions', async () => {
             const withdraw = new Withdraw({
                 user: user.address,
                 worker_collection: workerCollection,
-                user_token_account: userTokenAccount,
             });
 
             await expect(async () => {
@@ -387,7 +363,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
             // Scenario: User stakes in month 5, then we advance to month 6 without creating a pool
             // User unstakes in month 6 (no active pool), should be able to withdraw immediately
             const stakeAmount = bmbToBaseUnits(5000);
-            const { user, userTokenAccount } = await createStakedUser(stakeAmount, 0, 5);
+            const { user } = await createStakedUser(stakeAmount, 0, 5);
 
             // Advance to month 6 without creating a pool for month 6
             lite.goToMonthPeriod(6);
@@ -409,23 +385,10 @@ describe('User Unstake and Withdraw Instructions', async () => {
                 .sendTransaction({ payer: user });
 
             // Claim month 5 rewards before withdrawing
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             lite.buildTransaction()
@@ -436,7 +399,6 @@ describe('User Unstake and Withdraw Instructions', async () => {
             const withdraw = new Withdraw({
                 user: user.address,
                 worker_collection: workerCollection,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -457,9 +419,9 @@ describe('User Unstake and Withdraw Instructions', async () => {
             const stake1Amount = bmbToBaseUnits(5000);
             const stake2Amount = bmbToBaseUnits(7500);
 
-            const { user: user1, userTokenAccount: user1TokenAccount } =
+            const { user: user1 } =
                 await createStakedUser(stake1Amount, 0, 5);
-            const { user: user2, userTokenAccount: user2TokenAccount } =
+            const { user: user2 } =
                 await createStakedUser(stake2Amount, 3, 5);
 
             // Get config
@@ -492,46 +454,20 @@ describe('User Unstake and Withdraw Instructions', async () => {
             lite.goToMonthPeriod(6);
 
             // Both users claim month 5 rewards before withdrawing
-            const [user1UsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user1.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-            const [user1BmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user1.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             let claimRewards = new ClaimRewards({
                 user: user1.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: user1UsdcAccount,
-                user_bmb_account: user1BmbAccount,
             });
 
             lite.buildTransaction()
                 .addInstruction(await claimRewards.getInstruction())
                 .sendTransaction({ payer: user1 });
 
-            const [user2UsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user2.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-            const [user2BmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user2.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             claimRewards = new ClaimRewards({
                 user: user2.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: user2UsdcAccount,
-                user_bmb_account: user2BmbAccount,
             });
 
             lite.buildTransaction()
@@ -542,7 +478,6 @@ describe('User Unstake and Withdraw Instructions', async () => {
             let withdraw = new Withdraw({
                 user: user1.address,
                 worker_collection: workerCollection,
-                user_token_account: user1TokenAccount,
             });
 
             lite.buildTransaction()
@@ -552,7 +487,6 @@ describe('User Unstake and Withdraw Instructions', async () => {
             withdraw = new Withdraw({
                 user: user2.address,
                 worker_collection: workerCollection,
-                user_token_account: user2TokenAccount,
             });
 
             lite.buildTransaction()
@@ -575,7 +509,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
     describe('Unstake and Withdraw Flow', () => {
         it('should complete full unstake-wait-withdraw lifecycle', async () => {
             const stakeAmount = bmbToBaseUnits(10000);
-            const { user, userTokenAccount } = await createStakedUser(stakeAmount, 4, 5);
+            const { user } = await createStakedUser(stakeAmount, 4, 5);
 
             // Verify initial state
             let [userPositionPda] = await UserStakePositionAccount.findUserStakePositionPDA(user.address, workerCollection);
@@ -615,23 +549,10 @@ describe('User Unstake and Withdraw Instructions', async () => {
             lite.goToMonthPeriod(6);
 
             // Claim month 5 rewards before withdrawing
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             lite.buildTransaction()
@@ -642,7 +563,6 @@ describe('User Unstake and Withdraw Instructions', async () => {
             const withdraw = new Withdraw({
                 user: user.address,
                 worker_collection: workerCollection,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()

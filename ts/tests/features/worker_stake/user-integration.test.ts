@@ -20,7 +20,6 @@ import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { setupTokens, TokenAuthorities, usdcToBaseUnits } from '../../helpers/spl-tokens.js';
-import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 
 describe('User Integration Tests - Complex Scenarios', async () => {
@@ -39,17 +38,11 @@ describe('User Integration Tests - Complex Scenarios', async () => {
         stakeAmount: bigint,
         checkerCount: number,
         monthPeriod: number
-    ): Promise<{ user: LiteKeyPair; userTokenAccount: Address }> {
+    ): Promise<{ user: LiteKeyPair }> {
         const user = await lite.generateKeyPair();
         await lite.airdrop(user, 2);
 
         await lite.mintToken(BMB_MINT, user.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
-
-        const [userTokenAccount] = await findAssociatedTokenPda({
-            mint: BMB_MINT,
-            owner: user.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS
-        });
 
         // Query config to get last_active_pool_month
         const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
@@ -64,7 +57,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             amount: stakeAmount,
             checker_count: checkerCount,
             current_month_period: monthPeriod,
-            user_token_account: userTokenAccount,
         });
 
         // Only set previous pool if last_active_pool_month exists and is different from current
@@ -77,23 +69,11 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             .sign(worker)
             .sendTransaction({ payer: user });
 
-        return { user, userTokenAccount };
+        return { user };
     }
 
     // Helper to deposit revenue
     async function depositRevenue(amount: bigint, monthPeriod: number) {
-        const [revenueSourceUsdcAccount] = await findAssociatedTokenPda({
-            mint: USDC_MINT,
-            owner: revenueSource.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS
-        });
-
-        const [workerWalletUsdcAccount] = await findAssociatedTokenPda({
-            mint: USDC_MINT,
-            owner: workerWallet.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS
-        });
-
         // Query config to get last_active_pool_month
         const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
         const configData = lite.getAccountData(configPda);
@@ -105,8 +85,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             worker_wallet: workerWallet.address,
             total_revenue: amount,
             current_month_period: monthPeriod,
-            revenue_source_usdc_account: revenueSourceUsdcAccount,
-            worker_wallet_usdc_account: workerWalletUsdcAccount,
             has_monthly_pool: true,
         });
 
@@ -122,18 +100,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
 
     // Helper to deposit emissions
     async function depositEmissions(amount: bigint, monthPeriod: number) {
-        const [depositorBmbAccount] = await findAssociatedTokenPda({
-            mint: BMB_MINT,
-            owner: revenueSource.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS
-        });
-
-        const [workerWalletBmbAccount] = await findAssociatedTokenPda({
-            mint: BMB_MINT,
-            owner: workerWallet.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS
-        });
-
         // Query config to get last_active_pool_month
         const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
         const configData = lite.getAccountData(configPda);
@@ -145,8 +111,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             worker_wallet: workerWallet.address,
             month_period: monthPeriod,
             amount: amount,
-            depositor_bmb_account: depositorBmbAccount,
-            worker_wallet_bmb_account: workerWalletBmbAccount,
             has_monthly_pool: true,
         });
 
@@ -245,7 +209,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
                 .sendTransaction({ payer: collectionCreator });
 
             // User stakes in month 5
-            const { user, userTokenAccount } = await createStakedUser(bmbToBaseUnits(10000), 4, 5);
+            const { user } = await createStakedUser(bmbToBaseUnits(10000), 4, 5);
 
             // Deposit revenue and emissions for all months
             const revenueAmount = usdcToBaseUnits(1000); // 1000 USDC per month
@@ -269,25 +233,11 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             lite.goToMonthPeriod(8);
 
             // Claim rewards for all months sequentially
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             for (const monthPeriod of [5, 6, 7]) {
                 const claimRewards = new ClaimRewards({
                     user: user.address,
                     worker_collection: workerCollection,
                     month_period: monthPeriod,
-                    user_usdc_account: userUsdcAccount,
-                    user_bmb_account: userBmbAccount,
                 });
 
                 lite.buildTransaction()
@@ -340,7 +290,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             const withdraw = new Withdraw({
                 user: user.address,
                 worker_collection: workerCollection,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -527,12 +476,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             const totalStake = bmbToBaseUnits(15000);
             await lite.mintToken(BMB_MINT, user.address, totalStake, tokenAuthorities.bmbMintAuthority);
 
-            const [userTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             // First stake: 5000 BMB, 2 checker licenses (2 points)
             let stake = new Stake({
                 user: user.address,
@@ -542,7 +485,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
                 amount: bmbToBaseUnits(5000),
                 checker_count: 2,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -565,7 +507,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
                 amount: bmbToBaseUnits(5000),
                 checker_count: 4,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -587,7 +528,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
                 amount: bmbToBaseUnits(5000),
                 checker_count: 5,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -636,12 +576,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             const totalStake = bmbToBaseUnits(10000);
             await lite.mintToken(BMB_MINT, user.address, totalStake, tokenAuthorities.bmbMintAuthority);
 
-            const [userTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             // First stake: 7500 BMB, 3 checker licenses (3 points)
             let stake = new Stake({
                 user: user.address,
@@ -651,7 +585,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
                 amount: bmbToBaseUnits(7500),
                 checker_count: 3,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -673,7 +606,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
                 amount: bmbToBaseUnits(2500),
                 checker_count: 2,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -825,24 +757,10 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             // Advance to month 6 and claim month 5 rewards
             lite.goToMonthPeriod(6);
 
-            const [userUsdcAccount] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [userBmbAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             let claimRewards = new ClaimRewards({
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             lite.buildTransaction()
@@ -893,8 +811,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
                     user: user.address,
                     worker_collection: workerCollection,
                     month_period: skipMonth,
-                    user_usdc_account: userUsdcAccount,
-                    user_bmb_account: userBmbAccount,
                 });
 
                 lite.buildTransaction()
@@ -909,8 +825,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 9,
-                user_usdc_account: userUsdcAccount,
-                user_bmb_account: userBmbAccount,
             });
 
             lite.buildTransaction()
@@ -962,7 +876,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
                 .addInstruction(await setPool.getInstruction())
                 .sendTransaction({ payer: collectionCreator });
 
-            const { user, userTokenAccount } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
+            const { user } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
 
             // Deposit revenue for month 5
             const revenueAmount = usdcToBaseUnits(1000);
@@ -988,7 +902,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             const withdraw = new Withdraw({
                 user: user.address,
                 worker_collection: workerCollection,
-                user_token_account: userTokenAccount,
             });
 
             lite.goToMonthPeriod(6);
@@ -1026,12 +939,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             const totalStake = stakePerEntry * 25n;
             await lite.mintToken(BMB_MINT, user.address, totalStake, tokenAuthorities.bmbMintAuthority);
 
-            const [userTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             for (let i = 0; i < 25; i++) {
                 const stake = new Stake({
                     user: user.address,
@@ -1041,7 +948,6 @@ describe('User Integration Tests - Complex Scenarios', async () => {
                     amount: stakePerEntry,
                     checker_count: 0,
                     current_month_period: 5,
-                    user_token_account: userTokenAccount,
                 });
 
                 lite.buildTransaction()

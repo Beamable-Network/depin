@@ -42,7 +42,6 @@ export interface CreateStakeInput {
     amount: bigint;
     checker_count: number;
     current_month_period: number;
-    user_token_account: Address;
     previous_pool_month_period?: number; // Optional, only needed if last_active_pool_month > 0
 }
 
@@ -51,7 +50,6 @@ export class Stake {
     worker: Address;
     worker_license: AssetWithProof;
     worker_collection: Address;
-    user_token_account: Address;
     current_month_period: number;
     previous_pool_month_period?: number;
     readonly params: StakeParams;
@@ -66,7 +64,6 @@ export class Stake {
         this.worker = input.worker;
         this.worker_license = input.worker_license;
         this.worker_collection = input.worker_collection;
-        this.user_token_account = input.user_token_account;
         this.current_month_period = input.current_month_period;
         this.previous_pool_month_period = input.previous_pool_month_period;
     }
@@ -94,6 +91,13 @@ export class Stake {
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
+        // ATA for user's BMB tokens
+        const userTokenAccount = await findAssociatedTokenPda({
+            mint: BMB_MINT,
+            owner: this.user,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+
         const accounts = [
             { address: this.user, role: AccountRole.WRITABLE_SIGNER },
             { address: this.worker, role: AccountRole.READONLY_SIGNER },
@@ -101,7 +105,7 @@ export class Stake {
             { address: configPda[0], role: AccountRole.WRITABLE },
             { address: currentPoolPda[0], role: AccountRole.WRITABLE },
             { address: userPositionPda[0], role: AccountRole.WRITABLE },
-            { address: this.user_token_account, role: AccountRole.WRITABLE },
+            { address: userTokenAccount[0], role: AccountRole.WRITABLE },
             { address: communityStakeVaultPda[0], role: AccountRole.READONLY },
             { address: communityStakeVaultAta[0], role: AccountRole.WRITABLE },
             { address: BMB_MINT, role: AccountRole.READONLY },

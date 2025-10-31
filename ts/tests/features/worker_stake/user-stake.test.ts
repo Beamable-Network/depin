@@ -14,7 +14,6 @@ import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { setupTokens, TokenAuthorities } from '../../helpers/spl-tokens.js';
-import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 
 describe('User Stake Instructions', async () => {
@@ -101,13 +100,6 @@ describe('User Stake Instructions', async () => {
             // Mint BMB to user
             await lite.mintToken(BMB_MINT, user.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
 
-            // Get user's token account
-            const [userTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             // Stake with 0 checker licenses
             const stake = new Stake({
                 user: user.address,
@@ -117,7 +109,6 @@ describe('User Stake Instructions', async () => {
                 amount: stakeAmount,
                 checker_count: 0,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -168,14 +159,6 @@ describe('User Stake Instructions', async () => {
             // Mint BMB to user
             await lite.mintToken(BMB_MINT, user.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
 
-            const [userTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            
-
             const stake = new Stake({
                 user: user.address,
                 worker: worker.address,
@@ -184,7 +167,6 @@ describe('User Stake Instructions', async () => {
                 amount: stakeAmount,
                 checker_count: checkerCount,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -216,12 +198,6 @@ describe('User Stake Instructions', async () => {
 
             await lite.mintToken(BMB_MINT, user.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
 
-            const [userTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
             const stake = new Stake({
                 user: user.address,
                 worker: worker.address,
@@ -230,7 +206,6 @@ describe('User Stake Instructions', async () => {
                 amount: stakeAmount,
                 checker_count: checkerCount,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -249,14 +224,6 @@ describe('User Stake Instructions', async () => {
             const user = await lite.generateKeyPair();
             await lite.airdrop(user, 2);
 
-            const [userTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            
-
             const stake = new Stake({
                 user: user.address,
                 worker: worker.address,
@@ -265,7 +232,6 @@ describe('User Stake Instructions', async () => {
                 amount: 0n,
                 checker_count: 0,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             await expect(async () => {
@@ -283,14 +249,6 @@ describe('User Stake Instructions', async () => {
             const stakeAmount = bmbToBaseUnits(5000);
             await lite.mintToken(BMB_MINT, user.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
 
-            const [userTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            
-
             // Try to stake for a month without a pool (month_period: 10)
             const stake = new Stake({
                 user: user.address,
@@ -300,7 +258,6 @@ describe('User Stake Instructions', async () => {
                 amount: stakeAmount,
                 checker_count: 0,
                 current_month_period: 10,
-                user_token_account: userTokenAccount,
             });
 
             await expect(async () => {
@@ -318,14 +275,6 @@ describe('User Stake Instructions', async () => {
             const stakeAmount = bmbToBaseUnits(5000);
             await lite.mintToken(BMB_MINT, user.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
 
-            const [userTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            
-
             const stake = new Stake({
                 user: user.address,
                 worker: worker.address,
@@ -334,7 +283,6 @@ describe('User Stake Instructions', async () => {
                 amount: stakeAmount,
                 checker_count: 2,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             await expect(async () => {
@@ -357,14 +305,6 @@ describe('User Stake Instructions', async () => {
 
             await lite.mintToken(BMB_MINT, user.address, totalMint, tokenAuthorities.bmbMintAuthority);
 
-            const [userTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            
-
             // First stake
             let stake = new Stake({
                 user: user.address,
@@ -374,7 +314,6 @@ describe('User Stake Instructions', async () => {
                 amount: firstStake,
                 checker_count: 0,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -391,7 +330,6 @@ describe('User Stake Instructions', async () => {
                 amount: secondStake,
                 checker_count: 0,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -430,14 +368,6 @@ describe('User Stake Instructions', async () => {
 
             await lite.mintToken(BMB_MINT, user.address, totalMint, tokenAuthorities.bmbMintAuthority);
 
-            const [userTokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            
-
             // First stake with 2 checker licenses
             let stake = new Stake({
                 user: user.address,
@@ -447,7 +377,6 @@ describe('User Stake Instructions', async () => {
                 amount: firstStake,
                 checker_count: 2,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -470,7 +399,6 @@ describe('User Stake Instructions', async () => {
                 amount: secondStake,
                 checker_count: 3,
                 current_month_period: 5,
-                user_token_account: userTokenAccount,
             });
 
             lite.buildTransaction()
@@ -504,20 +432,6 @@ describe('User Stake Instructions', async () => {
             await lite.mintToken(BMB_MINT, user1.address, stake1Amount, tokenAuthorities.bmbMintAuthority);
             await lite.mintToken(BMB_MINT, user2.address, stake2Amount, tokenAuthorities.bmbMintAuthority);
 
-            const [user1TokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user1.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            const [user2TokenAccount] = await findAssociatedTokenPda({
-                mint: BMB_MINT,
-                owner: user2.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS
-            });
-
-            
-
             // User 1 stakes
             let stake = new Stake({
                 user: user1.address,
@@ -527,7 +441,6 @@ describe('User Stake Instructions', async () => {
                 amount: stake1Amount,
                 checker_count: 2,
                 current_month_period: 5,
-                user_token_account: user1TokenAccount,
             });
 
             lite.buildTransaction()
@@ -544,7 +457,6 @@ describe('User Stake Instructions', async () => {
                 amount: stake2Amount,
                 checker_count: 3,
                 current_month_period: 5,
-                user_token_account: user2TokenAccount,
             });
 
             lite.buildTransaction()

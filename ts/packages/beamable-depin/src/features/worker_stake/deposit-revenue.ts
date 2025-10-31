@@ -40,8 +40,6 @@ export interface CreateDepositRevenueInput {
     worker_wallet: Address; // Worker wallet address (for ATA creation)
     total_revenue: bigint;
     current_month_period: number;
-    revenue_source_usdc_account: Address;
-    worker_wallet_usdc_account: Address;
     has_monthly_pool: boolean; // Whether current month has a pool
     previous_pool_month_period?: number; // Optional, for inheritance
 }
@@ -50,8 +48,6 @@ export class DepositRevenue {
     revenue_source: Address;
     worker_collection: Address;
     worker_wallet: Address;
-    revenue_source_usdc_account: Address;
-    worker_wallet_usdc_account: Address;
     current_month_period: number;
     has_monthly_pool: boolean;
     previous_pool_month_period?: number;
@@ -65,8 +61,6 @@ export class DepositRevenue {
         this.revenue_source = input.revenue_source;
         this.worker_collection = input.worker_collection;
         this.worker_wallet = input.worker_wallet;
-        this.revenue_source_usdc_account = input.revenue_source_usdc_account;
-        this.worker_wallet_usdc_account = input.worker_wallet_usdc_account;
         this.current_month_period = input.current_month_period;
         this.has_monthly_pool = input.has_monthly_pool;
         this.previous_pool_month_period = input.previous_pool_month_period;
@@ -93,14 +87,26 @@ export class DepositRevenue {
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
+        // ATAs for revenue source and worker wallet
+        const revenueSourceUsdcAccount = await findAssociatedTokenPda({
+            mint: USDC_MINT,
+            owner: this.revenue_source,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+        const workerWalletUsdcAccount = await findAssociatedTokenPda({
+            mint: USDC_MINT,
+            owner: this.worker_wallet,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+
         const accounts = [
             { address: this.revenue_source, role: AccountRole.WRITABLE_SIGNER },
             { address: configPda[0], role: AccountRole.WRITABLE },
-            { address: this.revenue_source_usdc_account, role: AccountRole.WRITABLE },
+            { address: revenueSourceUsdcAccount[0], role: AccountRole.WRITABLE },
             { address: usdcTreasuryPda[0], role: AccountRole.READONLY },
             { address: usdcTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: this.worker_wallet, role: AccountRole.WRITABLE },
-            { address: this.worker_wallet_usdc_account, role: AccountRole.WRITABLE },
+            { address: workerWalletUsdcAccount[0], role: AccountRole.WRITABLE },
             { address: USDC_MINT, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
             { address: ASSOCIATED_TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },

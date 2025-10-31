@@ -40,8 +40,6 @@ export interface CreateDepositEmissionsInput {
     worker_wallet: Address; // Worker wallet address (for ATA creation)
     month_period: number;
     amount: bigint;
-    depositor_bmb_account: Address;
-    worker_wallet_bmb_account: Address;
     has_monthly_pool: boolean; // Whether the month has a pool
     previous_pool_month_period?: number; // Optional, for inheritance
 }
@@ -50,8 +48,6 @@ export class DepositEmissions {
     depositor: Address;
     worker_collection: Address;
     worker_wallet: Address;
-    depositor_bmb_account: Address;
-    worker_wallet_bmb_account: Address;
     has_monthly_pool: boolean;
     previous_pool_month_period?: number;
     readonly params: DepositEmissionsParams;
@@ -64,8 +60,6 @@ export class DepositEmissions {
         this.depositor = input.depositor;
         this.worker_collection = input.worker_collection;
         this.worker_wallet = input.worker_wallet;
-        this.depositor_bmb_account = input.depositor_bmb_account;
-        this.worker_wallet_bmb_account = input.worker_wallet_bmb_account;
         this.has_monthly_pool = input.has_monthly_pool;
         this.previous_pool_month_period = input.previous_pool_month_period;
     }
@@ -91,15 +85,27 @@ export class DepositEmissions {
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
+        // ATAs for depositor and worker wallet
+        const depositorBmbAccount = await findAssociatedTokenPda({
+            mint: BMB_MINT,
+            owner: this.depositor,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+        const workerWalletBmbAccount = await findAssociatedTokenPda({
+            mint: BMB_MINT,
+            owner: this.worker_wallet,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+
         const accounts = [
             { address: this.depositor, role: AccountRole.WRITABLE_SIGNER },
             { address: this.worker_collection, role: AccountRole.READONLY },
             { address: configPda[0], role: AccountRole.WRITABLE },
-            { address: this.depositor_bmb_account, role: AccountRole.WRITABLE },
+            { address: depositorBmbAccount[0], role: AccountRole.WRITABLE },
             { address: bmbTreasuryPda[0], role: AccountRole.READONLY },
             { address: bmbTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: this.worker_wallet, role: AccountRole.WRITABLE },
-            { address: this.worker_wallet_bmb_account, role: AccountRole.WRITABLE },
+            { address: workerWalletBmbAccount[0], role: AccountRole.WRITABLE },
             { address: BMB_MINT, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
             { address: ASSOCIATED_TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
