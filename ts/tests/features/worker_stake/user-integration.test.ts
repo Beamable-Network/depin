@@ -230,9 +230,11 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             await depositRevenue(revenueAmount, 5);
             await depositEmissions(emissionAmount, 5);
 
+            lite.goToMonthPeriod(6);
             await depositRevenue(revenueAmount, 6);
             await depositEmissions(emissionAmount, 6);
 
+            lite.goToMonthPeriod(7);
             await depositRevenue(revenueAmount, 7);
             await depositEmissions(emissionAmount, 7);
 
@@ -371,6 +373,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
                 .sendTransaction({ payer: collectionCreator });
 
             // Trigger inheritance by staking in month 6
+            lite.goToMonthPeriod(6);
             const { user: user2 } = await createStakedUser(bmbToBaseUnits(3000), 1, 6);
 
             // Verify month 6 pool inherited from month 5
