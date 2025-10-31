@@ -222,8 +222,6 @@ describe('User Stake Instructions', async () => {
                 tokenProgram: TOKEN_PROGRAM_ADDRESS
             });
 
-            
-
             const stake = new Stake({
                 user: user.address,
                 worker: worker.address,

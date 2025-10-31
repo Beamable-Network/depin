@@ -17,7 +17,7 @@ import {
 import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
-import { setupTokens, TokenAuthorities } from '../../helpers/spl-tokens.js';
+import { setupTokens, TokenAuthorities, usdcToBaseUnits } from '../../helpers/spl-tokens.js';
 import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 
@@ -212,7 +212,7 @@ describe('User Claim Rewards Instructions', async () => {
             const { user } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
 
             // Deposit revenue (1000 USDC)
-            const revenueAmount = 1000n * 1000000n; // 1000 USDC (6 decimals)
+            const revenueAmount = usdcToBaseUnits(1000);
             await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
@@ -248,7 +248,7 @@ describe('User Claim Rewards Instructions', async () => {
             // Verify user received base USDC rewards (20% of 1000 = 200 USDC)
             const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
             expect(usdcBalance).toBeGreaterThan(0n);
-            expect(usdcBalance).toBe(200n * 1000000n); // 200 USDC
+            expect(usdcBalance).toBe(usdcToBaseUnits(200));
 
             // Verify last_claimed_month_period was updated
             const [userPositionPda] = await UserStakePositionAccount.findUserStakePositionPDA(user.address, workerCollection);
@@ -303,7 +303,7 @@ describe('User Claim Rewards Instructions', async () => {
             const { user } = await createStakedUser(bmbToBaseUnits(7500), 3, 5);
 
             // Deposit revenue (1000 USDC)
-            const revenueAmount = 1000n * 1000000n;
+            const revenueAmount = usdcToBaseUnits(1000);
             await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
@@ -339,14 +339,14 @@ describe('User Claim Rewards Instructions', async () => {
             // Addon: 10% of 1000 = 100 USDC
             // Total: 300 USDC
             const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
-            expect(usdcBalance).toBe(300n * 1000000n);
+            expect(usdcBalance).toBe(usdcToBaseUnits(300));
         });
 
         it('should claim triple rewards (base USDC + addon USDC + base BMB)', async () => {
             const { user } = await createStakedUser(bmbToBaseUnits(10000), 4, 5);
 
             // Deposit both revenue and emissions
-            const revenueAmount = 2000n * 1000000n; // 2000 USDC
+            const revenueAmount = usdcToBaseUnits(2000);
             const emissionAmount = bmbToBaseUnits(500); // 500 BMB
 
             await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
@@ -384,7 +384,7 @@ describe('User Claim Rewards Instructions', async () => {
 
             // Verify USDC rewards: Base (20% of 2000) + Addon (10% of 2000) = 400 + 200 = 600 USDC
             const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
-            expect(usdcBalance).toBe(600n * 1000000n);
+            expect(usdcBalance).toBe(usdcToBaseUnits(600));
 
             // Verify BMB rewards: Base (15% of 500) = 75 BMB
             const bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
@@ -395,7 +395,7 @@ describe('User Claim Rewards Instructions', async () => {
             const { user } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
 
             // Only deposit revenue, no emissions
-            const revenueAmount = 1000n * 1000000n;
+            const revenueAmount = usdcToBaseUnits(1000);
             await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
@@ -429,7 +429,7 @@ describe('User Claim Rewards Instructions', async () => {
 
             // Verify user received USDC but no BMB
             const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
-            expect(usdcBalance).toBe(200n * 1000000n);
+            expect(usdcBalance).toBe(usdcToBaseUnits(200));
 
             const bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
             expect(bmbBalance).toBe(0n);
@@ -548,7 +548,7 @@ describe('User Claim Rewards Instructions', async () => {
             const { user } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
 
             // Deposit revenue for all months
-            const revenueAmount = 1000n * 1000000n;
+            const revenueAmount = usdcToBaseUnits(1000);
             await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount * 3n, tokenAuthorities.usdcMintAuthority);
 
             // Deposit for month 5 (while in month 5)
@@ -639,13 +639,13 @@ describe('User Claim Rewards Instructions', async () => {
 
             // Verify total USDC received (200 * 3 = 600)
             const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
-            expect(usdcBalance).toBe(600n * 1000000n);
+            expect(usdcBalance).toBe(usdcToBaseUnits(600));
         });
 
         it('should fail when trying to claim same month twice', async () => {
             const { user } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
 
-            const revenueAmount = 1000n * 1000000n;
+            const revenueAmount = usdcToBaseUnits(1000);
             await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount * 2n, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
@@ -697,7 +697,7 @@ describe('User Claim Rewards Instructions', async () => {
             // Total staked: 10000 BMB, each user has 50%
 
             // Deposit revenue (1000 USDC)
-            const revenueAmount = 1000n * 1000000n;
+            const revenueAmount = usdcToBaseUnits(1000);
             await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
@@ -759,8 +759,8 @@ describe('User Claim Rewards Instructions', async () => {
             const user1UsdcBalance = await lite.getTokenBalance(USDC_MINT, user1.address);
             const user2UsdcBalance = await lite.getTokenBalance(USDC_MINT, user2.address);
 
-            expect(user1UsdcBalance).toBe(100n * 1000000n);
-            expect(user2UsdcBalance).toBe(100n * 1000000n);
+            expect(user1UsdcBalance).toBe(usdcToBaseUnits(100));
+            expect(user2UsdcBalance).toBe(usdcToBaseUnits(100));
         });
 
         it('should distribute addon rewards only to checker license holders', async () => {
@@ -771,7 +771,7 @@ describe('User Claim Rewards Instructions', async () => {
             const { user: user2 } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
 
             // Deposit revenue (1000 USDC)
-            const revenueAmount = 1000n * 1000000n;
+            const revenueAmount = usdcToBaseUnits(1000);
             await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
@@ -835,7 +835,7 @@ describe('User Claim Rewards Instructions', async () => {
 
             // User 1 gets more due to addon rewards
             expect(user1UsdcBalance).toBeGreaterThan(user2UsdcBalance);
-            expect(user1UsdcBalance).toBeGreaterThan(200n * 1000000n); // More than base share alone
+            expect(user1UsdcBalance).toBeGreaterThan(usdcToBaseUnits(200)); // More than base share alone
         });
     });
 
@@ -893,7 +893,7 @@ describe('User Claim Rewards Instructions', async () => {
             const { user } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
 
             // Deposit revenue for month 5
-            const revenueAmount = 1000n * 1000000n;
+            const revenueAmount = usdcToBaseUnits(1000);
             await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
