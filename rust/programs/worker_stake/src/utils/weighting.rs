@@ -157,3 +157,123 @@ pub fn compute_month_weight_totals(
         point_days,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::{StakeEntry, UserStakePosition};
+    use depin_core::constants::BMB_DECIMALS;
+    use solana_program::pubkey::Pubkey;
+
+    const DAY_SECONDS: i64 = 86_400;
+    const MONTH_DAYS: u64 = 30;
+
+    fn bmb(amount: u64) -> u64 {
+        amount * 10_u64.pow(BMB_DECIMALS as u32)
+    }
+
+    #[test]
+    fn compute_weights_common() {
+        let target_month: u16 = 5;
+        let position = UserStakePosition {
+            user: Pubkey::new_unique(),
+            worker_collection: Pubkey::new_unique(),
+            staked_amount: bmb(5_000) + bmb(2_500),
+            stake_entries: vec![
+                StakeEntry { // Day 1
+                    amount: bmb(5_000),
+                    timestamp: 0,
+                    month_period: target_month,
+                    checker_count: 2,
+                },
+                StakeEntry { // Day 15
+                    amount: bmb(5_000),
+                    timestamp: DAY_SECONDS * 15,
+                    month_period: target_month,
+                    checker_count: 3,
+                }
+            ],
+            opted_out_at_month_period: 0,
+            last_claimed_month_period: 0,
+        };
+
+        let totals = compute_month_weight_totals(
+            &position,
+            target_month,
+            0,
+            MONTH_DAYS as i64 * DAY_SECONDS,
+            MONTH_DAYS,
+        )
+        .unwrap();
+
+        let expected_stake_days = bmb(5_000) * MONTH_DAYS + bmb(5_000) * 15;
+
+        assert_eq!(totals.stake_days, expected_stake_days);
+        assert_eq!(totals.point_days, 30 + 45);
+    }
+
+    #[test]
+    fn compute_weights_with_mid_month_stake() {
+        let target_month: u16 = 5;
+        let position = UserStakePosition {
+            user: Pubkey::new_unique(),
+            worker_collection: Pubkey::new_unique(),
+            staked_amount: bmb(5_000) + bmb(2_500),
+            stake_entries: vec![
+                StakeEntry {
+                    amount: bmb(5_000),
+                    timestamp: -DAY_SECONDS,
+                    month_period: target_month - 1,
+                    checker_count: 2,
+                },
+                StakeEntry {
+                    amount: bmb(2_500),
+                    timestamp: 10 * DAY_SECONDS,
+                    month_period: target_month,
+                    checker_count: 3,
+                },
+            ],
+            opted_out_at_month_period: 0,
+            last_claimed_month_period: 0,
+        };
+
+        let totals = compute_month_weight_totals(
+            &position,
+            target_month,
+            0,
+            MONTH_DAYS as i64 * DAY_SECONDS,
+            MONTH_DAYS,
+        )
+        .unwrap();
+
+        let expected_stake_days = bmb(5_000) * MONTH_DAYS + bmb(2_500) * 20;
+
+        assert_eq!(totals.stake_days, expected_stake_days);
+        assert_eq!(totals.point_days, 80);
+    }
+
+    #[test]
+    fn compute_weights_with_last_day_stake() {
+        let target_month: u16 = 2;
+        let month_end = MONTH_DAYS as i64 * DAY_SECONDS;
+        let position = UserStakePosition {
+            user: Pubkey::new_unique(),
+            worker_collection: Pubkey::new_unique(),
+            staked_amount: bmb(3_000),
+            stake_entries: vec![StakeEntry {
+                amount: bmb(3_000),
+                timestamp: month_end - 1, // stake at the very end of the month
+                month_period: target_month,
+                checker_count: 2,
+            }],
+            opted_out_at_month_period: 0,
+            last_claimed_month_period: 0,
+        };
+
+        let totals =
+            compute_month_weight_totals(&position, target_month, 0, month_end, MONTH_DAYS).unwrap();
+
+        assert_eq!(totals.stake_days, 0);
+        assert_eq!(totals.point_days, 0);
+    }
+}
