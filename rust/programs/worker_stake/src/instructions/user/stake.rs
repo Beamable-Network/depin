@@ -103,6 +103,9 @@ pub fn process_stake<'a>(
     // Validate user signature
     require_signer(user_account, "User")?;
 
+    // Validate worker signature
+    require_signer(worker_account, "Worker")?;
+
     // --- WORKER LICENSE VERIFICATION ---
 
     // Calculate the leaf asset ID (worker license)
