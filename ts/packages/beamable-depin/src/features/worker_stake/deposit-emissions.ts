@@ -21,6 +21,7 @@ import { WorkerStakeInstruction } from "../../enums.js";
 import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
 import { MonthlyPoolAccount } from "./monthly-pool-account.js";
 import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS, ASSOCIATED_TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+import { findBmbTreasuryPda } from "./accounts.js";
 
 const addressEncoder = getAddressEncoder();
 
@@ -73,10 +74,7 @@ export class DepositEmissions {
         const configPda = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(this.worker_collection);
 
         // BMB treasury PDA
-        const bmbTreasuryPda = await getProgramDerivedAddress({
-            programAddress: WORKER_STAKE_PROGRAM,
-            seeds: [BMB_TREASURY_SEED, addressEncoder.encode(this.worker_collection)]
-        });
+        const bmbTreasuryPda = await findBmbTreasuryPda(this.worker_collection);
 
         // ATA for BMB treasury
         const bmbTreasuryAta = await findAssociatedTokenPda({

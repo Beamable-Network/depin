@@ -19,3 +19,4 @@ export * from './withdraw.js';
 export * from './claim-rewards.js';
 export * from './deposit-revenue.js';
 export * from './deposit-emissions.js';
+export * from './accounts.js';

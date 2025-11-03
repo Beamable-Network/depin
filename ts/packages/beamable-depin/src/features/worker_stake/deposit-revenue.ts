@@ -21,6 +21,7 @@ import { WorkerStakeInstruction } from "../../enums.js";
 import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
 import { MonthlyPoolAccount } from "./monthly-pool-account.js";
 import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS, ASSOCIATED_TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+import { findUsdcTreasuryPda } from "./accounts.js";
 
 const addressEncoder = getAddressEncoder();
 
@@ -75,10 +76,7 @@ export class DepositRevenue {
         const configPda = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(this.worker_collection);
 
         // USDC treasury PDA
-        const usdcTreasuryPda = await getProgramDerivedAddress({
-            programAddress: WORKER_STAKE_PROGRAM,
-            seeds: [USDC_TREASURY_SEED, addressEncoder.encode(this.worker_collection)]
-        });
+        const usdcTreasuryPda = await findUsdcTreasuryPda(this.worker_collection);
 
         // ATA for USDC treasury
         const usdcTreasuryAta = await findAssociatedTokenPda({

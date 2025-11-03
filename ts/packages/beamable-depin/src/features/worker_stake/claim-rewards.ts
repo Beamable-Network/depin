@@ -22,6 +22,7 @@ import { UserStakePositionAccount } from "./user-stake-position-account.js";
 import { MonthlyPoolAccount } from "./monthly-pool-account.js";
 import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS, ASSOCIATED_TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import { SYSTEM_PROGRAM_ADDRESS } from "@solana-program/system";
+import { findBmbTreasuryPda, findUsdcTreasuryPda } from "./accounts.js";
 
 const addressEncoder = getAddressEncoder();
 
@@ -63,16 +64,10 @@ export class ClaimRewards {
         const monthlyPoolPda = await MonthlyPoolAccount.findMonthlyPoolPDA(this.worker_collection, this.params.month_period);
 
         // USDC treasury PDA
-        const usdcTreasuryPda = await getProgramDerivedAddress({
-            programAddress: WORKER_STAKE_PROGRAM,
-            seeds: [USDC_TREASURY_SEED, addressEncoder.encode(this.worker_collection)]
-        });
+        const usdcTreasuryPda = await findUsdcTreasuryPda(this.worker_collection);
 
         // BMB treasury PDA
-        const bmbTreasuryPda = await getProgramDerivedAddress({
-            programAddress: WORKER_STAKE_PROGRAM,
-            seeds: [BMB_TREASURY_SEED, addressEncoder.encode(this.worker_collection)]
-        });
+        const bmbTreasuryPda = await findBmbTreasuryPda(this.worker_collection);
 
         // ATAs for treasuries
         const usdcTreasuryAta = await findAssociatedTokenPda({

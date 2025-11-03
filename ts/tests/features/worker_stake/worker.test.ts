@@ -9,7 +9,8 @@ import {
     WorkerStakeConfigAccount,
     MonthlyPoolAccount,
     WORKER_STAKE_PROGRAM,
-    BMB_MINT 
+    BMB_MINT,
+    findWorkerStakeVaultPda
 } from '@beamable-network/depin';
 import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -424,6 +425,9 @@ describe('Worker Instructions', async () => {
 
             // Verify tokens were transferred from worker
             const finalBalance = await lite.getTokenBalance(BMB_MINT, collectionCreator.address);
+            const stakeVault = await findWorkerStakeVaultPda(workerCollection);
+            const vaultBalance = await lite.getTokenBalance(BMB_MINT, stakeVault[0]);
+            expect(vaultBalance).toBe(stakeAmount);
             expect(finalBalance).toBe(0n);
         });
 
@@ -470,6 +474,9 @@ describe('Worker Instructions', async () => {
 
             // Verify all tokens were staked
             balance = await lite.getTokenBalance(BMB_MINT, collectionCreator.address);
+            const stakeVault = await findWorkerStakeVaultPda(workerCollection);
+            const vaultBalance = await lite.getTokenBalance(BMB_MINT, stakeVault[0]);
+            expect(vaultBalance).toBe(firstStake + secondStake);
             expect(balance).toBe(0n);
         });
 
@@ -527,7 +534,10 @@ describe('Worker Instructions', async () => {
 
             // Verify initial balance is 0 (all staked)
             let balance = await lite.getTokenBalance(BMB_MINT, collectionCreator.address);
+            const stakeVault = await findWorkerStakeVaultPda(workerCollection);
+            let vaultBalance = await lite.getTokenBalance(BMB_MINT, stakeVault[0]);
             expect(balance).toBe(0n);
+            expect(vaultBalance).toBe(bmbToBaseUnits(200));
 
             const workerUnstake = new WorkerUnstake({
                 collection_authority: collectionCreator.address,
@@ -548,6 +558,8 @@ describe('Worker Instructions', async () => {
 
             // Verify tokens were returned to worker
             balance = await lite.getTokenBalance(BMB_MINT, collectionCreator.address);
+            vaultBalance = await lite.getTokenBalance(BMB_MINT, stakeVault[0]);
+            expect(vaultBalance).toBe(bmbToBaseUnits(150));
             expect(balance).toBe(unstakeAmount);
         });
 
