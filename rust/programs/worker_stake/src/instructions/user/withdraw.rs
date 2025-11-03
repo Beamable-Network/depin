@@ -17,7 +17,14 @@ use spl_token::instruction::transfer_checked;
 use crate::{
     state::{WorkerStakeConfig, UserStakePosition},
     types::WorkerStakeAccountType,
-    utils::{find_community_stake_vault_pda, COMMUNITY_STAKE_VAULT_SEED},
+    utils::{
+        find_community_stake_vault_pda,
+        validate_pda_account,
+        validate_ata_account,
+        validate_mint,
+        require_signer,
+        COMMUNITY_STAKE_VAULT_SEED,
+    },
 };
 
 const USER_POSITION_SEED: &[u8] = b"user_position";
@@ -49,16 +56,10 @@ pub fn process_withdraw<'a>(
     let token_program = next_account_info(account_info_iter)?;
 
     // Validate user signature
-    if !user_account.is_signer {
-        msg!("Error: User must sign the transaction");
-        return Err(ProgramError::MissingRequiredSignature);
-    }
+    require_signer(user_account, "User")?;
 
     // Validate BMB mint
-    if *bmb_mint_account.key != BMB_MINT {
-        msg!("Error: Invalid BMB mint");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_mint(bmb_mint_account, &BMB_MINT, "BMB")?;
 
     // Get current month
     let current_period = get_current_period();
@@ -66,10 +67,7 @@ pub fn process_withdraw<'a>(
 
     // Validate WorkerStakeConfig PDA
     let (config_pda, _bump) = WorkerStakeConfig::find_pda(program_id, worker_collection_account.key);
-    if *worker_stake_config_account.key != config_pda {
-        msg!("Error: WorkerStakeConfig account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(worker_stake_config_account, &config_pda, "WorkerStakeConfig")?;
 
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
@@ -81,10 +79,7 @@ pub fn process_withdraw<'a>(
         &[USER_POSITION_SEED, user_account.key.as_ref(), worker_collection_account.key.as_ref()],
         program_id,
     );
-    if *user_position_account.key != user_position_pda {
-        msg!("Error: UserStakePosition account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(user_position_account, &user_position_pda, "UserStakePosition")?;
 
     // Load user position
     let position_data = user_position_account.try_borrow_data()?;
@@ -128,20 +123,10 @@ pub fn process_withdraw<'a>(
 
     // Validate community vault PDA
     let (expected_vault_pda, vault_bump) = find_community_stake_vault_pda(program_id, worker_collection_account.key);
-    if *community_vault_pda.key != expected_vault_pda {
-        msg!("Error: Community stake vault PDA does not match expected address");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(community_vault_pda, &expected_vault_pda, "Community stake vault")?;
 
     // Validate community vault ATA
-    let expected_vault_ata = spl_associated_token_account::get_associated_token_address(
-        community_vault_pda.key,
-        bmb_mint_account.key,
-    );
-    if *community_vault_ata.key != expected_vault_ata {
-        msg!("Error: Community stake vault ATA does not match expected address");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_ata_account(community_vault_ata, community_vault_pda.key, bmb_mint_account.key, "Community stake vault")?;
 
     // Transfer BMB from community vault to user (PDA must sign)
     let transfer_ix = transfer_checked(

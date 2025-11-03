@@ -12,7 +12,11 @@ use solana_program::{
 use crate::{
     state::{WorkerStakeConfig, MonthlyPool, UserStakePosition},
     types::WorkerStakeAccountType,
-    utils::BMB_PER_POINT,
+    utils::{
+        validate_pda_account,
+        require_signer,
+        calculate_points,
+    },
 };
 
 const USER_POSITION_SEED: &[u8] = b"user_position";
@@ -38,10 +42,7 @@ pub fn process_unstake<'a>(
     let remaining_accounts: Vec<&AccountInfo> = account_info_iter.collect();
 
     // Validate user signature
-    if !user_account.is_signer {
-        msg!("Error: User must sign the transaction");
-        return Err(ProgramError::MissingRequiredSignature);
-    }
+    require_signer(user_account, "User")?;
 
     // Get current month
     let current_period = get_current_period();
@@ -49,10 +50,7 @@ pub fn process_unstake<'a>(
 
     // Validate WorkerStakeConfig PDA
     let (config_pda, _bump) = WorkerStakeConfig::find_pda(program_id, worker_collection_account.key);
-    if *worker_stake_config_account.key != config_pda {
-        msg!("Error: WorkerStakeConfig account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(worker_stake_config_account, &config_pda, "WorkerStakeConfig")?;
 
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
@@ -64,10 +62,7 @@ pub fn process_unstake<'a>(
         &[USER_POSITION_SEED, user_account.key.as_ref(), worker_collection_account.key.as_ref()],
         program_id,
     );
-    if *user_position_account.key != user_position_pda {
-        msg!("Error: UserStakePosition account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(user_position_account, &user_position_pda, "UserStakePosition")?;
 
     // Load user position
     let position_data = user_position_account.try_borrow_data()?;
@@ -102,10 +97,7 @@ pub fn process_unstake<'a>(
             worker_collection_account.key,
             config.last_active_pool_month,
         );
-        if *last_active_pool_account.key != expected_pool_pda {
-            msg!("Error: Last active pool account does not match expected PDA");
-            return Err(ProgramError::InvalidArgument);
-        }
+        validate_pda_account(last_active_pool_account, &expected_pool_pda, "Last active pool")?;
 
         // Load last active pool
         let pool_data = last_active_pool_account.try_borrow_data()?;
@@ -120,9 +112,7 @@ pub fn process_unstake<'a>(
         // Calculate user's current points and mark as opted-out for addon pool
         // Use the most recent checker_count (from last stake entry)
         if let Some(last_entry) = user_position.stake_entries.last() {
-            let checker_count = last_entry.checker_count as u64;
-            let max_points_from_stake = user_position.staked_amount / BMB_PER_POINT;
-            let user_points = std::cmp::min(checker_count, max_points_from_stake);
+            let user_points = calculate_points(last_entry.checker_count, user_position.staked_amount);
 
             last_active_pool.addon_pool.total_opted_out = last_active_pool.addon_pool.total_opted_out
                 .checked_add(user_points)

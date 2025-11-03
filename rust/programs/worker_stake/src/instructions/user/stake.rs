@@ -30,7 +30,11 @@ use crate::{
         find_community_stake_vault_pda,
         initialize_pool_with_inheritance,
         calculate_time_weighted,
-        BMB_PER_POINT,
+        validate_pda_account,
+        validate_ata_account,
+        validate_mint,
+        require_signer,
+        calculate_points,
     },
 };
 use borsh::BorshDeserialize;
@@ -97,10 +101,7 @@ pub fn process_stake<'a>(
     }
 
     // Validate user signature
-    if !user_account.is_signer {
-        msg!("Error: User must sign the transaction");
-        return Err(ProgramError::MissingRequiredSignature);
-    }
+    require_signer(user_account, "User")?;
 
     // --- WORKER LICENSE VERIFICATION ---
 
@@ -147,10 +148,7 @@ pub fn process_stake<'a>(
     msg!("Worker license verified for worker: {}", worker_account.key);
 
     // Validate BMB mint
-    if *bmb_mint_account.key != BMB_MINT {
-        msg!("Error: Invalid BMB mint");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_mint(bmb_mint_account, &BMB_MINT, "BMB")?;
 
     // Get current month
     let current_period = get_current_period();
@@ -159,10 +157,7 @@ pub fn process_stake<'a>(
 
     // Validate WorkerStakeConfig PDA
     let (config_pda, _bump) = WorkerStakeConfig::find_pda(program_id, worker_collection_account.key);
-    if *worker_stake_config_account.key != config_pda {
-        msg!("Error: WorkerStakeConfig account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(worker_stake_config_account, &config_pda, "WorkerStakeConfig")?;
 
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
@@ -177,10 +172,7 @@ pub fn process_stake<'a>(
 
     // Validate MonthlyPool PDA
     let (pool_pda, _pool_bump) = MonthlyPool::find_pda(program_id, worker_collection_account.key, current_month_period);
-    if *monthly_pool_account.key != pool_pda {
-        msg!("Error: MonthlyPool account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(monthly_pool_account, &pool_pda, "MonthlyPool")?;
 
     // Load monthly pool
     let pool_data = monthly_pool_account.try_borrow_data()?;
@@ -215,10 +207,7 @@ pub fn process_stake<'a>(
         &[USER_POSITION_SEED, user_account.key.as_ref(), worker_collection_account.key.as_ref()],
         program_id,
     );
-    if *user_position_account.key != user_position_pda {
-        msg!("Error: UserStakePosition account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(user_position_account, &user_position_pda, "UserStakePosition")?;
 
     // Load or create UserStakePosition
     let position_exists = !user_position_account.data_is_empty();
@@ -272,12 +261,12 @@ pub fn process_stake<'a>(
 
     // Calculate OLD points (before this stake)
     let old_checker_count = if user_position.stake_entries.is_empty() {
-        0u64
+        0u16
     } else {
-        user_position.stake_entries.last().unwrap().checker_count as u64
+        user_position.stake_entries.last().unwrap().checker_count
     };
     let old_stake = user_position.staked_amount;
-    let old_points = std::cmp::min(old_checker_count, old_stake / BMB_PER_POINT);
+    let old_points = calculate_points(old_checker_count, old_stake);
 
     // Add new StakeEntry
     let new_entry = StakeEntry {
@@ -304,20 +293,10 @@ pub fn process_stake<'a>(
 
     // Validate community vault PDA
     let (expected_vault_pda, _vault_bump) = find_community_stake_vault_pda(program_id, worker_collection_account.key);
-    if *community_vault_pda.key != expected_vault_pda {
-        msg!("Error: Community stake vault PDA does not match expected address");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(community_vault_pda, &expected_vault_pda, "Community stake vault")?;
 
     // Validate community vault ATA
-    let expected_vault_ata = spl_associated_token_account::get_associated_token_address(
-        community_vault_pda.key,
-        bmb_mint_account.key,
-    );
-    if *community_vault_ata.key != expected_vault_ata {
-        msg!("Error: Community stake vault ATA does not match expected address");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_ata_account(community_vault_ata, community_vault_pda.key, bmb_mint_account.key, "Community stake vault")?;
 
     // Initialize community vault ATA if needed (lazy)
     initialize_ata_if_needed(
@@ -354,7 +333,7 @@ pub fn process_stake<'a>(
     )?;
 
     // Calculate NEW points (after this stake)
-    let new_points = std::cmp::min(checker_count as u64, user_position.staked_amount / BMB_PER_POINT);
+    let new_points = calculate_points(checker_count, user_position.staked_amount);
 
     // Calculate time-weighted values
     let month_end = get_month_end_timestamp(current_month_period);

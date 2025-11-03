@@ -12,6 +12,7 @@ use solana_program::{
 use crate::{
     state::worker_stake_config::WorkerStakeConfig,
     types::WorkerStakeAccountType,
+    utils::{validate_pda_account, require_signer},
 };
 
 pub fn process_update_min_stake_requirement<'a>(
@@ -30,10 +31,7 @@ pub fn process_update_min_stake_requirement<'a>(
     let worker_stake_config_account = next_account_info(account_info_iter)?;
 
     // Validate upgrade authority signature
-    if !upgrade_authority_account.is_signer {
-        msg!("Error: Program upgrade authority must sign the transaction");
-        return Err(ProgramError::MissingRequiredSignature);
-    }
+    require_signer(upgrade_authority_account, "Program upgrade authority")?;
 
     // Validate upgrade authority from ProgramData account
     validate_upgrade_authority(
@@ -50,10 +48,7 @@ pub fn process_update_min_stake_requirement<'a>(
 
     // Validate WorkerStakeConfig PDA
     let (config_pda, _bump) = WorkerStakeConfig::find_pda(program_id, &worker_collection);
-    if *worker_stake_config_account.key != config_pda {
-        msg!("Error: WorkerStakeConfig account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(worker_stake_config_account, &config_pda, "WorkerStakeConfig")?;
 
     // Load WorkerStakeConfig
     let data = worker_stake_config_account.try_borrow_data()?;

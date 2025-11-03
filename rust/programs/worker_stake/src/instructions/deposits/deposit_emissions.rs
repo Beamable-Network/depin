@@ -18,7 +18,15 @@ use spl_token::instruction::transfer_checked;
 use crate::{
     state::{WorkerStakeConfig, MonthlyPool},
     types::WorkerStakeAccountType,
-    utils::{find_bmb_treasury_pda, initialize_pool_with_inheritance, MAX_BASIS_POINTS}
+    utils::{
+        find_bmb_treasury_pda,
+        initialize_pool_with_inheritance,
+        validate_pda_account,
+        validate_ata_account,
+        validate_mint,
+        require_signer,
+        MAX_BASIS_POINTS,
+    }
 };
 
 pub fn process_deposit_emissions<'a>(
@@ -62,16 +70,10 @@ pub fn process_deposit_emissions<'a>(
     let remaining_accounts: Vec<&AccountInfo> = account_info_iter.collect();
 
     // Validate Depositor signature
-    if !depositor_wallet.is_signer {
-        msg!("Error: Depositor wallet must sign the transaction");
-        return Err(ProgramError::MissingRequiredSignature);
-    }
+    require_signer(depositor_wallet, "Depositor wallet")?;
 
     // Validate BMB mint
-    if *bmb_mint_account.key != BMB_MINT {
-        msg!("Error: Invalid BMB mint");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_mint(bmb_mint_account, &BMB_MINT, "BMB")?;
 
     // Get current month
     let current_period = get_current_period();
@@ -89,10 +91,7 @@ pub fn process_deposit_emissions<'a>(
 
     // Validate WorkerStakeConfig PDA
     let (config_pda, _bump) = WorkerStakeConfig::find_pda(program_id, worker_collection_account.key);
-    if *worker_stake_config_account.key != config_pda {
-        msg!("Error: WorkerStakeConfig account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(worker_stake_config_account, &config_pda, "WorkerStakeConfig")?;
 
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
@@ -112,10 +111,7 @@ pub fn process_deposit_emissions<'a>(
 
         // Validate MonthlyPool PDA
         let (pool_pda, _pool_bump) = MonthlyPool::find_pda(program_id, worker_collection_account.key, month_period);
-        if *monthly_pool_account.key != pool_pda {
-            msg!("Error: MonthlyPool account does not match expected PDA");
-            return Err(ProgramError::InvalidArgument);
-        }
+        validate_pda_account(monthly_pool_account, &pool_pda, "MonthlyPool")?;
 
         // Load monthly pool
         let pool_data = monthly_pool_account.try_borrow_data()?;
@@ -161,20 +157,10 @@ pub fn process_deposit_emissions<'a>(
 
         // Validate BMB treasury PDA
         let (expected_treasury_pda, _treasury_bump) = find_bmb_treasury_pda(program_id, worker_collection_account.key);
-        if *bmb_treasury_pda.key != expected_treasury_pda {
-            msg!("Error: BMB treasury PDA does not match expected address");
-            return Err(ProgramError::InvalidArgument);
-        }
+        validate_pda_account(bmb_treasury_pda, &expected_treasury_pda, "BMB treasury")?;
 
         // Validate BMB treasury ATA
-        let expected_treasury_ata = spl_associated_token_account::get_associated_token_address(
-            bmb_treasury_pda.key,
-            bmb_mint_account.key,
-        );
-        if *bmb_treasury_ata.key != expected_treasury_ata {
-            msg!("Error: BMB treasury ATA does not match expected address");
-            return Err(ProgramError::InvalidArgument);
-        }
+        validate_ata_account(bmb_treasury_ata, bmb_treasury_pda.key, bmb_mint_account.key, "BMB treasury")?;
 
         // Initialize BMB treasury ATA if needed (lazy)
         initialize_ata_if_needed(

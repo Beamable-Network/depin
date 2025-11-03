@@ -6,6 +6,16 @@ use solana_program::{
     pubkey::Pubkey,
 };
 
+// Sub-modules
+pub mod validation;
+pub mod treasury;
+pub mod points;
+
+// Re-export commonly used items
+pub use validation::{validate_pda_account, validate_ata_account, validate_mint, require_signer};
+pub use treasury::transfer_from_treasury;
+pub use points::calculate_points;
+
 /// Seeds for token vault PDAs
 pub const WORKER_STAKE_VAULT_SEED: &[u8] = b"worker_stake_vault";
 pub const COMMUNITY_STAKE_VAULT_SEED: &[u8] = b"community_stake_vault";

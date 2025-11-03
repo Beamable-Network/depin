@@ -1,20 +1,17 @@
 use depin_core::{
-    constants::{BMB_MINT, BMB_DECIMALS, USDC_MINT},
+    constants::{BMB_MINT, USDC_MINT},
     utils::{
         account::{read_account_data, write_account_data},
         bmb::{get_month_end_timestamp, get_month_start_timestamp, days_between, days_in_month, get_current_period, get_month_from_period},
-        tokens::initialize_ata_if_needed,
     },
 };
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
     msg,
-    program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
 };
-use spl_token::instruction::transfer_checked;
 use crate::{
     state::{WorkerStakeConfig, MonthlyPool, UserStakePosition},
     types::WorkerStakeAccountType,
@@ -22,9 +19,13 @@ use crate::{
         find_usdc_treasury_pda,
         find_bmb_treasury_pda,
         calculate_time_weighted,
+        validate_pda_account,
+        validate_mint,
+        require_signer,
+        calculate_points,
+        transfer_from_treasury,
         USDC_TREASURY_SEED,
         BMB_TREASURY_SEED,
-        BMB_PER_POINT,
     },
 };
 
@@ -73,27 +74,15 @@ pub fn process_claim_rewards<'a>(
     let system_program = next_account_info(account_info_iter)?;
 
     // Validate user signature
-    if !user_account.is_signer {
-        msg!("Error: User must sign the transaction");
-        return Err(ProgramError::MissingRequiredSignature);
-    }
+    require_signer(user_account, "User")?;
 
     // Validate mints
-    if *usdc_mint_account.key != USDC_MINT {
-        msg!("Error: Invalid USDC mint");
-        return Err(ProgramError::InvalidArgument);
-    }
-    if *bmb_mint_account.key != BMB_MINT {
-        msg!("Error: Invalid BMB mint");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_mint(usdc_mint_account, &USDC_MINT, "USDC")?;
+    validate_mint(bmb_mint_account, &BMB_MINT, "BMB")?;
 
     // Validate WorkerStakeConfig PDA
     let (config_pda, _bump) = WorkerStakeConfig::find_pda(program_id, worker_collection_account.key);
-    if *worker_stake_config_account.key != config_pda {
-        msg!("Error: WorkerStakeConfig account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(worker_stake_config_account, &config_pda, "WorkerStakeConfig")?;
 
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
@@ -105,10 +94,7 @@ pub fn process_claim_rewards<'a>(
         &[USER_POSITION_SEED, user_account.key.as_ref(), worker_collection_account.key.as_ref()],
         program_id,
     );
-    if *user_position_account.key != user_position_pda {
-        msg!("Error: UserStakePosition account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(user_position_account, &user_position_pda, "UserStakePosition")?;
 
     // Load user position
     let position_data = user_position_account.try_borrow_data()?;
@@ -156,10 +142,7 @@ pub fn process_claim_rewards<'a>(
 
     // Pool exists - validate and load it
     let (pool_pda, _pool_bump) = MonthlyPool::find_pda(program_id, worker_collection_account.key, month_period);
-    if *monthly_pool_account.key != pool_pda {
-        msg!("Error: MonthlyPool account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(monthly_pool_account, &pool_pda, "MonthlyPool")?;
 
     let pool_data = monthly_pool_account.try_borrow_data()?;
     let monthly_pool: MonthlyPool = read_account_data(&pool_data, WorkerStakeAccountType::MonthlyPool)?;
@@ -170,7 +153,7 @@ pub fn process_claim_rewards<'a>(
         return Err(ProgramError::UninitializedAccount);
     }
 
-    // Calculate user's stake-days for base pool (absolute stake-days)
+    // Calculate user's stake-days for base pool
     let mut total_stake_days: u64 = 0;
     let month_end = get_month_end_timestamp(month_period);
     let days_in_month_val = days_in_month(month_period) as u64;
@@ -212,7 +195,7 @@ pub fn process_claim_rewards<'a>(
         } else if entry.month_period == month_period {
             // Entry during target month
             // First, add point-days for the period BEFORE this entry
-            let points_before = std::cmp::min(last_checker_count as u64, cumulative_stake / BMB_PER_POINT);
+            let points_before = calculate_points(last_checker_count, cumulative_stake);
             let days_before_i64 = days_between(last_timestamp, entry.timestamp);
             let days_before = days_before_i64.max(0) as u64;
 
@@ -237,7 +220,7 @@ pub fn process_claim_rewards<'a>(
     }
 
     // Add point-days from last entry to end of month
-    let points_final = std::cmp::min(last_checker_count as u64, cumulative_stake / BMB_PER_POINT);
+    let points_final = calculate_points(last_checker_count, cumulative_stake);
     let days_remaining_i64 = days_between(last_timestamp, month_end);
     let days_remaining = days_remaining_i64.max(0) as u64;
 
@@ -290,123 +273,43 @@ pub fn process_claim_rewards<'a>(
 
     // Transfer USDC if > 0
     if total_usdc > 0 {
-        // Validate USDC treasury PDA
-        let (expected_usdc_pda, usdc_bump) = find_usdc_treasury_pda(program_id, worker_collection_account.key);
-        if *usdc_treasury_pda.key != expected_usdc_pda {
-            msg!("Error: USDC treasury PDA does not match expected address");
-            return Err(ProgramError::InvalidArgument);
-        }
-
-        // Validate USDC treasury ATA
-        let expected_usdc_ata = spl_associated_token_account::get_associated_token_address(
-            usdc_treasury_pda.key,
-            usdc_mint_account.key,
-        );
-        if *usdc_treasury_ata.key != expected_usdc_ata {
-            msg!("Error: USDC treasury ATA does not match expected address");
-            return Err(ProgramError::InvalidArgument);
-        }
-
-        // Initialize user USDC ATA if needed (lazy, idempotent)
-        initialize_ata_if_needed(
+        transfer_from_treasury(
+            usdc_treasury_pda,
+            usdc_treasury_ata,
             user_account,
-            user_account,
-            usdc_mint_account,
             user_usdc_account,
+            usdc_mint_account,
             token_program,
             associated_token_program,
             system_program,
-        )?;
-
-        // Transfer USDC
-        let transfer_ix = transfer_checked(
-            token_program.key,
-            usdc_treasury_ata.key,
-            usdc_mint_account.key,
-            user_usdc_account.key,
-            usdc_treasury_pda.key,
-            &[],
+            program_id,
+            worker_collection_account.key,
+            USDC_TREASURY_SEED,
+            find_usdc_treasury_pda,
             total_usdc,
             USDC_DECIMALS,
-        )?;
-
-        let signer_seeds = &[
-            USDC_TREASURY_SEED,
-            worker_collection_account.key.as_ref(),
-            &[usdc_bump],
-        ];
-
-        invoke_signed(
-            &transfer_ix,
-            &[
-                usdc_treasury_ata.clone(),
-                usdc_mint_account.clone(),
-                user_usdc_account.clone(),
-                usdc_treasury_pda.clone(),
-                token_program.clone(),
-            ],
-            &[signer_seeds],
+            "USDC",
         )?;
     }
 
     // Transfer BMB if > 0
     if total_bmb > 0 {
-        // Validate BMB treasury PDA
-        let (expected_bmb_pda, bmb_bump) = find_bmb_treasury_pda(program_id, worker_collection_account.key);
-        if *bmb_treasury_pda.key != expected_bmb_pda {
-            msg!("Error: BMB treasury PDA does not match expected address");
-            return Err(ProgramError::InvalidArgument);
-        }
-
-        // Validate BMB treasury ATA
-        let expected_bmb_ata = spl_associated_token_account::get_associated_token_address(
-            bmb_treasury_pda.key,
-            bmb_mint_account.key,
-        );
-        if *bmb_treasury_ata.key != expected_bmb_ata {
-            msg!("Error: BMB treasury ATA does not match expected address");
-            return Err(ProgramError::InvalidArgument);
-        }
-
-        // Initialize user BMB ATA if needed (lazy, idempotent)
-        initialize_ata_if_needed(
+        transfer_from_treasury(
+            bmb_treasury_pda,
+            bmb_treasury_ata,
             user_account,
-            user_account,
-            bmb_mint_account,
             user_bmb_account,
+            bmb_mint_account,
             token_program,
             associated_token_program,
             system_program,
-        )?;
-
-        // Transfer BMB
-        let transfer_ix = transfer_checked(
-            token_program.key,
-            bmb_treasury_ata.key,
-            bmb_mint_account.key,
-            user_bmb_account.key,
-            bmb_treasury_pda.key,
-            &[],
-            total_bmb,
-            BMB_DECIMALS,
-        )?;
-
-        let signer_seeds = &[
+            program_id,
+            worker_collection_account.key,
             BMB_TREASURY_SEED,
-            worker_collection_account.key.as_ref(),
-            &[bmb_bump],
-        ];
-
-        invoke_signed(
-            &transfer_ix,
-            &[
-                bmb_treasury_ata.clone(),
-                bmb_mint_account.clone(),
-                user_bmb_account.clone(),
-                bmb_treasury_pda.clone(),
-                token_program.clone(),
-            ],
-            &[signer_seeds],
+            find_bmb_treasury_pda,
+            total_bmb,
+            depin_core::constants::BMB_DECIMALS,
+            "BMB",
         )?;
     }
 

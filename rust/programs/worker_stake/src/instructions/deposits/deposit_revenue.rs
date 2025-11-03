@@ -18,7 +18,15 @@ use spl_token::instruction::transfer_checked;
 use crate::{
     state::{WorkerStakeConfig, MonthlyPool},
     types::WorkerStakeAccountType,
-    utils::{find_usdc_treasury_pda, initialize_pool_with_inheritance, MAX_BASIS_POINTS},
+    utils::{
+        find_usdc_treasury_pda,
+        initialize_pool_with_inheritance,
+        validate_pda_account,
+        validate_ata_account,
+        validate_mint,
+        require_signer,
+        MAX_BASIS_POINTS,
+    },
 };
 
 const USDC_DECIMALS: u8 = 6;
@@ -62,16 +70,10 @@ pub fn process_deposit_revenue<'a>(
     let pool_accounts: Vec<&AccountInfo> = account_info_iter.collect();
 
     // Validate revenue authority signature
-    if !revenue_authority.is_signer {
-        msg!("Error: Revenue authority must sign the transaction");
-        return Err(ProgramError::MissingRequiredSignature);
-    }
+    require_signer(revenue_authority, "Revenue authority")?;
 
     // Validate USDC mint
-    if *usdc_mint_account.key != USDC_MINT {
-        msg!("Error: Invalid USDC mint");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_mint(usdc_mint_account, &USDC_MINT, "USDC")?;
 
     // Get current month
     let current_period = get_current_period();
@@ -79,10 +81,7 @@ pub fn process_deposit_revenue<'a>(
 
     // Validate WorkerStakeConfig PDA
     let (config_pda, _bump) = WorkerStakeConfig::find_pda(program_id, &worker_collection);
-    if *worker_stake_config_account.key != config_pda {
-        msg!("Error: WorkerStakeConfig account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(worker_stake_config_account, &config_pda, "WorkerStakeConfig")?;
 
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
@@ -102,10 +101,7 @@ pub fn process_deposit_revenue<'a>(
 
         // Validate MonthlyPool PDA
         let (pool_pda, _pool_bump) = MonthlyPool::find_pda(program_id, &worker_collection, current_month_period);
-        if *monthly_pool_account.key != pool_pda {
-            msg!("Error: MonthlyPool account does not match expected PDA");
-            return Err(ProgramError::InvalidArgument);
-        }
+        validate_pda_account(monthly_pool_account, &pool_pda, "MonthlyPool")?;
 
         // Load monthly pool
         let pool_data = monthly_pool_account.try_borrow_data()?;
@@ -151,20 +147,10 @@ pub fn process_deposit_revenue<'a>(
 
         // Validate USDC treasury PDA
         let (expected_treasury_pda, _treasury_bump) = find_usdc_treasury_pda(program_id, &worker_collection);
-        if *usdc_treasury_pda.key != expected_treasury_pda {
-            msg!("Error: USDC treasury PDA does not match expected address");
-            return Err(ProgramError::InvalidArgument);
-        }
+        validate_pda_account(usdc_treasury_pda, &expected_treasury_pda, "USDC treasury")?;
 
         // Validate USDC treasury ATA
-        let expected_treasury_ata = spl_associated_token_account::get_associated_token_address(
-            usdc_treasury_pda.key,
-            usdc_mint_account.key,
-        );
-        if *usdc_treasury_ata.key != expected_treasury_ata {
-            msg!("Error: USDC treasury ATA does not match expected address");
-            return Err(ProgramError::InvalidArgument);
-        }
+        validate_ata_account(usdc_treasury_ata, usdc_treasury_pda.key, usdc_mint_account.key, "USDC treasury")?;
 
         // Initialize USDC treasury ATA if needed (lazy)
         initialize_ata_if_needed(
