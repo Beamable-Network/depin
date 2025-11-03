@@ -389,6 +389,7 @@ describe('User Stake Instructions', async () => {
             let poolData = lite.getAccountData(poolPda);
             let pool = MonthlyPoolAccount.deserializeFrom(poolData!);
             expect(pool.addon_pool.total).toBe(2n);
+            expect(pool.base_pool.total_weighted).toBe(firstStake * 30n);
 
             // Second stake with 3 checker licenses (bought one more)
             stake = new Stake({
@@ -410,6 +411,8 @@ describe('User Stake Instructions', async () => {
             poolData = lite.getAccountData(poolPda);
             pool = MonthlyPoolAccount.deserializeFrom(poolData!);
             expect(pool.addon_pool.total).toBe(3n);
+            expect(pool.addon_pool.total_weighted).toBe(3n * 30n);
+            expect(pool.base_pool.total_weighted).toBe(firstStake * 30n + secondStake * 30n);
 
             // Verify position entries
             const [userPositionPda] = await UserStakePositionAccount.findUserStakePositionPDA(user.address, workerCollection);
@@ -526,12 +529,12 @@ describe('User Stake Instructions', async () => {
 
             // Unstake (opt out)
             const { Unstake } = await import('@beamable-network/depin');
-            
+
             // Get last_active_pool_month from config
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
             const configData = lite.getAccountData(configPda);
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
-            
+
             const unstake = new Unstake({
                 user: user.address,
                 worker_collection: workerCollection,
