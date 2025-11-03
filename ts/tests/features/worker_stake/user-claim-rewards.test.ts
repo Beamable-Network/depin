@@ -525,7 +525,7 @@ describe('User Claim Rewards Instructions', async () => {
                 await lite.buildTransaction()
                     .addInstruction(await claimRewards.getInstruction())
                     .sendTransaction({ payer: user });
-            }).rejects.toThrow();
+            }).rejects.toThrow("Must claim months in order");
         });
     });
 
