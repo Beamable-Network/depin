@@ -1,24 +1,23 @@
 import {
+    BMB_MINT,
     bmbToBaseUnits,
+    ClaimRewards,
+    DepositEmissions,
+    DepositRevenue,
     InitializeWorkerStakeConfig,
+    MonthlyPoolConfig,
     SetMonthlyPool,
     Stake,
-    ClaimRewards,
-    DepositRevenue,
-    DepositEmissions,
-    MonthlyPoolConfig,
-    WorkerStakeConfigAccount,
-    MonthlyPoolAccount,
+    USDC_MINT,
     UserStakePositionAccount,
     WORKER_STAKE_PROGRAM,
-    BMB_MINT,
-    USDC_MINT
+    WorkerStakeConfigAccount
 } from '@beamable-network/depin';
+import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { setupTokens, TokenAuthorities, usdcToBaseUnits } from '../../helpers/spl-tokens.js';
-import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
 
 describe('User Claim Rewards Instructions', async () => {
     let lite: LiteDepin;
