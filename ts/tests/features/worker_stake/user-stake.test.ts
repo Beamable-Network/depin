@@ -490,4 +490,80 @@ describe('User Stake Instructions', async () => {
             expect(config.total_staked).toBe(stake1Amount + stake2Amount);
         });
     });
+
+    describe('Unstaking Prevention', () => {
+        it('should fail to stake after unstaking', async () => {
+            const user = await lite.generateKeyPair();
+            await lite.airdrop(user, 2);
+
+            const firstStake = bmbToBaseUnits(5000);
+            const secondStake = bmbToBaseUnits(2500);
+            const totalMint = firstStake + secondStake;
+
+            await lite.mintToken(BMB_MINT, user.address, totalMint, tokenAuthorities.bmbMintAuthority);
+
+            // First stake
+            let stake = new Stake({
+                user: user.address,
+                worker: worker.address,
+                worker_license: workerLicense,
+                worker_collection: workerCollection,
+                amount: firstStake,
+                checker_count: 2,
+                current_month_period: 5,
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await stake.getInstruction())
+                .sign(worker)
+                .sendTransaction({ payer: user });
+
+            // Verify first stake succeeded
+            const [userPositionPda] = await UserStakePositionAccount.findUserStakePositionPDA(user.address, workerCollection);
+            let positionData = lite.getAccountData(userPositionPda);
+            let position = UserStakePositionAccount.deserializeFrom(positionData!);
+            expect(position.staked_amount).toBe(firstStake);
+
+            // Unstake (opt out)
+            const { Unstake } = await import('@beamable-network/depin');
+            
+            // Get last_active_pool_month from config
+            const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
+            const configData = lite.getAccountData(configPda);
+            const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
+            
+            const unstake = new Unstake({
+                user: user.address,
+                worker_collection: workerCollection,
+                last_active_pool_month_period: config.last_active_pool_month,
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await unstake.getInstruction())
+                .sendTransaction({ payer: user });
+
+            // Verify user opted out
+            positionData = lite.getAccountData(userPositionPda);
+            position = UserStakePositionAccount.deserializeFrom(positionData!);
+            expect(position.opted_out_at_month_period).toBe(6); // Opted out starting next month
+
+            // Try to stake again - should fail
+            stake = new Stake({
+                user: user.address,
+                worker: worker.address,
+                worker_license: workerLicense,
+                worker_collection: workerCollection,
+                amount: secondStake,
+                checker_count: 2,
+                current_month_period: 5,
+            });
+
+            await expect(async () => {
+                lite.buildTransaction()
+                    .addInstruction(await stake.getInstruction())
+                    .sign(worker)
+                    .sendTransaction({ payer: user });
+            }).rejects.toThrow("User has opted out of staking");
+        });
+    });
 });

@@ -278,6 +278,11 @@ pub fn process_stake<'a>(
         )?;
     }
 
+    if user_position.opted_out_at_month_period > 0 {
+        msg!("Error: User has opted out of staking");
+        return Err(ProgramError::InvalidArgument);
+    }
+
     if user_position.stake_entries.len() >= UserStakePosition::MAX_ENTRIES {
         msg!(
             "Error: Maximum stake entries reached ({})",
