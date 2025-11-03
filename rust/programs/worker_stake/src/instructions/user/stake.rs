@@ -1,10 +1,24 @@
+use crate::{
+    instruction::StakeParams,
+    state::{MonthlyPool, StakeEntry, UserStakePosition, WorkerStakeConfig},
+    types::WorkerStakeAccountType,
+    utils::{
+        apply_addon_point_weight, apply_base_stake_weight, calculate_points,
+        find_community_stake_vault_pda, initialize_pool_with_inheritance, require_signer,
+        validate_ata_account, validate_mint, validate_pda_account,
+    },
+};
+use borsh::BorshDeserialize;
 use depin_core::{
-    constants::{BMB_MINT, BMB_DECIMALS},
+    constants::{BMB_DECIMALS, BMB_MINT},
     utils::{
         account::{read_account_data, reallocate_account_if_needed, write_account_data},
-        bmb::{get_current_period, get_month_from_period, get_month_end_timestamp, days_between, days_in_month, validate_worker_tree},
-        tokens::initialize_ata_if_needed,
         bgum::verify_license_and_owner,
+        bmb::{
+            days_between, days_in_month, get_current_period, get_month_end_timestamp,
+            get_month_from_period, validate_worker_tree,
+        },
+        tokens::initialize_ata_if_needed,
     },
 };
 use mpl_bubblegum::types::LeafSchema;
@@ -22,22 +36,6 @@ use solana_program::{
     sysvar::Sysvar,
 };
 use spl_token::instruction::transfer_checked;
-use crate::{
-    instruction::StakeParams,
-    state::{WorkerStakeConfig, MonthlyPool, UserStakePosition, StakeEntry},
-    types::WorkerStakeAccountType,
-    utils::{
-        find_community_stake_vault_pda,
-        initialize_pool_with_inheritance,
-        calculate_time_weighted,
-        validate_pda_account,
-        validate_ata_account,
-        validate_mint,
-        require_signer,
-        calculate_points,
-    },
-};
-use borsh::BorshDeserialize;
 
 const USER_POSITION_SEED: &[u8] = b"user_position";
 
@@ -159,27 +157,41 @@ pub fn process_stake<'a>(
     let current_timestamp = Clock::get()?.unix_timestamp;
 
     // Validate WorkerStakeConfig PDA
-    let (config_pda, _bump) = WorkerStakeConfig::find_pda(program_id, worker_collection_account.key);
-    validate_pda_account(worker_stake_config_account, &config_pda, "WorkerStakeConfig")?;
+    let (config_pda, _bump) =
+        WorkerStakeConfig::find_pda(program_id, worker_collection_account.key);
+    validate_pda_account(
+        worker_stake_config_account,
+        &config_pda,
+        "WorkerStakeConfig",
+    )?;
 
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
-    let mut config: WorkerStakeConfig = read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
+    let mut config: WorkerStakeConfig =
+        read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
     drop(config_data);
 
     // Validate pool exists for current month
     if !config.created_pools.contains(&current_month_period) {
-        msg!("Error: No pool exists for current month {}", current_month_period);
+        msg!(
+            "Error: No pool exists for current month {}",
+            current_month_period
+        );
         return Err(ProgramError::InvalidArgument);
     }
 
     // Validate MonthlyPool PDA
-    let (pool_pda, _pool_bump) = MonthlyPool::find_pda(program_id, worker_collection_account.key, current_month_period);
+    let (pool_pda, _pool_bump) = MonthlyPool::find_pda(
+        program_id,
+        worker_collection_account.key,
+        current_month_period,
+    );
     validate_pda_account(monthly_pool_account, &pool_pda, "MonthlyPool")?;
 
     // Load monthly pool
     let pool_data = monthly_pool_account.try_borrow_data()?;
-    let mut monthly_pool: MonthlyPool = read_account_data(&pool_data, WorkerStakeAccountType::MonthlyPool)?;
+    let mut monthly_pool: MonthlyPool =
+        read_account_data(&pool_data, WorkerStakeAccountType::MonthlyPool)?;
     drop(pool_data);
 
     // Initialize pool if needed (with inheritance)
@@ -207,10 +219,18 @@ pub fn process_stake<'a>(
 
     // Validate UserStakePosition PDA
     let (user_position_pda, _user_position_bump) = Pubkey::find_program_address(
-        &[USER_POSITION_SEED, user_account.key.as_ref(), worker_collection_account.key.as_ref()],
+        &[
+            USER_POSITION_SEED,
+            user_account.key.as_ref(),
+            worker_collection_account.key.as_ref(),
+        ],
         program_id,
     );
-    validate_pda_account(user_position_account, &user_position_pda, "UserStakePosition")?;
+    validate_pda_account(
+        user_position_account,
+        &user_position_pda,
+        "UserStakePosition",
+    )?;
 
     // Load or create UserStakePosition
     let position_exists = !user_position_account.data_is_empty();
@@ -218,7 +238,8 @@ pub fn process_stake<'a>(
 
     if position_exists {
         let position_data = user_position_account.try_borrow_data()?;
-        user_position = read_account_data(&position_data, WorkerStakeAccountType::UserStakePosition)?;
+        user_position =
+            read_account_data(&position_data, WorkerStakeAccountType::UserStakePosition)?;
         drop(position_data);
     } else {
         user_position = UserStakePosition {
@@ -258,7 +279,10 @@ pub fn process_stake<'a>(
     }
 
     if user_position.stake_entries.len() >= UserStakePosition::MAX_ENTRIES {
-        msg!("Error: Maximum stake entries reached ({})", UserStakePosition::MAX_ENTRIES);
+        msg!(
+            "Error: Maximum stake entries reached ({})",
+            UserStakePosition::MAX_ENTRIES
+        );
         return Err(ProgramError::InvalidArgument);
     }
 
@@ -281,7 +305,8 @@ pub fn process_stake<'a>(
     user_position.stake_entries.push(new_entry);
 
     // Update user's total stake
-    user_position.staked_amount = user_position.staked_amount
+    user_position.staked_amount = user_position
+        .staked_amount
         .checked_add(amount)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
@@ -295,11 +320,21 @@ pub fn process_stake<'a>(
     )?;
 
     // Validate community vault PDA
-    let (expected_vault_pda, _vault_bump) = find_community_stake_vault_pda(program_id, worker_collection_account.key);
-    validate_pda_account(community_vault_pda, &expected_vault_pda, "Community stake vault")?;
+    let (expected_vault_pda, _vault_bump) =
+        find_community_stake_vault_pda(program_id, worker_collection_account.key);
+    validate_pda_account(
+        community_vault_pda,
+        &expected_vault_pda,
+        "Community stake vault",
+    )?;
 
     // Validate community vault ATA
-    validate_ata_account(community_vault_ata, community_vault_pda.key, bmb_mint_account.key, "Community stake vault")?;
+    validate_ata_account(
+        community_vault_ata,
+        community_vault_pda.key,
+        bmb_mint_account.key,
+        "Community stake vault",
+    )?;
 
     // Initialize community vault ATA if needed (lazy)
     initialize_ata_if_needed(
@@ -357,57 +392,45 @@ pub fn process_stake<'a>(
     }
 
     // Update base pool: weighted by BMB amount (absolute stake-days)
-    let weighted_amount = calculate_time_weighted(amount, days_remaining)?;
-
-    monthly_pool.base_pool.total = monthly_pool.base_pool.total
-        .checked_add(amount)
-        .ok_or(ProgramError::ArithmeticOverflow)?;
-    monthly_pool.base_pool.total_weighted = monthly_pool.base_pool.total_weighted
-        .checked_add(weighted_amount)
-        .ok_or(ProgramError::ArithmeticOverflow)?;
+    apply_base_stake_weight(&mut monthly_pool.base_pool, amount, days_remaining)?;
 
     // Update addon pool: weighted by points (absolute point-days)
-    let points_delta = new_points as i64 - old_points as i64;
-
-    // Update total (can be positive or negative delta)
-    if points_delta >= 0 {
-        monthly_pool.addon_pool.total = monthly_pool.addon_pool.total
-            .checked_add(points_delta as u64)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
-    } else {
-        monthly_pool.addon_pool.total = monthly_pool.addon_pool.total
-            .checked_sub((-points_delta) as u64)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
-    }
-
-    // Update weighted total with time-weighting (absolute point-days)
-    let weighted_points_delta = calculate_time_weighted(points_delta.unsigned_abs(), days_remaining)?;
-
-    if points_delta >= 0 {
-        monthly_pool.addon_pool.total_weighted = monthly_pool.addon_pool.total_weighted
-            .checked_add(weighted_points_delta)
-            .ok_or(ProgramError::ArithmeticOverflow)?;
-    } else {
-        monthly_pool.addon_pool.total_weighted = monthly_pool.addon_pool.total_weighted
-            .saturating_sub(weighted_points_delta);
-    }
+    apply_addon_point_weight(
+        &mut monthly_pool.addon_pool,
+        old_points,
+        new_points,
+        days_remaining,
+    )?;
 
     // Update config.total_staked
-    config.total_staked = config.total_staked
+    config.total_staked = config
+        .total_staked
         .checked_add(amount)
         .ok_or(ProgramError::ArithmeticOverflow)?;
 
     // Save all updated accounts
     let mut position_data = user_position_account.try_borrow_mut_data()?;
-    write_account_data(&mut position_data, WorkerStakeAccountType::UserStakePosition, &user_position)?;
+    write_account_data(
+        &mut position_data,
+        WorkerStakeAccountType::UserStakePosition,
+        &user_position,
+    )?;
     drop(position_data);
 
     let mut pool_data = monthly_pool_account.try_borrow_mut_data()?;
-    write_account_data(&mut pool_data, WorkerStakeAccountType::MonthlyPool, &monthly_pool)?;
+    write_account_data(
+        &mut pool_data,
+        WorkerStakeAccountType::MonthlyPool,
+        &monthly_pool,
+    )?;
     drop(pool_data);
 
     let mut config_data = worker_stake_config_account.try_borrow_mut_data()?;
-    write_account_data(&mut config_data, WorkerStakeAccountType::WorkerStakeConfig, &config)?;
+    write_account_data(
+        &mut config_data,
+        WorkerStakeAccountType::WorkerStakeConfig,
+        &config,
+    )?;
 
     msg!(
         "User staked {} BMB with {} checkers. Points: {} -> {}. Total staked: {}",

@@ -1,20 +1,20 @@
 use depin_core::constants::BMB_DECIMALS;
-use solana_program::{
-    account_info::AccountInfo,
-    msg,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-};
+use solana_program::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
 
 // Sub-modules
-pub mod validation;
-pub mod treasury;
 pub mod points;
+pub mod treasury;
+pub mod validation;
+pub mod weighting;
 
 // Re-export commonly used items
-pub use validation::{validate_pda_account, validate_ata_account, validate_mint, require_signer};
-pub use treasury::transfer_from_treasury;
 pub use points::calculate_points;
+pub use treasury::transfer_from_treasury;
+pub use validation::{require_signer, validate_ata_account, validate_mint, validate_pda_account};
+pub use weighting::{
+    apply_addon_point_weight, apply_base_stake_weight, calculate_time_weighted,
+    compute_month_weight_totals, MonthWeightTotals,
+};
 
 /// Seeds for token vault PDAs
 pub const WORKER_STAKE_VAULT_SEED: &[u8] = b"worker_stake_vault";
@@ -30,64 +30,44 @@ pub const MAX_BASIS_POINTS: u16 = 10_000;
 /// This is 2500 BMB in base units
 pub const BMB_PER_POINT: u64 = 2_500 * 10_u64.pow(BMB_DECIMALS as u32);
 
-/// Calculate time-weighted contribution for a given amount and time period
-/// Used by both base pool (BMB stake) and addon pool (points)
-///
-/// # Arguments
-/// * `amount` - The amount being weighted (BMB for base pool, points for addon pool)
-/// * `days_active` - Number of days the amount was active in the month
-///
-/// # Returns
-/// * Weighted value: amount × days_active (absolute days, not normalized)
-///
-/// # Examples
-/// ```
-/// // Stake 1000 BMB for full 30-day month
-/// let weighted = calculate_time_weighted(1000, 30); // = 30,000 stake-days
-///
-/// // Stake 1000 BMB for 15 days (mid-month)
-/// let weighted = calculate_time_weighted(1000, 15); // = 15,000 stake-days
-/// ```
-pub fn calculate_time_weighted(amount: u64, days_active: u64) -> Result<u64, ProgramError> {
-    (amount as u128)
-        .checked_mul(days_active as u128)
-        .and_then(|result| {
-            if result > u64::MAX as u128 {
-                None
-            } else {
-                Some(result as u64)
-            }
-        })
-        .ok_or_else(|| {
-            msg!("Error: Arithmetic overflow in time-weighted calculation");
-            ProgramError::ArithmeticOverflow
-        })
-}
-
 /// Find worker stake vault PDA (the authority/owner of the token account)
-pub fn find_worker_stake_vault_pda(program_id: &Pubkey, worker_collection: &Pubkey) -> (Pubkey, u8) {
+pub fn find_worker_stake_vault_pda(
+    program_id: &Pubkey,
+    worker_collection: &Pubkey,
+) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &[WORKER_STAKE_VAULT_SEED, worker_collection.as_ref()],
-        program_id
+        program_id,
     )
 }
 
 /// Find worker stake vault ATA (the actual token account)
-pub fn find_worker_stake_vault_ata(program_id: &Pubkey, worker_collection: &Pubkey, mint: &Pubkey) -> Pubkey {
+pub fn find_worker_stake_vault_ata(
+    program_id: &Pubkey,
+    worker_collection: &Pubkey,
+    mint: &Pubkey,
+) -> Pubkey {
     let (vault_pda, _) = find_worker_stake_vault_pda(program_id, worker_collection);
     spl_associated_token_account::get_associated_token_address(&vault_pda, mint)
 }
 
 /// Find community stake vault PDA (the authority/owner of the token account)
-pub fn find_community_stake_vault_pda(program_id: &Pubkey, worker_collection: &Pubkey) -> (Pubkey, u8) {
+pub fn find_community_stake_vault_pda(
+    program_id: &Pubkey,
+    worker_collection: &Pubkey,
+) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &[COMMUNITY_STAKE_VAULT_SEED, worker_collection.as_ref()],
-        program_id
+        program_id,
     )
 }
 
 /// Find community stake vault ATA (the actual token account)
-pub fn find_community_stake_vault_ata(program_id: &Pubkey, worker_collection: &Pubkey, mint: &Pubkey) -> Pubkey {
+pub fn find_community_stake_vault_ata(
+    program_id: &Pubkey,
+    worker_collection: &Pubkey,
+    mint: &Pubkey,
+) -> Pubkey {
     let (vault_pda, _) = find_community_stake_vault_pda(program_id, worker_collection);
     spl_associated_token_account::get_associated_token_address(&vault_pda, mint)
 }
@@ -96,26 +76,31 @@ pub fn find_community_stake_vault_ata(program_id: &Pubkey, worker_collection: &P
 pub fn find_usdc_treasury_pda(program_id: &Pubkey, worker_collection: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &[USDC_TREASURY_SEED, worker_collection.as_ref()],
-        program_id
+        program_id,
     )
 }
 
 /// Find USDC treasury ATA (the actual token account)
-pub fn find_usdc_treasury_ata(program_id: &Pubkey, worker_collection: &Pubkey, usdc_mint: &Pubkey) -> Pubkey {
+pub fn find_usdc_treasury_ata(
+    program_id: &Pubkey,
+    worker_collection: &Pubkey,
+    usdc_mint: &Pubkey,
+) -> Pubkey {
     let (treasury_pda, _) = find_usdc_treasury_pda(program_id, worker_collection);
     spl_associated_token_account::get_associated_token_address(&treasury_pda, usdc_mint)
 }
 
 /// Find BMB treasury PDA (the authority/owner of the token account)
 pub fn find_bmb_treasury_pda(program_id: &Pubkey, worker_collection: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[BMB_TREASURY_SEED, worker_collection.as_ref()],
-        program_id
-    )
+    Pubkey::find_program_address(&[BMB_TREASURY_SEED, worker_collection.as_ref()], program_id)
 }
 
 /// Find BMB treasury ATA (the actual token account)
-pub fn find_bmb_treasury_ata(program_id: &Pubkey, worker_collection: &Pubkey, bmb_mint: &Pubkey) -> Pubkey {
+pub fn find_bmb_treasury_ata(
+    program_id: &Pubkey,
+    worker_collection: &Pubkey,
+    bmb_mint: &Pubkey,
+) -> Pubkey {
     let (treasury_pda, _) = find_bmb_treasury_pda(program_id, worker_collection);
     spl_associated_token_account::get_associated_token_address(&treasury_pda, bmb_mint)
 }
@@ -147,8 +132,8 @@ pub fn validate_collection_authority<'a>(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    let update_authority = Pubkey::try_from(&data[1..33])
-        .map_err(|_| ProgramError::InvalidAccountData)?;
+    let update_authority =
+        Pubkey::try_from(&data[1..33]).map_err(|_| ProgramError::InvalidAccountData)?;
 
     if &update_authority != expected_authority.key {
         msg!("Error: Collection authority does not match signer");
@@ -183,9 +168,9 @@ pub fn initialize_pool_with_inheritance<'a>(
     config: &mut crate::state::WorkerStakeConfig,
     prev_pool_account: Option<&AccountInfo<'a>>,
 ) -> Result<(), ProgramError> {
+    use crate::{state::MonthlyPool, types::WorkerStakeAccountType};
     use depin_core::utils::account::read_account_data;
     use depin_core::utils::bmb::days_in_month;
-    use crate::{state::MonthlyPool, types::WorkerStakeAccountType};
 
     // Check if already initialized
     if monthly_pool.initialized {
@@ -201,11 +186,8 @@ pub fn initialize_pool_with_inheritance<'a>(
         })?;
 
         // Validate previous pool PDA
-        let (expected_prev_pda, _bump) = MonthlyPool::find_pda(
-            program_id,
-            worker_collection,
-            config.last_active_pool_month,
-        );
+        let (expected_prev_pda, _bump) =
+            MonthlyPool::find_pda(program_id, worker_collection, config.last_active_pool_month);
 
         if *prev_pool_acc.key != expected_prev_pda {
             msg!(
@@ -217,12 +199,15 @@ pub fn initialize_pool_with_inheritance<'a>(
 
         // Load previous pool
         let prev_pool_data = prev_pool_acc.try_borrow_data()?;
-        let prev_pool: MonthlyPool = read_account_data(&prev_pool_data, WorkerStakeAccountType::MonthlyPool)?;
+        let prev_pool: MonthlyPool =
+            read_account_data(&prev_pool_data, WorkerStakeAccountType::MonthlyPool)?;
         drop(prev_pool_data);
 
         // Inherit base pool stake (excluding opted-out positions)
         // Inherited stake gets full month weight (staked before month started)
-        monthly_pool.base_pool.total = prev_pool.base_pool.total
+        monthly_pool.base_pool.total = prev_pool
+            .base_pool
+            .total
             .checked_sub(prev_pool.base_pool.total_opted_out)
             .ok_or_else(|| {
                 msg!("Error: Arithmetic overflow in base pool inheritance");
@@ -231,14 +216,14 @@ pub fn initialize_pool_with_inheritance<'a>(
 
         // Calculate weighted total: inherited_stake × days_in_month
         let days = days_in_month(current_month_period) as u64;
-        monthly_pool.base_pool.total_weighted = calculate_time_weighted(
-            monthly_pool.base_pool.total,
-            days
-        )?;
+        monthly_pool.base_pool.total_weighted =
+            calculate_time_weighted(monthly_pool.base_pool.total, days)?;
 
         // Inherit addon pool points (excluding opted-out points)
         // Inherited points get full month weight (qualified before month started)
-        monthly_pool.addon_pool.total = prev_pool.addon_pool.total
+        monthly_pool.addon_pool.total = prev_pool
+            .addon_pool
+            .total
             .checked_sub(prev_pool.addon_pool.total_opted_out)
             .ok_or_else(|| {
                 msg!("Error: Arithmetic overflow in addon pool inheritance");
@@ -246,10 +231,8 @@ pub fn initialize_pool_with_inheritance<'a>(
             })?;
 
         // Calculate weighted total: inherited_points × days_in_month (reuse days from above)
-        monthly_pool.addon_pool.total_weighted = calculate_time_weighted(
-            monthly_pool.addon_pool.total,
-            days
-        )?;
+        monthly_pool.addon_pool.total_weighted =
+            calculate_time_weighted(monthly_pool.addon_pool.total, days)?;
 
         msg!(
             "Inherited from month {}: base_total={}, addon_total={}",
