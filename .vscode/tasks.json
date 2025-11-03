@@ -64,6 +64,19 @@
       }
     },
     {
+      "label": "BUILD and DEPLOY worker_stake TEST",
+      "type": "shell",
+      "command": "bash build-deploy-worker_stake-test.sh",
+      "options": {
+        "cwd": "${workspaceFolder}/rust"
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
       "label": "PUBLISH NPM @beamable-network/depin",
       "type": "shell",
       "command": "pnpm publish",
