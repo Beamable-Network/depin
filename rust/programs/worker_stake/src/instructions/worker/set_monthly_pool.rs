@@ -21,7 +21,7 @@ use crate::{
     utils::{MAX_BASIS_POINTS, validate_collection_authority},
 };
 
-const MAX_POOLS_PER_TX: usize = 10;
+const MAX_POOLS_PER_TX: usize = 12;
 const TIME_LOCK_SECONDS: i64 = 10 * 86400; // 10 days
 
 pub fn process_set_monthly_pool<'a>(
