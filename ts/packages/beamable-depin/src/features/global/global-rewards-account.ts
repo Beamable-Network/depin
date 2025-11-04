@@ -1,16 +1,16 @@
-import { Base58EncodedBytes, Codec, Endian, getArrayCodec, getBase58Codec, getProgramDerivedAddress, getStructCodec, getU32Codec, ProgramDerivedAddress } from "gill";
+import { Base58EncodedBytes, Codec, Endian, getArrayCodec, getBase58Codec, getProgramDerivedAddress, getStructCodec, getU64Codec, ProgramDerivedAddress } from "gill";
 import { DEPIN_PROGRAM, GLOBAL_REWARDS_SEED, GLOBAL_SEED } from "../../constants.js";
 import { DepinAccountType } from "../../enums.js";
 
 export class GlobalRewardsAccount {
-    checkers: number[];
+    checkers: bigint[];
 
-    constructor(checkers: number[] = new Array(100_000).fill(0)) {
+    constructor(checkers: bigint[] = new Array(100_000).fill(0)) {
         this.checkers = checkers;
     }
 
     public static readonly DataCodec: Codec<GlobalRewardsAccount> = getStructCodec([
-        ["checkers", getArrayCodec(getU32Codec({ endian: Endian.Little }), { size: 100_000 })],
+        ["checkers", getArrayCodec(getU64Codec({ endian: Endian.Little }), { size: 100_000 })],
     ]);
 
     public static deserializeFrom(accountData: ArrayLike<number>): GlobalRewardsAccount;
@@ -42,7 +42,7 @@ export class GlobalRewardsAccount {
         return result;
     }
 
-    public static readonly LEN: bigint = BigInt(400_001);
+    public static readonly LEN: bigint = BigInt(800_001);
 
     public static async findGlobalRewardsPDA(): Promise<ProgramDerivedAddress> {
         const pda = await getProgramDerivedAddress({

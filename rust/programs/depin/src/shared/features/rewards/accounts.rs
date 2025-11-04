@@ -6,12 +6,12 @@ use depin_core::constants::DISC_SIZE;
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct GlobalRewards {
-    pub checkers: [u32; 100_000],
+    pub checkers: [u64; 100_000],
 }
 
 impl GlobalRewards {
     pub const ELEMENTS: usize = 100_000;
-    pub const LEN: usize = 1 + (GlobalRewards::ELEMENTS * 4);
+    pub const LEN: usize = 1 + (GlobalRewards::ELEMENTS * 8);
 
     pub fn find_pda(program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[GLOBAL_SEED, GLOBAL_REWARDS_SEED], program_id)
@@ -56,35 +56,35 @@ impl GlobalRewards {
         }
     }
 
-    pub fn read_checker_balance(account_data: &[u8], checker_index: usize) -> Result<u32, ProgramError> {
+    pub fn read_checker_balance(account_data: &[u8], checker_index: usize) -> Result<u64, ProgramError> {
         if checker_index >= Self::ELEMENTS {
             return Err(ProgramError::InvalidInstructionData);
         }
 
         let checker_bytes = &account_data[DISC_SIZE..];
-        const ELEM_SIZE: usize = core::mem::size_of::<u32>();
-        
+        const ELEM_SIZE: usize = core::mem::size_of::<u64>();
+
         let start = checker_index * ELEM_SIZE;
         let end = start + ELEM_SIZE;
-        
-        let balance = u32::from_le_bytes(checker_bytes[start..end].try_into().unwrap());
+
+        let balance = u64::from_le_bytes(checker_bytes[start..end].try_into().unwrap());
         Ok(balance)
     }
 
-    pub fn add_checker_balance(account_data: &mut [u8], checker_index: usize, reward_amount: u32) -> Result<(), ProgramError> {
+    pub fn add_checker_balance(account_data: &mut [u8], checker_index: usize, reward_amount: u64) -> Result<(), ProgramError> {
         if checker_index >= Self::ELEMENTS {
             return Err(ProgramError::InvalidInstructionData);
         }
 
         let checker_bytes = &mut account_data[DISC_SIZE..];
-        const ELEM_SIZE: usize = core::mem::size_of::<u32>();
-        
+        const ELEM_SIZE: usize = core::mem::size_of::<u64>();
+
         let start = checker_index * ELEM_SIZE;
         let end = start + ELEM_SIZE;
 
-        let current_balance = u32::from_le_bytes(checker_bytes[start..end].try_into().unwrap());
+        let current_balance = u64::from_le_bytes(checker_bytes[start..end].try_into().unwrap());
         let new_balance = current_balance.saturating_add(reward_amount);
-        
+
         checker_bytes[start..end].copy_from_slice(&new_balance.to_le_bytes());
         Ok(())
     }
@@ -95,12 +95,12 @@ impl GlobalRewards {
         }
 
         let checker_bytes = &mut account_data[DISC_SIZE..];
-        const ELEM_SIZE: usize = core::mem::size_of::<u32>();
-        
+        const ELEM_SIZE: usize = core::mem::size_of::<u64>();
+
         let start = checker_index * ELEM_SIZE;
         let end = start + ELEM_SIZE;
 
-        checker_bytes[start..end].copy_from_slice(&0u32.to_le_bytes());
+        checker_bytes[start..end].copy_from_slice(&0u64.to_le_bytes());
         Ok(())
     }
 }

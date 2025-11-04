@@ -335,7 +335,7 @@ async function verifyGlobalRewardsReset(
     expect(globalRewardsData).not.toBeNull();
 
     const globalRewards = GlobalRewardsAccount.deserializeFrom(globalRewardsData!);
-    expect(globalRewards.checkers[checkerIndex]).toBe(0);
+    expect(globalRewards.checkers[checkerIndex]).toBe(0n);
 }
 
 async function verifyNoLockedTokensForAddress(

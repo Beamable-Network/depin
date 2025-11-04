@@ -243,7 +243,7 @@ fn update_checker_rewards(
 
             let checker_index = numbers[bit_index] as usize;
 
-            GlobalRewards::add_checker_balance(&mut global_rewards_data, checker_index, period_reward_tokens as u32)?;
+            GlobalRewards::add_checker_balance(&mut global_rewards_data, checker_index, period_reward_tokens as u64)?;
 
             // Clear the processed bit
             bits &= bits - 1;

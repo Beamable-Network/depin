@@ -215,7 +215,7 @@ fn get_and_validate_checker_balance(global_rewards_account: &AccountInfo, checke
         return Err(ProgramError::InsufficientFunds);
     }
 
-    Ok(checker_balance as u64)
+    Ok(checker_balance)
 }
 
 fn execute_payout(
