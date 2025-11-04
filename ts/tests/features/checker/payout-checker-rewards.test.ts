@@ -28,7 +28,7 @@ describe('Payout checker rewards', async () => {
     });
 
     it('should create locked tokens on payout after claiming', async () => {
-        const mockedRewards = 5_000;
+        const mockedRewards = 5_000n;
 
         // Set up mocked rewards in GlobalRewards account for the checker index
         const checkerIndex = checkerLicense.index; // Use index as checker index
@@ -71,7 +71,7 @@ describe('Payout checker rewards', async () => {
 
 
     it('should fail when trying to payout rewards for someone else', async () => {
-        const mockedRewards = 4_000;
+        const mockedRewards = 4_000n;
         const checkerIndex = checkerLicense.index;
         await setMockedRewardsInGlobalRewards(lite, checkerIndex, mockedRewards);
 
@@ -109,7 +109,7 @@ describe('Payout checker rewards', async () => {
             delegate: delegate.address // Delegate is different from owner
         });
 
-        const mockedRewards = 6_000;
+        const mockedRewards = 6_000n;
         const checkerIndex = checkerLicese.index;
 
         // Test 1: Owner should be able to payout
@@ -134,7 +134,7 @@ describe('Payout checker rewards', async () => {
         await verifyTreasuryState(lite, BigInt(mockedRewards));
 
         // Test 2: Set up rewards again and test delegate payout
-        const additionalRewards = 3_000;
+        const additionalRewards = 3_000n;
         await setMockedRewardsInGlobalRewards(lite, checkerIndex, additionalRewards);
 
         const payoutByDelegate = new PayoutCheckerRewards({
@@ -172,8 +172,8 @@ describe('Payout checker rewards', async () => {
         await activateChecker({ lite, signer: singleOwner, lic: checker1License, delegate: singleOwner.address });
         await activateChecker({ lite, signer: singleOwner, lic: checker2License, delegate: singleOwner.address });
 
-        const rewards1 = 3_000;
-        const rewards2 = 2_000;
+        const rewards1 = 3_000n;
+        const rewards2 = 2_000n;
         const totalRewards = rewards1 + rewards2;
 
         // Set up mocked rewards for both checkers
@@ -229,9 +229,9 @@ describe('Payout checker rewards', async () => {
         const checkerLicense = await lite.mintLicense({ creator: authority, to: singleOwner });
         await activateChecker({ lite, signer: singleOwner, lic: checkerLicense, delegate: singleOwner.address });
 
-        const rewardsPeriod1 = 4_000;
-        const rewardsPeriod2 = 6_000;
-
+        const rewardsPeriod1 = 4_000n;
+        const rewardsPeriod2 = 6_000n;
+        
         // === PERIOD 1 ===
         const period1 = getCurrentPeriod();
 
@@ -290,7 +290,7 @@ describe('Payout checker rewards', async () => {
 async function setMockedRewardsInGlobalRewards(
     lite: LiteDepin,
     checkerIndex: number,
-    rewardsAmount: number
+    rewardsAmount: bigint
 ): Promise<void> {
     const globalRewardsPda = await GlobalRewardsAccount.findGlobalRewardsPDA();
     const current = lite.getAccountData(globalRewardsPda[0]);
