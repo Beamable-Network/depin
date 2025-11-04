@@ -4,16 +4,22 @@ This is a Beamable.Network DePIN (Decentralized Physical Infrastructure Networks
 
 ## Architecture
 
-### Rust (Solana Program)
+### Rust (Solana Programs)
+
+#### DePIN Program
 - **Location**: `rust/programs/depin/`
-- **Purpose**: Core Solana smart contract implementing the DePIN protocol
-- **Key Features**: License management, escrow/SLA handling, BRAND assignment algorithm, proof commitments, reward distribution
-- **Build**: `cd rust && cargo build`
+- **Purpose**: Core smart contract implementing the DePIN protocol
+- **Features**: License management, escrow/SLA handling, BRAND assignment algorithm, proof commitments, reward distribution
+
+#### Worker Stake Program
+- **Location**: `rust/programs/worker_stake/`
+- **Purpose**: Worker revenue sharing and staking protocol
+- **Features**: Dual staking modes (worker self-stake + community pools), time-weighted rewards, optional monthly rev-share pools, triple rewards system (Base USDC + Addon USDC + Base BMB)
+- **Documentation**: See [TDD.md](./TDD.md) for detailed technical design
 
 ### TypeScript SDK & Testing
 - **Workspace**: `ts/` - pnpm workspace containing all TypeScript packages
 - **Main Package**: `ts/packages/beamable-depin/` - @beamable-network/depin SDK for all network interactions
-- **Utilities**: `ts/packages/b58-convert/` - Base58 conversion tools
 - **Testing**: `ts/tests/` - Integration tests for Rust program + TypeScript SDK (references @beamable-network/depin via workspace)
 - **Build**: `cd ts/packages/beamable-depin && pnpm run build`
 - **Test**: `cd ts/tests && pnpm test` (requires local Solana validator)

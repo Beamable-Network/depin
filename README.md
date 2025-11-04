@@ -12,7 +12,7 @@ A decentralized physical infrastructure network (DePIN) proof-of-concept for gam
 - **Features**: License management, escrow/SLA handling, BRAND assignment algorithm, proof commitments, reward distribution
 
 #### Worker Stake Program
-- **Location**: `rust/programs/bmb_stake_rev_share/`
+- **Location**: `rust/programs/worker_stake/`
 - **Purpose**: Worker revenue sharing and staking protocol
 - **Features**: Dual staking modes (worker self-stake + community pools), time-weighted rewards, optional monthly rev-share pools, triple rewards system (Base USDC + Addon USDC + Base BMB)
 - **Documentation**: See [TDD.md](./TDD.md) for detailed technical design
