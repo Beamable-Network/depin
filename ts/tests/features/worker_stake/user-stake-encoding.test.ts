@@ -1,6 +1,7 @@
 import {
     BMB_MINT,
     bmbToBaseUnits,
+    decodeStakeInstruction,
     InitializeWorkerStakeConfig,
     MonthlyPoolConfig,
     SetMonthlyPool,
@@ -8,8 +9,8 @@ import {
     WORKER_STAKE_PROGRAM
 } from '@beamable-network/depin';
 import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
-import { addSignersToTransactionMessage, blockhash, getCompiledTransactionMessageCodec, isFullySignedTransaction, signTransaction, signTransactionMessageWithSigners } from '@solana/kit';
-import { Address, address, createTransaction, getTransactionDecoder, getTransactionEncoder, createTransactionMessage, partiallySignTransactionMessageWithSigners, isTransactionPartialSigner } from 'gill';
+import { addSignersToTransactionMessage, blockhash, getCompiledTransactionMessageCodec, isFullySignedTransaction } from '@solana/kit';
+import { Address, address, createTransaction, getTransactionDecoder, getTransactionEncoder, isTransactionPartialSigner, partiallySignTransactionMessageWithSigners } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { setupTokens, TokenAuthorities } from '../../helpers/spl-tokens.js';
@@ -119,7 +120,7 @@ describe('User Stake Instructions', async () => {
                 feePayer: worker.address
             });
             tx = addSignersToTransactionMessage([user.transactionSigner], tx);
-            
+
             const partiallySignedTx = await partiallySignTransactionMessageWithSigners(tx);
 
             if (!isTransactionPartialSigner(user.transactionSigner)) {
@@ -130,7 +131,7 @@ describe('User Stake Instructions', async () => {
 
             // Encode to base64 (ready to send to worker endpoint)
             const encoder = getTransactionEncoder();
-            const txBytes = encoder.encode(partiallySignedTx);            
+            const txBytes = encoder.encode(partiallySignedTx);
 
             // Verify we can decode it back
             const decoder = getTransactionDecoder();
@@ -156,25 +157,28 @@ describe('User Stake Instructions', async () => {
 
             console.log('Transaction version:', decodedMessage.version);
             console.log('Number of instructions:', decodedMessage.instructions.length);
-            
+
             // Check the first (and only) instruction in this transaction
             const instruction = decodedMessage.instructions[0];
             const programAddress = decodedMessage.staticAccounts[instruction.programAddressIndex];
-            
+
             console.log('Program address:', programAddress);
             console.log('Instruction accounts count:', instruction.accountIndices?.length ?? 0);
             console.log('Instruction data length:', instruction.data?.length ?? 0);
-            
+
             // Verify it's the worker stake program
             expect(programAddress).toBe(WORKER_STAKE_PROGRAM);
-            
+
             // Verify accounts are present
             expect(instruction.accountIndices).toBeDefined();
             expect(instruction.accountIndices!.length).toBeGreaterThan(0);
-            
+
             // Verify instruction data
             expect(instruction.data).toBeDefined();
             expect(instruction.data!.length).toBeGreaterThan(0);
+
+            const params = decodeStakeInstruction(instruction.data);
+            expect(params.amount).toBe(stakeAmount);
 
             expect(isFullySignedTransaction(fullySigned)).toBe(true);
         });

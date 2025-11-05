@@ -61,7 +61,7 @@ export function decodeStakeInstruction(instructionData: ReadonlyUint8Array): Sta
     const paramsData = instructionData.slice(1);
     const decoded = StakeParamsCodec.decode(paramsData);
 
-    return decoded[0];
+    return decoded;
 }
 
 export class Stake {
