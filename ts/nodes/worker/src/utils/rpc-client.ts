@@ -72,8 +72,10 @@ function wrapError(error: unknown, context: Record<string, unknown> = {}): RpcCl
     return new RpcClientError(getErrorMessage(error), error, context);
 }
 
-function isRateLimitError(error: unknown): boolean {
+function isRateLimitError(error: unknown, operation?: string): boolean {
     if (!error) return false;
+
+    let isRateLimit = false;
 
     // Check for HTTP 429 status
     if (typeof error === 'object' && error !== null) {
@@ -81,24 +83,34 @@ function isRateLimitError(error: unknown): boolean {
 
         // Check status property
         if (err.status === 429 || err.statusCode === 429) {
-            return true;
+            isRateLimit = true;
         }
 
         // Check response object
         if (err.response?.status === 429) {
-            return true;
+            isRateLimit = true;
         }
 
         // Check error message for rate limit indicators
-        const message = getErrorMessage(error).toLowerCase();
-        if (message.includes('429') ||
-            message.includes('rate limit') ||
-            message.includes('too many requests')) {
-            return true;
+        if (!isRateLimit) {
+            const message = getErrorMessage(error).toLowerCase();
+            if (message.includes('429') ||
+                message.includes('rate limit') ||
+                message.includes('too many requests')) {
+                isRateLimit = true;
+            }
         }
     }
 
-    return false;
+    if (isRateLimit) {
+        const operationContext = operation ? ` [${operation}]` : '';
+        logger.warn(
+            { err: getErrorMessage(error), operation },
+            `Rate limit detected (HTTP 429)${operationContext}, will retry with exponential backoff`
+        );
+    }
+
+    return isRateLimit;
 }
 
 // =============================================================================
@@ -181,7 +193,7 @@ class TransactionService {
                         maxRetries: 5,
                         baseDelayMs: 500,
                         exponentialBackoff: true,
-                        shouldRetry: isRateLimitError
+                        shouldRetry: (error) => isRateLimitError(error, 'sendAndConfirmTransaction')
                     }
                 );
 
@@ -265,7 +277,7 @@ class AssetService {
                             maxRetries: 5,
                             baseDelayMs: 500,
                             exponentialBackoff: true,
-                            shouldRetry: isRateLimitError
+                            shouldRetry: (error) => isRateLimitError(error, 'searchAssets')
                         }
                     );
 
