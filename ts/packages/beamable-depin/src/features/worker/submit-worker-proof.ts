@@ -34,7 +34,7 @@ export const SubmitWorkerProofParamsCodec: Codec<SubmitWorkerProofParams> = getS
     ["license_context", CNftContextCodec],
     ["proof_root", fixCodecSize(getBytesCodec(), 32)],
     ["period", getU16Codec()],
-    ["checkers", fixCodecSize(getBytesCodec(), 32)],
+    ["checkers", fixCodecSize(getBytesCodec(), 64)],
     ["uptime", getU32Codec()],
     ["latency", getU32Codec()],
 ]);
