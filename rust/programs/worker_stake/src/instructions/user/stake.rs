@@ -45,8 +45,8 @@ pub fn process_stake<'a>(
     instruction_data: &[u8],
 ) -> ProgramResult {
     // Expected Accounts:
-    // 0. [signer] User
-    // 1. [signer, writable] Worker (payer for account creation/realloc, co-signing to vouch for checker_count)
+    // 0. [signer, writable] Worker (payer for account creation/realloc, co-signing to vouch for checker_count)
+    // 1. [signer] User
     // 2. [readonly] Worker collection account
     // 3. [writable] WorkerStakeConfig PDA
     // 4. [writable] MonthlyPool for current month
@@ -64,8 +64,8 @@ pub fn process_stake<'a>(
     // Remaining accounts: [readonly] Proof accounts for Merkle tree verification
 
     let account_info_iter = &mut accounts.iter();
-    let user_account = next_account_info(account_info_iter)?;
     let worker_account = next_account_info(account_info_iter)?;
+    let user_account = next_account_info(account_info_iter)?;
     let worker_collection_account = next_account_info(account_info_iter)?;
     let worker_stake_config_account = next_account_info(account_info_iter)?;
     let monthly_pool_account = next_account_info(account_info_iter)?;

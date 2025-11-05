@@ -1,22 +1,17 @@
 import {
     AccountRole,
-    address,
     Address,
     Codec,
     Endian,
-    getAddressEncoder,
     getStructCodec,
-    getU64Codec,
-    getProgramDerivedAddress
+    getU64Codec
 } from "gill";
 
-import { BMB_MINT, SYSTEM_PROGRAM_ADDRESS, WORKER_STAKE_PROGRAM, WORKER_STAKE_VAULT_SEED } from "../../constants.js";
+import { ASSOCIATED_TOKEN_PROGRAM_ADDRESS, findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+import { BMB_MINT, SYSTEM_PROGRAM_ADDRESS, WORKER_STAKE_PROGRAM } from "../../constants.js";
 import { WorkerStakeInstruction } from "../../enums.js";
-import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
-import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS, ASSOCIATED_TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import { findWorkerStakeVaultPda } from "./accounts.js";
-
-const addressEncoder = getAddressEncoder();
+import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
 
 export interface WorkerStakeParams {
     amount: bigint;

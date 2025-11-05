@@ -72,7 +72,7 @@ async function validateStakeTransaction(transaction: Transaction, worker: Worker
     let stakerAddress: Address | undefined;
     try {
         params = decodeStakeInstruction(instructionData);
-        stakerAddress = decodedMessage.staticAccounts[instruction.accountIndices[0]];
+        stakerAddress = decodedMessage.staticAccounts[instruction.accountIndices[1]];
     } catch (err) {
         return {
             error: 'invalid_instruction_params',
@@ -86,6 +86,15 @@ async function validateStakeTransaction(transaction: Transaction, worker: Worker
         return {
             error: 'invalid_license_owner',
             message: `License owner (${params.license_context.owner}) does not match this worker (${worker.getAddress()})`,
+            timestamp: Date.now()
+        };
+    }
+
+    // Validate worker account (fee payer) matches worker address
+    if (decodedMessage.staticAccounts[instruction.accountIndices[0]] != worker.getAddress()) {
+        return {
+            error: 'invalid_worker_account',
+            message: `Worker account (fee payer) must be the worker address (${worker.getAddress()})`,
             timestamp: Date.now()
         };
     }

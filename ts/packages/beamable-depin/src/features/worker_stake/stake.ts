@@ -118,8 +118,8 @@ export class Stake {
         });
 
         const accounts = [
-            { address: this.user, role: AccountRole.WRITABLE_SIGNER },
-            { address: this.worker, role: AccountRole.READONLY_SIGNER },
+            { address: this.worker, role: AccountRole.WRITABLE_SIGNER },
+            { address: this.user, role: AccountRole.READONLY_SIGNER },
             { address: this.worker_collection, role: AccountRole.READONLY },
             { address: configPda[0], role: AccountRole.WRITABLE },
             { address: currentPoolPda[0], role: AccountRole.WRITABLE },
