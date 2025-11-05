@@ -5,12 +5,7 @@ import { address, isAddress, isSome } from 'gill';
 import { isPrivateIP } from '../utils/network.js';
 import { withRetry } from '../utils/retry.js';
 import { WorkerNode } from '../worker.js';
-
-export interface ValidationError {
-    error: string;
-    message: string;
-    timestamp: number;
-}
+import { ValidationError } from './index.js';
 
 export function createErrorResponse(error: string, message: string): ValidationError {
     return { error, message, timestamp: Date.now() };

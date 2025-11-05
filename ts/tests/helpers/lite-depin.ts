@@ -170,6 +170,10 @@ export class LiteDepin {
         this.svm.airdrop(keyPair.web3PublicKey, BigInt(LAMPORTS_PER_SOL * solAmount));
     }
 
+    public getLatestBlockhash(): string { 
+        return this.svm.latestBlockhash();
+    }
+
     public async generateKeyPair(): Promise<LiteKeyPair> {
         return await this.generateKeyPairFromSecretKey(Keypair.generate().secretKey);
     }

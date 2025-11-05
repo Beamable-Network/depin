@@ -29,6 +29,9 @@ export async function rootRoutes(fastify: FastifyInstance, { worker }: { worker:
           submit: `${config.urlPath('proof')}`,
           listByPeriod: `${config.urlPath('proofs/:period')}`
         },
+        stake: {
+          sign: `${config.urlPath('stake/sign')}`
+        },
         sla: {
           negotiate: `${config.urlPath('sla/negotiate')}`,
           manage: `${config.urlPath('sla/manage')}`

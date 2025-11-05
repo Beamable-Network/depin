@@ -16,6 +16,6 @@ export function bmbToBaseUnits(amount: number): bigint {
  * @param amount - Amount in base units
  * @returns Amount in BMB token units
  */
-export function baseUnitsToBMB(amount: bigint): number {
+export function baseUnitsToBmb(amount: bigint): number {
     return Number(amount) / 10 ** BMB_DECIMALS;
 }

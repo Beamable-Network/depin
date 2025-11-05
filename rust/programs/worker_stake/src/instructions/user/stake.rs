@@ -45,8 +45,8 @@ pub fn process_stake<'a>(
     instruction_data: &[u8],
 ) -> ProgramResult {
     // Expected Accounts:
-    // 0. [signer, writable] User (payer for account creation/realloc)
-    // 1. [signer] Worker (co-signing to vouch for checker_count)
+    // 0. [signer] User
+    // 1. [signer, writable] Worker (payer for account creation/realloc, co-signing to vouch for checker_count)
     // 2. [readonly] Worker collection account
     // 3. [writable] WorkerStakeConfig PDA
     // 4. [writable] MonthlyPool for current month
@@ -263,14 +263,14 @@ pub fn process_stake<'a>(
         ];
         invoke_signed(
             &system_instruction::create_account(
-                user_account.key,
+                worker_account.key,
                 &user_position_pda,
                 rent_lamports,
                 space as u64,
                 program_id,
             ),
             &[
-                user_account.clone(),
+                worker_account.clone(),
                 user_position_account.clone(),
                 system_program.clone(),
             ],
@@ -317,7 +317,7 @@ pub fn process_stake<'a>(
 
     let required_size = UserStakePosition::required_size(user_position.stake_entries.len());
     reallocate_account_if_needed(
-        user_account,
+        worker_account,
         user_position_account,
         system_program,
         &rent,
@@ -343,7 +343,7 @@ pub fn process_stake<'a>(
 
     // Initialize community vault ATA if needed (lazy)
     initialize_ata_if_needed(
-        user_account,
+        worker_account,
         community_vault_pda,
         bmb_mint_account,
         community_vault_ata,

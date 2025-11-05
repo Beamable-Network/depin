@@ -1,16 +1,15 @@
 import {
     AccountRole,
-    address,
     Address,
     getAddressEncoder,
     getProgramDerivedAddress
 } from "gill";
 
+import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import { BMB_MINT, COMMUNITY_STAKE_VAULT_SEED, WORKER_STAKE_PROGRAM } from "../../constants.js";
 import { WorkerStakeInstruction } from "../../enums.js";
-import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
 import { UserStakePositionAccount } from "./user-stake-position-account.js";
-import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
 
 const addressEncoder = getAddressEncoder();
 

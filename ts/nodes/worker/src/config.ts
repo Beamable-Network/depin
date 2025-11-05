@@ -6,7 +6,13 @@ const workerDir = dirname(import.meta.dirname);
 const envPath = join(workerDir, '.env');
 dotenv.config({ path: envPath });
 
+export interface ThrottleConfig {
+  limit: number;
+  interval: number;
+}
+
 export class WorkerConfig {
+  public readonly solanaNetwork: "mainnet" | "devnet";
   public readonly port: number;
   public readonly host: string;
   public readonly solanaRpcUrl: string;
@@ -21,15 +27,28 @@ export class WorkerConfig {
     accessKeyId?: string;
     secretAccessKey?: string;
   };
+  public readonly throttle: {
+    sendTransaction: ThrottleConfig;
+    getAssetsByOwner: ThrottleConfig;
+  };
   private _workerPrivateKeyBytes?: Uint8Array;
 
   constructor() {
+    const solanaNetwork = process.env.SOLANA_NETWORK;
     const solanaRpcUrl = process.env.SOLANA_RPC_URL;
     const externalUrl = process.env.EXTERNAL_URL;
     const workerPrivateKey = process.env.WORKER_PRIVATE_KEY;
     const workerLicense = process.env.WORKER_LICENSE;
     const s3BucketName = process.env.S3_BUCKET_NAME;
     const s3Region = process.env.S3_REGION;
+
+    if (!solanaNetwork) {
+      throw new Error('SOLANA_NETWORK environment variable is required');
+    }
+
+    if (solanaNetwork !== 'mainnet' && solanaNetwork !== 'devnet') {
+      throw new Error('SOLANA_NETWORK must be either "mainnet" or "devnet"');
+    }
 
     if (!solanaRpcUrl) {
       throw new Error('SOLANA_RPC_URL environment variable is required');
@@ -55,6 +74,7 @@ export class WorkerConfig {
       throw new Error('S3_REGION environment variable is required');
     }
 
+    this.solanaNetwork = solanaNetwork;
     this.port = parseInt(process.env.PORT || '3000');
     this.host = process.env.HOST || '0.0.0.0';
     this.solanaRpcUrl = solanaRpcUrl;
@@ -69,6 +89,30 @@ export class WorkerConfig {
       accessKeyId: process.env.S3_ACCESS_KEY_ID,
       secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
     };
+
+    // Throttle configuration with defaults
+    this.throttle = {
+      sendTransaction: {
+        limit: this.parseEnvInt('THROTTLE_SEND_TX_LIMIT', 1),
+        interval: this.parseEnvInt('THROTTLE_SEND_TX_INTERVAL', 1100)
+      },
+      getAssetsByOwner: {
+        limit: this.parseEnvInt('THROTTLE_GET_ASSETS_LIMIT', 5),
+        interval: this.parseEnvInt('THROTTLE_GET_ASSETS_INTERVAL', 1100)
+      }
+    };
+  }
+
+  private parseEnvInt(key: string, defaultValue: number): number {
+    const value = process.env[key];
+    if (!value) {
+      return defaultValue;
+    }
+    const parsed = parseInt(value, 10);
+    if (isNaN(parsed) || parsed <= 0) {
+      throw new Error(`${key} must be a positive integer, got: ${value}`);
+    }
+    return parsed;
   }
 
   urlPath(relative: string): string {

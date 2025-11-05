@@ -1,4 +1,4 @@
-import { address, Address, createKeyPairSignerFromBytes, isAddress, KeyPairSigner, lamportsToSol, SignableMessage, SignatureBytes } from 'gill';
+import { address, Address, createKeyPairSignerFromBytes, isAddress, KeyPairSigner, lamportsToSol, SignableMessage, SignatureBytes, Transaction } from 'gill';
 import * as os from 'os';
 
 import { DasApiInterface } from '@metaplex-foundation/digital-asset-standard-api';
@@ -41,6 +41,11 @@ export class WorkerNode {
 
   async sign(message: SignableMessage): Promise<SignatureBytes> {
     const [signature] = await this.signer.signMessages([message]);
+    return signature[this.signer.address];
+  }
+
+  async signTransaction(transaction: Transaction): Promise<SignatureBytes> {
+    const [signature] = await this.signer.signTransactions([transaction]);
     return signature[this.signer.address];
   }
 

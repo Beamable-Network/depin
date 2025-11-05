@@ -101,6 +101,9 @@ export const WorkerDiscoveryDocumentSchema = Type.Object({
       submit: Type.String({ description: 'Proof submission endpoint' }),
       listByPeriod: Type.String({ description: 'List proofs by period endpoint' }),
     }),
+    stake: Type.Optional(Type.Object({
+      sign: Type.String({ description: 'Stake transaction signing endpoint' }),
+    })),
     sla: Type.Object({
       negotiate: Type.String({ description: 'SLA negotiation endpoint' }),
       manage: Type.String({ description: 'SLA management endpoint' }),
@@ -196,3 +199,25 @@ export type WorkerProofListResponse = Static<typeof WorkerProofListResponseSchem
 
 export const WorkerProofRequestSchema = SignedProoftSchema;
 export type WorkerProofRequest = Static<typeof WorkerProofRequestSchema>;
+
+export const SignStakeTransactionRequestSchema = Type.Object({
+    transaction: Type.String({
+        description: 'Base64-encoded serialized transaction that the user has already signed'
+    })
+});
+
+export const SignStakeTransactionResponseSchema = Type.Object({
+    transaction: Type.String({
+        description: 'Base64-encoded serialized transaction with worker signature added'
+    })
+});
+
+export const StakeErrorResponseSchema = Type.Object({
+    error: Type.String(),
+    message: Type.String(),
+    timestamp: Type.Number()
+});
+
+export type SignStakeTransactionRequest = Static<typeof SignStakeTransactionRequestSchema>;
+
+export type SignStakeTransactionResponse = Static<typeof SignStakeTransactionResponseSchema>;

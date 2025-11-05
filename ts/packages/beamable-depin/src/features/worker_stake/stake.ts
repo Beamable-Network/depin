@@ -8,7 +8,8 @@ import {
     getStructCodec,
     getU16Codec,
     getU64Codec,
-    getProgramDerivedAddress
+    getProgramDerivedAddress,
+    ReadonlyUint8Array
 } from "gill";
 
 import { AssetWithProof } from "@metaplex-foundation/mpl-bubblegum";
@@ -43,6 +44,24 @@ export interface CreateStakeInput {
     checker_count: number;
     current_month_period: number;
     previous_pool_month_period?: number; // Optional, only needed if last_active_pool_month > 0
+}
+
+export function decodeStakeInstruction(instructionData: ReadonlyUint8Array): StakeParams {
+    if (!instructionData || instructionData.length === 0) {
+        throw new Error('Instruction data is empty');
+    }
+
+    // Check discriminator
+    const discriminator = instructionData[0];
+    if (discriminator !== WorkerStakeInstruction.Stake) {
+        throw new Error(`Invalid instruction discriminator: expected 0x07 (Stake), got 0x${discriminator.toString(16).padStart(2, '0')}`);
+    }
+
+    // Decode the parameters (skip discriminator)
+    const paramsData = instructionData.slice(1);
+    const decoded = StakeParamsCodec.decode(paramsData);
+
+    return decoded[0];
 }
 
 export class Stake {
