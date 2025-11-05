@@ -1,4 +1,4 @@
-import { findWorkerProofPDA, getCurrentPeriod, getRemainingTimeInPeriodMs, SubmitWorkerProof } from '@beamable-network/depin';
+import { findWorkerProofPDA, getCurrentPeriod, getRemainingTimeInPeriodMs, SubmitWorkerProof, WorkerProofAccount } from '@beamable-network/depin';
 import { publicKey } from '@metaplex-foundation/umi';
 import { trace } from '@opentelemetry/api';
 import { SolanaError } from 'gill';
@@ -6,6 +6,7 @@ import { getLogger } from '../logger.js';
 import { withRetry } from '../utils/retry.js';
 import { WorkerNode } from '../worker.js';
 import { AggregatedProof, AggregatedProofProvider, S3AggregatedProofProvider } from './aggregated-proof-provider.js';
+import { RpcClientError } from '../utils/rpc-client.js';
 const { getAssetWithProof } = await import('@metaplex-foundation/mpl-bubblegum');
 
 const logger = getLogger('ProofSubmitService');
@@ -106,14 +107,19 @@ export class ProofSubmitService {
         if (!this.isRunning) {
           throw new Error('Service is not running');
         }
-
-        const proof = await this.proofProvider.getAggregatedProof(period);
-        if (!proof) {
-          logger.debug({ period }, `No proof data available for period ${period}`);
-          return;
+        
+        if (!await this.isProofAlreadySubmitted(period)) {
+          const proof = await this.proofProvider.getAggregatedProof(period);
+          if (!proof) {
+            logger.debug({ period }, `No proof data available for period ${period}`);
+            return;
+          }
+  
+          await this.submitProof(period, proof);
         }
-
-        await this.submitProof(period, proof);
+        else {
+          logger.info({ period }, 'Proof already submitted, skipping');
+        }
       }, {
         maxRetries: 5,
         baseDelayMs: 10_000, // 10 seconds
@@ -164,8 +170,8 @@ export class ProofSubmitService {
       }
       catch (err) {
         // Don't retry if WorkerProof already exists
-        if (err instanceof SolanaError) {
-          const logs = err.context?.logs as readonly string[] | null;
+        if (err instanceof RpcClientError && err.originalError instanceof SolanaError) {
+          const logs = err.originalError.context?.logs as readonly string[] | null;
           if (logs?.some((log) => log.includes('WorkerProof already exists'))) {
             logger.warn({ period }, 'WorkerProof already exists, skipping retry');
           }

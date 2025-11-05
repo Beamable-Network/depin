@@ -59,7 +59,6 @@ export async function withRetry<T>(
 
             // Check if we should retry this error
             if (!config.shouldRetry(err)) {
-                logger.warn({ err, attempt }, 'Error marked as non-retryable, aborting');
                 throw err;
             }
 
