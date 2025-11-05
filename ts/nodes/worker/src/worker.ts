@@ -44,11 +44,6 @@ export class WorkerNode {
     return signature[this.signer.address];
   }
 
-  async signTransaction(transaction: Transaction): Promise<SignatureBytes> {
-    const [signature] = await this.signer.signTransactions([transaction]);
-    return signature[this.signer.address];
-  }
-
   getLicense(): Address {
     return this.license;
   }

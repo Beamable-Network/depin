@@ -200,10 +200,13 @@ export async function stakeRoutes(fastify: FastifyInstance, { worker }: { worker
             }
 
             // Sign the transaction with the worker's key
-            const workerSignature = await worker.signTransaction(transaction);
-            transaction.signatures[workerAddress] = workerSignature;
+            const [workerSignatures] = await worker.getSigner().signTransactions([transaction]);
+            const signedTransaction = {
+                ...transaction,
+                signatures: { ...transaction.signatures, ...workerSignatures }
+            };
 
-            if (!isFullySignedTransaction(transaction)) {
+            if (!isFullySignedTransaction(signedTransaction)) {
                 return reply.code(400).send({
                     error: 'incomplete_signatures',
                     message: 'Transaction is not fully signed after worker signature',
@@ -213,7 +216,7 @@ export async function stakeRoutes(fastify: FastifyInstance, { worker }: { worker
 
             // Simulate the transaction to verify it will succeed
             log.debug('Simulating stake transaction before returning');
-            const simulationResult = await worker.getRpcClient().simulateTransaction(transaction);
+            const simulationResult = await worker.getRpcClient().simulateTransaction(signedTransaction);
 
             if (simulationResult.err) {
                 log.error({ err: simulationResult.err, logs: simulationResult.logs }, 'Transaction simulation failed');
@@ -228,10 +231,10 @@ export async function stakeRoutes(fastify: FastifyInstance, { worker }: { worker
 
             // Serialize the signed transaction
             const encoder = getTransactionEncoder();
-            const signedTransactionBytes = encoder.encode(transaction);
+            const signedTransactionBytes = encoder.encode(signedTransaction);
             const signedTransactionBase64 = Buffer.from(signedTransactionBytes).toString('base64');
 
-            log.info({ signers: Object.keys(transaction.signatures) }, 'Stake transaction signed');
+            log.info({ signers: Object.keys(signedTransaction.signatures) }, 'Stake transaction signed');
 
             return reply.code(200).send({
                 transaction: signedTransactionBase64
