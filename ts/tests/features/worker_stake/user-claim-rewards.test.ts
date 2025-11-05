@@ -53,8 +53,8 @@ describe('User Claim Rewards Instructions', async () => {
 
         await lite.buildTransaction()
             .addInstruction(await stake.getInstruction())
-            .sign(worker)
-            .sendTransaction({ payer: user });
+            .sign(user)
+            .sendTransaction({ payer: worker });
 
         return { user };
     }

@@ -2,6 +2,7 @@ import {
     AccountRole,
     address,
     Codec,
+    fixCodecSize,
     getBytesCodec,
     getStructCodec,
     getU16Codec,
@@ -31,9 +32,9 @@ export interface SubmitWorkerProofParams {
 
 export const SubmitWorkerProofParamsCodec: Codec<SubmitWorkerProofParams> = getStructCodec([
     ["license_context", CNftContextCodec],
-    ["proof_root", getBytesCodec()],
+    ["proof_root", fixCodecSize(getBytesCodec(), 32)],
     ["period", getU16Codec()],
-    ["checkers", getBytesCodec()],
+    ["checkers", fixCodecSize(getBytesCodec(), 32)],
     ["uptime", getU32Codec()],
     ["latency", getU32Codec()],
 ]);

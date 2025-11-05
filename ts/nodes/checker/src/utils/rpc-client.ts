@@ -9,6 +9,7 @@ import { GetProgramAccountsV2Config } from 'helius-sdk/types/types';
 import pThrottle from 'p-throttle';
 import { CheckerConfig } from '../config.js';
 import { getLogger } from '../logger.js';
+import { withRetry } from './retry.js';
 
 const logger = getLogger('RpcClient');
 
@@ -24,101 +25,226 @@ export interface RpcClient {
     getAccount: (address: string) => Promise<Uint8Array | null>;
 }
 
-function createUmiClient(config: CheckerConfig): Umi & { rpc: DasApiInterface; } {
-    const umi = createUmi(config.getSolanaRpcUrl())
-        .use(mplBubblegum())
-        .use(dasApi());
+// =============================================================================
+// Error Handling Utilities
+// =============================================================================
 
-    const signer = createSignerFromKeypair(umi, umi.eddsa.createKeypairFromSecretKey(new Uint8Array(config.checkerPrivateKeyBytes)));
-
-    umi.use(signerIdentity(signer));
-
-    return {
-        ...umi,
-        rpc: umi.rpc as unknown as RpcInterface & DasApiInterface,
-    };
+class RpcClientError extends Error {
+    constructor(
+        message: string,
+        public readonly originalError: unknown,
+        public readonly context?: Record<string, unknown>
+    ) {
+        super(message);
+        this.name = 'RpcClientError';
+    }
 }
 
-function createBuildAndSendTransactionFn(params: {
+function getErrorMessage(error: unknown): string {
+    if (error instanceof SolanaError) {
+        const messages: string[] = [];
+        let currentError: any = error;
+
+        while (currentError) {
+            if (currentError.message) {
+                messages.push(currentError.message);
+            }
+
+            if (currentError.cause instanceof Error) {
+                currentError = currentError.cause;
+            } else if (currentError.cause && typeof currentError.cause === 'object' && 'message' in currentError.cause) {
+                currentError = currentError.cause;
+            } else {
+                break;
+            }
+        }
+
+        return messages.length > 1 ? messages.join(' -> ') : (error.message || 'Unknown SolanaError');
+    }
+
+    if (error instanceof Error) {
+        return error.message;
+    }
+
+    return String(error);
+}
+
+function wrapError(error: unknown, context: Record<string, unknown> = {}): RpcClientError {
+    return new RpcClientError(getErrorMessage(error), error, context);
+}
+
+function isRateLimitError(error: unknown, operation?: string): boolean {
+    if (!error) return false;
+
+    let isRateLimit = false;
+
+    // Check for HTTP 429 status
+    if (typeof error === 'object' && error !== null) {
+        const err = error as any;
+
+        // Check status property
+        if (err.status === 429 || err.statusCode === 429) {
+            isRateLimit = true;
+        }
+
+        // Check response object
+        if (err.response?.status === 429) {
+            isRateLimit = true;
+        }
+
+        // Check error message for rate limit indicators
+        if (!isRateLimit) {
+            const message = getErrorMessage(error).toLowerCase();
+            if (message.includes('429') ||
+                message.includes('rate limit') ||
+                message.includes('too many requests')) {
+                isRateLimit = true;
+            }
+        }
+    }
+
+    if (isRateLimit) {
+        const operationContext = operation ? ` [${operation}]` : '';
+        logger.warn(
+            { err: getErrorMessage(error), operation },
+            `Rate limit detected (HTTP 429)${operationContext}, will retry with exponential backoff`
+        );
+    }
+
+    return isRateLimit;
+}
+
+// =============================================================================
+// Throttling Service
+// =============================================================================
+
+interface ThrottleConfig {
+    limit: number;
+    interval: number;
+}
+
+class ThrottleService {
+    static createThrottledFunction<T extends any[], R>(
+        fn: (...args: T) => Promise<R>,
+        config: ThrottleConfig
+    ): (...args: T) => Promise<R> {
+        return pThrottle({
+            limit: config.limit,
+            interval: config.interval
+        })(fn);
+    }
+}
+
+// =============================================================================
+// Transaction Service
+// =============================================================================
+
+interface TransactionServiceDependencies {
     rpc: Rpc<SolanaRpcApi>;
+    rpcUrl: string;
     wallet: TransactionSigner & MessageSigner;
-    sendAndConfirmTransaction: ReturnType<typeof sendAndConfirmTransactionFactory>;
-}) {
-    const { rpc, wallet, sendAndConfirmTransaction } = params;
-
-    return async (instructions: ReadonlyArray<BaseTransactionMessage['instructions'][number]>, commitment: "processed" | "confirmed" | "finalized" = "confirmed"): Promise<{ signature: Signature; logs: readonly string[] | null }> => {
-        const recent = await rpc.getLatestBlockhash().send();
-        try {
-
-            const txMessage = await pipe(
-                createTransactionMessage({ version: 0 }),
-                (tx) => setTransactionMessageFeePayerSigner(wallet, tx),
-                (tx) => setTransactionMessageLifetimeUsingBlockhash(recent.value, tx),
-                (tx) => appendTransactionMessageInstructions(instructions, tx)
-            );
-
-            const tx = await signTransactionMessageWithSigners(txMessage);
-            const txSig = getSignatureFromTransaction(tx);
-
-            logger.debug({ txSig }, 'Sending transaction with signature');
-            await sendAndConfirmTransaction(tx, { commitment, skipPreflight: false });
-
-
-            const txInfo = await rpc.getTransaction(txSig, {
-                maxSupportedTransactionVersion: 0,
-                commitment,
-                encoding: 'json'
-            }).send();
-
-            const logs = txInfo?.meta?.logMessages || [];
-            logger.debug({ logs }, 'Transaction logs');
-
-            return { signature: txSig, logs };
-        } catch (err) {
-            logger.error({ err: getErrorMessage(err) }, 'Error sending transaction');
-            throw err;
-        }
-    };
+    throttleConfig: ThrottleConfig;
 }
 
-export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): RpcClient {
-    const helius = createHelius({ apiKey: config.heliusApiKey, network: config.solanaNetwork });
+class TransactionService {
+    private readonly sendAndConfirmTransaction: ReturnType<typeof sendAndConfirmTransactionFactory>;
 
-    // Create shared UMI instance
-    const umi = createUmiClient(config);
+    constructor(private readonly deps: TransactionServiceDependencies) {
+        const { rpc, rpcUrl, throttleConfig } = deps;
+        const rpcSubscriptions = createSolanaRpcSubscriptions(
+            rpcUrl.replace('http', 'ws')
+        );
 
-    // Create Gill RPC clients for transaction handling
-    const rpc = createSolanaRpc(config.getSolanaRpcUrl());
-    const rpcSubscriptions = createSolanaRpcSubscriptions(config.getSolanaRpcUrl().replace('http', 'ws'));
+        const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions });
+        this.sendAndConfirmTransaction = ThrottleService.createThrottledFunction(
+            sendAndConfirmTransaction,
+            throttleConfig
+        );
+    }
 
-    const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions });
+    async buildAndSendTransaction(
+        instructions: ReadonlyArray<BaseTransactionMessage['instructions'][number]>,
+        commitment: "processed" | "confirmed" | "finalized" = "confirmed"
+    ): Promise<{ signature: Signature; logs: readonly string[] | null }> {
+        const { rpc, wallet } = this.deps;
 
-    // Throttle sendAndConfirmTransaction using config
-    const sendAndConfirmTransactionThrottled = pThrottle({
-        limit: config.throttle.sendTransaction.limit,
-        interval: config.throttle.sendTransaction.interval
-    })(sendAndConfirmTransaction);
+        return await getTracer().startActiveSpan('buildAndSendTransaction', async (span) => {
+            try {
+                const recent = await rpc.getLatestBlockhash().send();
 
-    const buildAndSendTransaction = createBuildAndSendTransactionFn({
-        rpc,
-        wallet: signer,
-        sendAndConfirmTransaction: sendAndConfirmTransactionThrottled
-    });
+                const txMessage = pipe(
+                    createTransactionMessage({ version: 0 }),
+                    (tx) => setTransactionMessageFeePayerSigner(wallet, tx),
+                    (tx) => setTransactionMessageLifetimeUsingBlockhash(recent.value, tx),
+                    (tx) => appendTransactionMessageInstructions(instructions, tx)
+                );
 
-    // Throttle getProgramAccountsV2 using config
-    const getProgramAccountsV2Throttled = pThrottle({
-        limit: config.throttle.getProgramAccounts.limit,
-        interval: config.throttle.getProgramAccounts.interval
-    })(
-        async (programAddress: string, requestOptions: GetProgramAccountsV2Config) => {
-            return await helius.getProgramAccountsV2([programAddress, requestOptions]);
-        }
-    );
+                const signedTx = await signTransactionMessageWithSigners(txMessage);
+                const signature = getSignatureFromTransaction(signedTx);
 
-    const getProgramAccounts = async (
+                span.setAttribute('transaction.signature', signature);
+                span.setAttribute('transaction.commitment', commitment);
+                span.setAttribute('transaction.instructionsCount', instructions.length);
+
+                logger.debug({ txSig: signature }, 'Sending transaction with signature');
+
+                await withRetry(
+                    async () => this.sendAndConfirmTransaction(signedTx, { commitment, skipPreflight: false }),
+                    {
+                        maxRetries: 5,
+                        baseDelayMs: 500,
+                        exponentialBackoff: true,
+                        shouldRetry: (error) => isRateLimitError(error, 'sendAndConfirmTransaction')
+                    }
+                );
+
+                const transactionInfo = await rpc.getTransaction(signature, {
+                    maxSupportedTransactionVersion: 0,
+                    commitment,
+                    encoding: 'json'
+                }).send();
+
+                const logs = transactionInfo?.meta?.logMessages || [];
+                logger.debug({ logs }, 'Transaction logs');
+
+                return { signature, logs };
+            } catch (error) {
+                logger.error({ err: getErrorMessage(error) }, 'Error sending transaction');
+                throw wrapError(error, { instructionsCount: instructions.length, commitment });
+            } finally {
+                span.end();
+            }
+        });
+    }
+}
+
+// =============================================================================
+// Program Accounts Service
+// =============================================================================
+
+interface ProgramAccountsServiceDependencies {
+    helius: ReturnType<typeof createHelius>;
+    throttleConfig: ThrottleConfig;
+}
+
+class ProgramAccountsService {
+    private readonly getProgramAccountsV2Throttled: (
+        programAddress: string,
+        requestOptions: GetProgramAccountsV2Config
+    ) => Promise<Awaited<ReturnType<ReturnType<typeof createHelius>['getProgramAccountsV2']>>>;
+
+    constructor(private readonly deps: ProgramAccountsServiceDependencies) {
+        this.getProgramAccountsV2Throttled = ThrottleService.createThrottledFunction(
+            (programAddress: string, requestOptions: GetProgramAccountsV2Config) =>
+                deps.helius.getProgramAccountsV2([programAddress, requestOptions]),
+            deps.throttleConfig
+        );
+    }
+
+    async getProgramAccounts(
         programAddress: string,
         filters: GetProgramAccountsMemcmpFilter[]
-    ): Promise<Array<{ pubkey: string; account: { data: ArrayLike<number> } }>> => {
+    ): Promise<Array<{ pubkey: string; account: { data: ArrayLike<number> } }>> {
         const allAccounts: Array<{ pubkey: string; account: { data: ArrayLike<number> } }> = [];
         let paginationKey: string | null = null;
 
@@ -141,7 +267,15 @@ export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): R
                         requestOptions.paginationKey = paginationKey;
                     }
 
-                    const result = await getProgramAccountsV2Throttled(programAddress, requestOptions);
+                    const result = await withRetry(
+                        async () => this.getProgramAccountsV2Throttled(programAddress, requestOptions),
+                        {
+                            maxRetries: 5,
+                            baseDelayMs: 500,
+                            exponentialBackoff: true,
+                            shouldRetry: (error) => isRateLimitError(error, 'getProgramAccountsV2')
+                        }
+                    );
 
                     // Convert base64 data to Buffer (ArrayLike<number>)
                     for (const acc of result.accounts) {
@@ -162,56 +296,129 @@ export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): R
                 span.end();
             }
         });
+    }
+}
+
+// =============================================================================
+// Asset Service
+// =============================================================================
+
+interface AssetServiceDependencies {
+    umi: Umi & { rpc: DasApiInterface; };
+    getLicenseWithProofThrottleConfig: ThrottleConfig;
+    getAccountThrottleConfig: ThrottleConfig;
+}
+
+class AssetService {
+    private readonly getLicenseWithProofThrottled: (assetId: string) => Promise<Awaited<ReturnType<typeof getAssetWithProof>>>;
+    private readonly getAccountThrottled: (address: string) => Promise<Uint8Array | null>;
+
+    constructor(private readonly deps: AssetServiceDependencies) {
+        this.getLicenseWithProofThrottled = ThrottleService.createThrottledFunction(
+            (assetId: string) => getAssetWithProof(deps.umi, publicKey(assetId), { truncateCanopy: true }),
+            deps.getLicenseWithProofThrottleConfig
+        );
+
+        this.getAccountThrottled = ThrottleService.createThrottledFunction(
+            async (address: string) => {
+                const accountData = await deps.umi.rpc.getAccount(publicKey(address));
+                return accountData.exists ? accountData.data : null;
+            },
+            deps.getAccountThrottleConfig
+        );
+    }
+
+    async getLicenseWithProof(assetId: string): Promise<Awaited<ReturnType<typeof getAssetWithProof>>> {
+        return withRetry(
+            async () => this.getLicenseWithProofThrottled(assetId),
+            {
+                maxRetries: 5,
+                baseDelayMs: 500,
+                exponentialBackoff: true,
+                shouldRetry: (error) => isRateLimitError(error, 'getAssetWithProof')
+            }
+        );
+    }
+
+    async getAccount(address: string): Promise<Uint8Array | null> {
+        return withRetry(
+            async () => this.getAccountThrottled(address),
+            {
+                maxRetries: 5,
+                baseDelayMs: 500,
+                exponentialBackoff: true,
+                shouldRetry: (error) => isRateLimitError(error, 'getAccount')
+            }
+        );
+    }
+}
+
+// =============================================================================
+// UMI Client Factory
+// =============================================================================
+
+function createUmiClient(config: CheckerConfig): Umi & { rpc: DasApiInterface; } {
+    const umi = createUmi(config.getSolanaRpcUrl())
+        .use(mplBubblegum())
+        .use(dasApi());
+
+    const signer = createSignerFromKeypair(
+        umi,
+        umi.eddsa.createKeypairFromSecretKey(new Uint8Array(config.checkerPrivateKeyBytes))
+    );
+
+    umi.use(signerIdentity(signer));
+
+    return {
+        ...umi,
+        rpc: umi.rpc as unknown as RpcInterface & DasApiInterface,
     };
-
-    // Throttle getAssetWithProof using config
-    const getLicenseWithProof = pThrottle({
-        limit: config.throttle.getAssetWithProof.limit,
-        interval: config.throttle.getAssetWithProof.interval
-    })(async (assetId: string) => {
-        return await getAssetWithProof(umi, publicKey(assetId), { truncateCanopy: true });
-    });
-
-    // Throttle getAccount using config
-    const getAccount = pThrottle({
-        limit: config.throttle.getAccount.limit,
-        interval: config.throttle.getAccount.interval
-    })(async (address: string) => {
-        const accountData = await umi.rpc.getAccount(publicKey(address));
-        return accountData.exists ? accountData.data : null;
-    });
-
-    return { umi, buildAndSendTransaction, getProgramAccounts, getLicenseWithProof, getAccount };
 }
 
-function getErrorMessage(error: unknown): string {
-    if (error instanceof SolanaError) {
-        // Traverse the error chain to find the root cause
-        let currentError: any = error;
-        const messages: string[] = [];
+// =============================================================================
+// Main RPC Client Factory
+// =============================================================================
 
-        while (currentError) {
-            if (currentError.message) {
-                messages.push(currentError.message);
-            }
+export function createRpcClient(signer: KeyPairSigner, config: CheckerConfig): RpcClient {
+    const umiClient = createUmiClient(config);
+    const rpcUrl = config.getSolanaRpcUrl();
+    const rpc = createSolanaRpc(rpcUrl);
+    const helius = createHelius({
+        apiKey: config.heliusApiKey,
+        network: config.solanaNetwork as "mainnet" | "devnet"
+    });
 
-            // Move to the next error in the chain
-            if (currentError.cause instanceof Error) {
-                currentError = currentError.cause;
-            } else if (currentError.cause && typeof currentError.cause === 'object' && 'message' in currentError.cause) {
-                currentError = currentError.cause;
-            } else {
-                break;
-            }
-        }
+    // Initialize services
+    const transactionService = new TransactionService({
+        rpc,
+        rpcUrl,
+        wallet: signer,
+        throttleConfig: config.throttle.sendTransaction
+    });
 
-        // Return all messages joined, or just the original message if no chain found
-        return messages.length > 1 ? messages.join(' -> ') : (error.message || 'Unknown SolanaError');
-    }
+    const programAccountsService = new ProgramAccountsService({
+        helius,
+        throttleConfig: config.throttle.getProgramAccounts
+    });
 
-    if (error instanceof Error) {
-        return error.message;
-    }
+    const assetService = new AssetService({
+        umi: umiClient,
+        getLicenseWithProofThrottleConfig: config.throttle.getAssetWithProof,
+        getAccountThrottleConfig: config.throttle.getAccount
+    });
 
-    return String(error);
+    return {
+        umi: umiClient,
+        buildAndSendTransaction: (instructions, commitment) =>
+            transactionService.buildAndSendTransaction(instructions, commitment),
+        getProgramAccounts: (programAddress, filters) =>
+            programAccountsService.getProgramAccounts(programAddress, filters),
+        getLicenseWithProof: (assetId) =>
+            assetService.getLicenseWithProof(assetId),
+        getAccount: (address) =>
+            assetService.getAccount(address)
+    };
 }
+
+// Export error class for external use
+export { RpcClientError };

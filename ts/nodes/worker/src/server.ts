@@ -41,6 +41,20 @@ export class WorkerServer {
       );
     });
 
+    // Custom error handler to ensure all errors include timestamp
+    fastify.setErrorHandler((error, request, reply) => {
+      const statusCode = error.statusCode || 500;
+
+      // Format error response to match WorkerErrorResponseSchema
+      const errorResponse = {
+        error: error.code || 'internal_server_error',
+        message: error.message,
+        timestamp: Date.now()
+      };
+
+      reply.code(statusCode).send(errorResponse);
+    });
+
     const server = new WorkerServer(fastify, worker, config, new ProofSubmitService(worker));
     await server.setupHealthCheck();
     await server.setupSwagger();

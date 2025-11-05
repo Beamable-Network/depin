@@ -4,9 +4,17 @@ import { WorkerNode } from '../worker.js';
 import { healthRoutes } from './health.js';
 import { proofRoutes } from './proof.js';
 import { rootRoutes as rootRoute } from './root.js';
+import { stakeRoutes } from './stake.js';
 
 export async function registerRoutes(fastify: FastifyInstance, worker: WorkerNode, config: WorkerConfig) {
   await fastify.register(rootRoute, { worker });
   await fastify.register(healthRoutes, { worker });
   await fastify.register(proofRoutes, { worker });
+  await fastify.register(stakeRoutes, { worker });
+}
+
+export interface ValidationError {
+    error: string;
+    message: string;
+    timestamp: number;
 }

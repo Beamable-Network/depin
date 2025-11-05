@@ -1,30 +1,32 @@
 import {
     AccountRole,
-    address,
     Address,
     getAddressEncoder,
     getProgramDerivedAddress
 } from "gill";
 
+import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import { BMB_MINT, COMMUNITY_STAKE_VAULT_SEED, WORKER_STAKE_PROGRAM } from "../../constants.js";
 import { WorkerStakeInstruction } from "../../enums.js";
-import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
 import { UserStakePositionAccount } from "./user-stake-position-account.js";
-import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
 
 const addressEncoder = getAddressEncoder();
 
 export interface CreateWithdrawInput {
     user: Address;
+    worker_wallet: Address;
     worker_collection: Address;
 }
 
 export class Withdraw {
     user: Address;
+    worker_wallet: Address;
     worker_collection: Address;
 
     constructor(input: CreateWithdrawInput) {
         this.user = input.user;
+        this.worker_wallet = input.worker_wallet;
         this.worker_collection = input.worker_collection;
     }
 
@@ -58,7 +60,8 @@ export class Withdraw {
         });
 
         const accounts = [
-            { address: this.user, role: AccountRole.WRITABLE_SIGNER },
+            { address: this.user, role: AccountRole.READONLY_SIGNER },
+            { address: this.worker_wallet, role: AccountRole.WRITABLE },
             { address: this.worker_collection, role: AccountRole.READONLY },
             { address: configPda[0], role: AccountRole.WRITABLE },
             { address: userPositionPda[0], role: AccountRole.WRITABLE },

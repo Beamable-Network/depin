@@ -61,7 +61,8 @@ docker run -p 3000:3000 --env-file nodes/worker/.env beamable-worker
 |----------|-------------|---------|
 | `PORT` | HTTP server port | `3000` |
 | `HOST` | HTTP server host | `0.0.0.0` |
-| `SOLANA_RPC_URL` | DAS-enabled Solana RPC endpoint (we recommend Helius) | required |
+| `HELIUS_API_KEY` | Helius API key for Solana RPC access ([Get a free tier key](https://www.helius.dev/)) | required |
+| `SOLANA_NETWORK` | 'devnet' or 'mainnet' | required |
 | `WORKER_PRIVATE_KEY` | Full private key in base58 OR JSON array of 64 numbers from solana-keygen | *required* |
 | `WORKER_LICENSE` | Worker license identifier | *required* |
 | `EXTERNAL_URL` | External URL where this worker can be reached | *required* |
@@ -73,3 +74,7 @@ docker run -p 3000:3000 --env-file nodes/worker/.env beamable-worker
 | `LOG_LEVEL` | Logging level ("trace", "debug", "info", "warn", "error", "fatal") | `info` |
 | `LOG_FORMAT` | Log output format (`pretty` for human-readable, `json` for structured) | `pretty` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTEL GRPC endpoint | *optional* |
+| `THROTTLE_SEND_TX_LIMIT` | Max transaction submissions per interval | `1` |
+| `THROTTLE_SEND_TX_INTERVAL` | Transaction submission interval (ms) | `1100` |
+| `THROTTLE_SEARCH_ASSETS_LIMIT` | Max searchAssets calls per interval | `5` |
+| `THROTTLE_SEARCH_ASSETS_INTERVAL` | searchAssets call interval (ms) | `1100` |

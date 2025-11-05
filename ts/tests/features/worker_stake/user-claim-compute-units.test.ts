@@ -211,8 +211,8 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
 
                 lite.buildTransaction()
                     .addInstruction(await stake.getInstruction())
-                    .sign(worker)
-                    .sendTransaction({ payer: user });
+                    .sign(user)
+                    .sendTransaction({ payer: worker });
 
                 // Refresh config for next iteration
                 configData = lite.getAccountData(configPda);
@@ -313,8 +313,8 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake1.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user1 });
+                .sign(user1)
+                .sendTransaction({ payer: worker });
 
             // Test 2: User with 25 stake entries
             const user2 = await lite.generateKeyPair();
@@ -347,8 +347,8 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
 
                 lite.buildTransaction()
                     .addInstruction(await stake2.getInstruction())
-                    .sign(worker)
-                    .sendTransaction({ payer: user2 });
+                    .sign(user2)
+                    .sendTransaction({ payer: worker });
 
                 configData = lite.getAccountData(configPda);
                 config = WorkerStakeConfigAccount.deserializeFrom(configData!);
@@ -476,8 +476,8 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
 
                 lite.buildTransaction()
                     .addInstruction(await stake.getInstruction())
-                    .sign(worker)
-                    .sendTransaction({ payer: user });
+                    .sign(user)
+                    .sendTransaction({ payer: worker });
             }
 
             // Advance to month 6: 10 more stakes
@@ -503,8 +503,8 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
 
                 lite.buildTransaction()
                     .addInstruction(await stake.getInstruction())
-                    .sign(worker)
-                    .sendTransaction({ payer: user });
+                    .sign(user)
+                    .sendTransaction({ payer: worker });
             }
 
             // Advance to month 7: 5 more stakes (total 25)
@@ -530,8 +530,8 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
 
                 lite.buildTransaction()
                     .addInstruction(await stake.getInstruction())
-                    .sign(worker)
-                    .sendTransaction({ payer: user });
+                    .sign(user)
+                    .sendTransaction({ payer: worker });
             }
 
             // Verify 25 entries total
