@@ -222,7 +222,7 @@ export async function stakeRoutes(fastify: FastifyInstance, { worker }: { worker
                 log.error({ err: simulationResult.err, logs: simulationResult.logs }, 'Transaction simulation failed');
                 return reply.code(400).send({
                     error: 'simulation_failed',
-                    message: `Transaction simulation failed: ${JSON.stringify(simulationResult.err)}`,
+                    message: `Transaction simulation failed: ${JSON.stringify(simulationResult.logs)}`,
                     timestamp: Date.now()
                 });
             }
