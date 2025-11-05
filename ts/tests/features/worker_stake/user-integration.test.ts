@@ -66,8 +66,8 @@ describe('User Integration Tests - Complex Scenarios', async () => {
 
         lite.buildTransaction()
             .addInstruction(await stake.getInstruction())
-            .sign(worker)
-            .sendTransaction({ payer: user });
+            .sign(user)
+            .sendTransaction({ payer: worker });
 
         return { user };
     }
@@ -289,6 +289,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             // Withdraw
             const withdraw = new Withdraw({
                 user: user.address,
+                worker_wallet: workerWallet.address,
                 worker_collection: workerCollection,
             });
 
@@ -489,8 +490,8 @@ describe('User Integration Tests - Complex Scenarios', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user });
+                .sign(user)
+                .sendTransaction({ payer: worker });
 
             // Verify points: min(2, 5000/2500) = 2
             let [poolPda] = await MonthlyPoolAccount.findMonthlyPoolPDA(workerCollection, 5);
@@ -511,8 +512,8 @@ describe('User Integration Tests - Complex Scenarios', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user });
+                .sign(user)
+                .sendTransaction({ payer: worker });
 
             // Verify points: min(4, 10000/2500) = 4
             poolData = lite.getAccountData(poolPda);
@@ -532,8 +533,8 @@ describe('User Integration Tests - Complex Scenarios', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user });
+                .sign(user)
+                .sendTransaction({ payer: worker });
 
             // Verify points: min(5, 15000/2500) = 5
             poolData = lite.getAccountData(poolPda);
@@ -589,8 +590,8 @@ describe('User Integration Tests - Complex Scenarios', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user });
+                .sign(user)
+                .sendTransaction({ payer: worker });
 
             let [poolPda] = await MonthlyPoolAccount.findMonthlyPoolPDA(workerCollection, 5);
             let poolData = lite.getAccountData(poolPda);
@@ -610,8 +611,8 @@ describe('User Integration Tests - Complex Scenarios', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user });
+                .sign(user)
+                .sendTransaction({ payer: worker });
 
             // Verify points decreased: min(2, 10000/2500) = 2 (was 3, now 2)
             poolData = lite.getAccountData(poolPda);
@@ -901,6 +902,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             // Try to withdraw without claiming - should fail
             const withdraw = new Withdraw({
                 user: user.address,
+                worker_wallet: workerWallet.address,
                 worker_collection: workerCollection,
             });
 
@@ -952,8 +954,8 @@ describe('User Integration Tests - Complex Scenarios', async () => {
 
                 lite.buildTransaction()
                     .addInstruction(await stake.getInstruction())
-                    .sign(worker)
-                    .sendTransaction({ payer: user });
+                    .sign(user)
+                    .sendTransaction({ payer: worker });
             }
 
             // Verify 25 entries were created

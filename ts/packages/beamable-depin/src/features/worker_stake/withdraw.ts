@@ -15,15 +15,18 @@ const addressEncoder = getAddressEncoder();
 
 export interface CreateWithdrawInput {
     user: Address;
+    worker_wallet: Address;
     worker_collection: Address;
 }
 
 export class Withdraw {
     user: Address;
+    worker_wallet: Address;
     worker_collection: Address;
 
     constructor(input: CreateWithdrawInput) {
         this.user = input.user;
+        this.worker_wallet = input.worker_wallet;
         this.worker_collection = input.worker_collection;
     }
 
@@ -57,7 +60,8 @@ export class Withdraw {
         });
 
         const accounts = [
-            { address: this.user, role: AccountRole.WRITABLE_SIGNER },
+            { address: this.user, role: AccountRole.READONLY_SIGNER },
+            { address: this.worker_wallet, role: AccountRole.WRITABLE },
             { address: this.worker_collection, role: AccountRole.READONLY },
             { address: configPda[0], role: AccountRole.WRITABLE },
             { address: userPositionPda[0], role: AccountRole.WRITABLE },

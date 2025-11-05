@@ -8,8 +8,8 @@ import {
     WORKER_STAKE_PROGRAM
 } from '@beamable-network/depin';
 import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
-import { blockhash, getCompiledTransactionMessageCodec, isFullySignedTransaction } from '@solana/kit';
-import { Address, address, createTransaction, getTransactionDecoder, getTransactionEncoder, partiallySignTransactionMessageWithSigners, isTransactionPartialSigner } from 'gill';
+import { addSignersToTransactionMessage, blockhash, getCompiledTransactionMessageCodec, isFullySignedTransaction, signTransaction, signTransactionMessageWithSigners } from '@solana/kit';
+import { Address, address, createTransaction, getTransactionDecoder, getTransactionEncoder, createTransactionMessage, partiallySignTransactionMessageWithSigners, isTransactionPartialSigner } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { setupTokens, TokenAuthorities } from '../../helpers/spl-tokens.js';
@@ -91,6 +91,7 @@ describe('User Stake Instructions', async () => {
     describe('Stake Encoding', () => {
         it('should properly encode/decode stake transaction and add worker signature after decoding', async () => {
             const user = await lite.generateKeyPair();
+
             await lite.airdrop(user, 2);
 
             const stakeAmount = bmbToBaseUnits(7500); // 7500 BMB
@@ -111,25 +112,25 @@ describe('User Stake Instructions', async () => {
 
             const ix = await stake.getInstruction();
 
-            const tx = createTransaction({
+            let tx = createTransaction({
                 version: 0,
                 latestBlockhash: { blockhash: blockhash(lite.getLatestBlockhash()), lastValidBlockHeight: 0n },
                 instructions: [ix],
-                feePayer: user.transactionSigner,
+                feePayer: worker.address
             });
-
+            tx = addSignersToTransactionMessage([user.transactionSigner], tx);
+            
             const partiallySignedTx = await partiallySignTransactionMessageWithSigners(tx);
+
+            if (!isTransactionPartialSigner(user.transactionSigner)) {
+                throw new Error('User signer must be a TransactionPartialSigner');
+            }
 
             expect(isFullySignedTransaction(partiallySignedTx)).toBe(false);
 
             // Encode to base64 (ready to send to worker endpoint)
             const encoder = getTransactionEncoder();
-            const txBytes = encoder.encode(partiallySignedTx);
-            const base64Transaction = Buffer.from(txBytes).toString('base64');            
-
-            console.log('Base64 encoded transaction:', base64Transaction);
-            console.log('Transaction has user signature:', Object.keys(partiallySignedTx.signatures).length > 0);
-            console.log('User address in signatures:', user.address in partiallySignedTx.signatures);
+            const txBytes = encoder.encode(partiallySignedTx);            
 
             // Verify we can decode it back
             const decoder = getTransactionDecoder();
@@ -139,14 +140,14 @@ describe('User Stake Instructions', async () => {
             expect(decoded.messageBytes).toBeDefined();
             expect(isFullySignedTransaction(decoded)).toBe(false);
 
-            // Add worker signature using the TransactionPartialSigner interface
+            // Add worker signature
             if (!isTransactionPartialSigner(worker.transactionSigner)) {
                 throw new Error('Worker signer must be a TransactionPartialSigner');
             }
-            const [workerSignatures] = await worker.transactionSigner.signTransactions([decoded]);
+            const [workerSignature] = await worker.transactionSigner.signTransactions([decoded]);
             const fullySigned = {
                 ...decoded,
-                signatures: { ...decoded.signatures, ...workerSignatures }
+                signatures: { ...decoded.signatures, ...workerSignature }
             };
 
             // Decode the transaction message to inspect accounts and instructions

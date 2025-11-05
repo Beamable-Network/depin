@@ -34,18 +34,20 @@ pub fn process_withdraw<'a>(
     accounts: &'a [AccountInfo<'a>],
 ) -> ProgramResult {
     // Expected Accounts:
-    // 0. [signer, writable] User (rent recipient)
-    // 1. [readonly] Worker collection account
-    // 2. [writable] WorkerStakeConfig PDA
-    // 3. [writable] UserStakePosition PDA
-    // 4. [readonly] Community stake vault PDA
-    // 5. [writable] Community stake vault ATA (source)
-    // 6. [writable] User token account (destination)
-    // 7. [readonly] BMB mint
-    // 8. [readonly] Token program
+    // 0. [signer] User
+    // 1. [writable] Worker account (rent recipient - must match WorkerStakeConfig.worker_wallet)
+    // 2. [readonly] Worker collection account
+    // 3. [writable] WorkerStakeConfig PDA
+    // 4. [writable] UserStakePosition PDA
+    // 5. [readonly] Community stake vault PDA
+    // 6. [writable] Community stake vault ATA (source)
+    // 7. [writable] User token account (destination)
+    // 8. [readonly] BMB mint
+    // 9. [readonly] Token program
 
     let account_info_iter = &mut accounts.iter();
     let user_account = next_account_info(account_info_iter)?;
+    let worker_account = next_account_info(account_info_iter)?;
     let worker_collection_account = next_account_info(account_info_iter)?;
     let worker_stake_config_account = next_account_info(account_info_iter)?;
     let user_position_account = next_account_info(account_info_iter)?;
@@ -73,6 +75,12 @@ pub fn process_withdraw<'a>(
     let config_data = worker_stake_config_account.try_borrow_data()?;
     let mut config: WorkerStakeConfig = read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
     drop(config_data);
+
+    // Validate worker account matches config.worker_wallet
+    if worker_account.key != &config.worker_wallet {
+        msg!("Error: Worker account does not match config.worker_wallet");
+        return Err(ProgramError::InvalidArgument);
+    }
 
     // Validate UserStakePosition PDA
     let (user_position_pda, _user_bump) = Pubkey::find_program_address(
@@ -167,9 +175,9 @@ pub fn process_withdraw<'a>(
     let mut config_data = worker_stake_config_account.try_borrow_mut_data()?;
     write_account_data(&mut config_data, WorkerStakeAccountType::WorkerStakeConfig, &config)?;
 
-    // Close UserStakePosition account (rent returned to user)
-    let dest_starting_lamports = user_account.lamports();
-    **user_account.lamports.borrow_mut() = dest_starting_lamports
+    // Close UserStakePosition account (rent returned to worker)
+    let dest_starting_lamports = worker_account.lamports();
+    **worker_account.lamports.borrow_mut() = dest_starting_lamports
         .checked_add(user_position_account.lamports())
         .ok_or(ProgramError::ArithmeticOverflow)?;
     **user_position_account.lamports.borrow_mut() = 0;
@@ -178,6 +186,6 @@ pub fn process_withdraw<'a>(
     let mut position_data = user_position_account.try_borrow_mut_data()?;
     position_data.fill(0);
 
-    msg!("User withdrew {} BMB. Position closed.", user_position.staked_amount);
+    msg!("User withdrew {} BMB. Position closed, rent returned to worker.", user_position.staked_amount);
     Ok(())
 }

@@ -113,8 +113,8 @@ describe('User Stake Instructions', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user });
+                .sign(user)
+                .sendTransaction({ payer: worker });
 
             // Verify user position was created
             const [userPositionPda] = await UserStakePositionAccount.findUserStakePositionPDA(user.address, workerCollection);
@@ -171,8 +171,8 @@ describe('User Stake Instructions', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user });
+                .sign(user)
+                .sendTransaction({ payer: worker });
 
             // Verify user position
             const [userPositionPda] = await UserStakePositionAccount.findUserStakePositionPDA(user.address, workerCollection);
@@ -210,8 +210,8 @@ describe('User Stake Instructions', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user });
+                .sign(user)
+                .sendTransaction({ payer: worker });
 
             // Verify addon points (min(3, 5000/2500) = 2)
             const [poolPda] = await MonthlyPoolAccount.findMonthlyPoolPDA(workerCollection, 5);
@@ -237,8 +237,8 @@ describe('User Stake Instructions', async () => {
             await expect(async () => {
                 lite.buildTransaction()
                     .addInstruction(await stake.getInstruction())
-                    .sign(worker)
-                    .sendTransaction({ payer: user });
+                    .sign(user)
+                    .sendTransaction({ payer: worker });
             }).rejects.toThrow("Amount must be greater than 0");
         });
 
@@ -263,8 +263,8 @@ describe('User Stake Instructions', async () => {
             await expect(async () => {
                 lite.buildTransaction()
                     .addInstruction(await stake.getInstruction())
-                    .sign(worker)
-                    .sendTransaction({ payer: user });
+                    .sign(user)
+                    .sendTransaction({ payer: worker });
             }).rejects.toThrow();
         });
 
@@ -318,8 +318,8 @@ describe('User Stake Instructions', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user });
+                .sign(user)
+                .sendTransaction({ payer: worker });
 
             // Second stake
             stake = new Stake({
@@ -334,8 +334,8 @@ describe('User Stake Instructions', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user });
+                .sign(user)
+                .sendTransaction({ payer: worker });
 
             // Verify position has 2 entries
             const [userPositionPda] = await UserStakePositionAccount.findUserStakePositionPDA(user.address, workerCollection);
@@ -381,8 +381,8 @@ describe('User Stake Instructions', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user });
+                .sign(user)
+                .sendTransaction({ payer: worker });
 
             // Verify initial points (min(2, 5000/2500) = 2)
             let [poolPda] = await MonthlyPoolAccount.findMonthlyPoolPDA(workerCollection, 5);
@@ -404,8 +404,8 @@ describe('User Stake Instructions', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user });
+                .sign(user)
+                .sendTransaction({ payer: worker });
 
             // Verify updated points (min(3, 7500/2500) = 3)
             poolData = lite.getAccountData(poolPda);
@@ -448,8 +448,8 @@ describe('User Stake Instructions', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user1 });
+                .sign(user1)
+                .sendTransaction({ payer: worker });
 
             // User 2 stakes
             stake = new Stake({
@@ -464,8 +464,8 @@ describe('User Stake Instructions', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user2 });
+                .sign(user2)
+                .sendTransaction({ payer: worker });
 
             // Verify user 1 position
             const [user1PositionPda] = await UserStakePositionAccount.findUserStakePositionPDA(user1.address, workerCollection);
@@ -518,8 +518,8 @@ describe('User Stake Instructions', async () => {
 
             lite.buildTransaction()
                 .addInstruction(await stake.getInstruction())
-                .sign(worker)
-                .sendTransaction({ payer: user });
+                .sign(user)
+                .sendTransaction({ payer: worker });
 
             // Verify first stake succeeded
             const [userPositionPda] = await UserStakePositionAccount.findUserStakePositionPDA(user.address, workerCollection);
@@ -564,8 +564,8 @@ describe('User Stake Instructions', async () => {
             await expect(async () => {
                 lite.buildTransaction()
                     .addInstruction(await stake.getInstruction())
-                    .sign(worker)
-                    .sendTransaction({ payer: user });
+                    .sign(user)
+                    .sendTransaction({ payer: worker });
             }).rejects.toThrow("User has opted out of staking");
         });
     });

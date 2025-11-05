@@ -53,8 +53,8 @@ describe('User Unstake and Withdraw Instructions', async () => {
 
         lite.buildTransaction()
             .addInstruction(await stake.getInstruction())
-            .sign(worker)
-            .sendTransaction({ payer: user });
+            .sign(user)
+            .sendTransaction({ payer: worker });
 
         return { user };
     }
@@ -291,6 +291,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
             // Withdraw
             const withdraw = new Withdraw({
                 user: user.address,
+                worker_wallet: workerWallet.address,
                 worker_collection: workerCollection,
             });
 
@@ -318,6 +319,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
 
             const withdraw = new Withdraw({
                 user: user.address,
+                worker_wallet: workerWallet.address,
                 worker_collection: workerCollection,
             });
 
@@ -349,6 +351,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
             // Try to withdraw immediately (without advancing to next month)
             const withdraw = new Withdraw({
                 user: user.address,
+                worker_wallet: workerWallet.address,
                 worker_collection: workerCollection,
             });
 
@@ -398,6 +401,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
             // Should be able to withdraw immediately (no waiting period since no active pool)
             const withdraw = new Withdraw({
                 user: user.address,
+                worker_wallet: workerWallet.address,
                 worker_collection: workerCollection,
             });
 
@@ -477,6 +481,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
             // Both users withdraw
             let withdraw = new Withdraw({
                 user: user1.address,
+                worker_wallet: config.worker_wallet,
                 worker_collection: workerCollection,
             });
 
@@ -486,6 +491,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
 
             withdraw = new Withdraw({
                 user: user2.address,
+                worker_wallet: config.worker_wallet,
                 worker_collection: workerCollection,
             });
 
@@ -562,6 +568,7 @@ describe('User Unstake and Withdraw Instructions', async () => {
             // Withdraw
             const withdraw = new Withdraw({
                 user: user.address,
+                worker_wallet: workerWallet.address,
                 worker_collection: workerCollection,
             });
 
