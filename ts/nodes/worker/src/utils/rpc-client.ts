@@ -1,8 +1,10 @@
 import { dasApi, DasApiInterface } from "@metaplex-foundation/digital-asset-standard-api";
 import { mplBubblegum } from '@metaplex-foundation/mpl-bubblegum';
-import { createSignerFromKeypair, publicKey, RpcInterface, signerIdentity, Umi } from '@metaplex-foundation/umi';
+import { createSignerFromKeypair, RpcInterface, signerIdentity, Umi } from '@metaplex-foundation/umi';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { appendTransactionMessageInstructions, BaseTransactionMessage, createSolanaRpc, createSolanaRpcSubscriptions, createTransactionMessage, FullySignedTransaction, getSignatureFromTransaction, MessageSigner, pipe, Rpc, sendAndConfirmTransactionFactory, setTransactionMessageFeePayerSigner, setTransactionMessageLifetimeUsingBlockhash, Signature, signTransactionMessageWithSigners, simulateTransactionFactory, SolanaError, SolanaRpcApi, TransactionSigner } from "gill";
+import { createHelius } from "helius-sdk";
+import type { GetAssetResponseList, SearchAssetsRequest } from 'helius-sdk/types/das';
 import pThrottle from 'p-throttle';
 import { WorkerConfig } from '../config.js';
 import { getLogger } from '../logger.js';
@@ -13,15 +15,15 @@ export interface RpcClient {
     umi: Umi & { rpc: DasApiInterface; };
     buildAndSendTransaction: (instructions: ReadonlyArray<BaseTransactionMessage['instructions'][number]>, commitment?: "processed" | "confirmed" | "finalized") => Promise<{ signature: Signature; logs: readonly string[] | null }>;
     simulateTransaction: (transaction: FullySignedTransaction) => Promise<{ logs: readonly string[] | null; err: any }>;
-    getAssetsByOwner: (owner: string) => Promise<Array<{ id: string; compression: { tree: string } }>>;
+    searchAssets: (params: SearchAssetsRequest) => Promise<GetAssetResponseList>;
 }
 
 function createUmiClient(config: WorkerConfig): Umi & { rpc: DasApiInterface; } {
-    const umi = createUmi(config.solanaRpcUrl)
+    const umi = createUmi(config.getSolanaRpcUrl())
         .use(mplBubblegum())
         .use(dasApi());
 
-    const signer = createSignerFromKeypair(umi, umi.eddsa.createKeypairFromSecretKey(config.workerPrivateKeyBytes));
+    const signer = createSignerFromKeypair(umi, umi.eddsa.createKeypairFromSecretKey(new Uint8Array(config.workerPrivateKeyBytes)));
 
     umi.use(signerIdentity(signer));
 
@@ -92,11 +94,12 @@ function createBuildAndSendTransactionFn(params: {
 }
 
 export function createRpcClient(signer: TransactionSigner & MessageSigner, config: WorkerConfig): RpcClient {
+    const helius = createHelius({ apiKey: config.heliusApiKey, network: config.solanaNetwork });
     const umiClient = createUmiClient(config);
 
     // Create Gill RPC clients for transaction handling
-    const rpc = createSolanaRpc(config.solanaRpcUrl);
-    const rpcSubscriptions = createSolanaRpcSubscriptions(config.solanaRpcUrl.replace('http', 'ws'));
+    const rpc = createSolanaRpc(config.getSolanaRpcUrl());
+    const rpcSubscriptions = createSolanaRpcSubscriptions(config.getSolanaRpcUrl().replace('http', 'ws'));
 
     const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions });
 
@@ -116,52 +119,47 @@ export function createRpcClient(signer: TransactionSigner & MessageSigner, confi
         simulateTransaction: simulateTransactionFactory({ rpc })
     });
 
-    // Throttle getAssetsByOwner using config
-    const getAssetsByOwnerThrottled = pThrottle({
-        limit: config.throttle.getAssetsByOwner.limit,
-        interval: config.throttle.getAssetsByOwner.interval
-    })(async (owner: string, page: number, limit: number) => {
-        return await umiClient.rpc.getAssetsByOwner({
-            owner: publicKey(owner),
-            page,
-            limit
-        });
+    // Throttle searchAssets using config
+    const searchAssetsThrottled = pThrottle({
+        limit: config.throttle.searchAssets.limit,
+        interval: config.throttle.searchAssets.interval
+    })(async (params: SearchAssetsRequest) => {
+        return await helius.searchAssets(params);
     });
 
-    const getAssetsByOwnerAll = async (owner: string): Promise<Array<{ id: string; compression: { tree: string } }>> => {
-        const allAssets: Array<{ id: string; compression: { tree: string } }> = [];
-        let page = 1;
-        const limit = 1000;
+    const searchAssets = async (params: SearchAssetsRequest): Promise<GetAssetResponseList> => {
+        const allAssets: GetAssetResponseList['items'] = [];
+        let cursor: string | undefined = params.cursor;
+        const limit = params.limit ?? 1000;
 
         while (true) {
-            const result = await getAssetsByOwnerThrottled(owner, page, limit);
+            const result = await searchAssetsThrottled({
+                ...params,
+                limit,
+                cursor
+            });
 
-            // Map to simplified format
-            for (const asset of result.items) {
-                allAssets.push({
-                    id: asset.id,
-                    compression: {
-                        tree: asset.compression.tree
-                    }
-                });
-            }
+            allAssets.push(...result.items);
 
             // Check if there are more pages
-            if (result.items.length < limit) {
-                break;
+            if (!result.cursor) {
+                return {
+                    total: result.total,
+                    limit: result.limit,
+                    items: allAssets,
+                    cursor: result.cursor
+                };
             }
 
-            page++;
+            cursor = result.cursor;
         }
-
-        return allAssets;
     };
 
     return {
         umi: umiClient,
         buildAndSendTransaction,
         simulateTransaction,
-        getAssetsByOwner: getAssetsByOwnerAll
+        searchAssets
     };
 }
 

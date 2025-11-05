@@ -100,9 +100,9 @@ async function validateStakeTransaction(transaction: Transaction, worker: Worker
     }
 
     // Fetch and verify user has enough verified checkers
-    const assets = await worker.getRpcClient().getAssetsByOwner(stakerAddress);
+    const result = await worker.getRpcClient().searchAssets({ ownerAddress: stakerAddress, compressed: true });
     const tree = getCheckerTree(worker.getConfig().solanaNetwork);
-    const verifiedCheckerCount = assets.filter(asset => asset.compression.tree === tree).length;
+    const verifiedCheckerCount = result.items.filter(asset => asset.compression?.tree === tree).length;
 
     if (verifiedCheckerCount < params.checker_count) {
         return {

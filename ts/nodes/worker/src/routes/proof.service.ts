@@ -1,7 +1,8 @@
 import { BMBStateAccount, SignedPayload, WorkerProofReceiptPayloadSchema } from '@beamable-network/depin';
 import { publicKey } from '@metaplex-foundation/umi';
 import { WorkerNode } from '../worker.js';
-import { createErrorResponse, ValidationError } from './proof.validation.js';
+import { ValidationError } from './index.js';
+import { createErrorResponse } from './proof.validation.js';
 
 export interface CheckerLicenseInfo {
     index: number;
