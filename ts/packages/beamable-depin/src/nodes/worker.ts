@@ -212,12 +212,6 @@ export const SignStakeTransactionResponseSchema = Type.Object({
     })
 });
 
-export const StakeErrorResponseSchema = Type.Object({
-    error: Type.String(),
-    message: Type.String(),
-    timestamp: Type.Number()
-});
-
 export type SignStakeTransactionRequest = Static<typeof SignStakeTransactionRequestSchema>;
 
 export type SignStakeTransactionResponse = Static<typeof SignStakeTransactionResponseSchema>;

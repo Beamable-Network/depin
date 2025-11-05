@@ -7,8 +7,8 @@ import {
     SignStakeTransactionRequestSchema,
     SignStakeTransactionResponse,
     SignStakeTransactionResponseSchema,
-    StakeErrorResponseSchema,
     StakeParams,
+    WorkerErrorResponseSchema,
     WORKER_STAKE_PROGRAM
 } from '@beamable-network/depin';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -145,7 +145,7 @@ export async function stakeRoutes(fastify: FastifyInstance, { worker }: { worker
             body: SignStakeTransactionRequestSchema,
             response: {
                 200: SignStakeTransactionResponseSchema,
-                400: StakeErrorResponseSchema
+                400: WorkerErrorResponseSchema
             },
             description: 'Sign a stake transaction as worker (acts as fee payer)',
             tags: ['stake']
@@ -180,7 +180,7 @@ export async function stakeRoutes(fastify: FastifyInstance, { worker }: { worker
             const validation = await validateStakeTransaction(transaction, worker);
             if (validation) {
                 log.warn({ err: validation.error }, 'Transaction validation failed');
-                return reply.code(400).send(validation.error);
+                return reply.code(400).send(validation);
             }
 
             // Check if worker has already signed
