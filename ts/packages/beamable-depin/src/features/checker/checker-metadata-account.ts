@@ -20,7 +20,7 @@ export class CheckerMetadataAccount {
         this.licenseIndex = fields.licenseIndex;
     }
 
-    public static LEN = 1 + 9 + 32 + 32;
+    public static LEN = 1 + 9 + 32 + 4;
 
     public static readonly DataCodecV1: Codec<CheckerMetadataAccount> = getStructCodec([
         ["suspendedAt", getOptionCodec(getU64Codec())],
