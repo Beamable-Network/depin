@@ -3,7 +3,7 @@ import { mplBubblegum } from '@metaplex-foundation/mpl-bubblegum';
 import { createSignerFromKeypair, RpcInterface, signerIdentity, Umi } from '@metaplex-foundation/umi';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { trace } from "@opentelemetry/api";
-import { appendTransactionMessageInstructions, BaseTransactionMessage, createSolanaRpc, createSolanaRpcSubscriptions, createTransactionMessage, FullySignedTransaction, getSignatureFromTransaction, MessageSigner, pipe, Rpc, sendAndConfirmTransactionFactory, setTransactionMessageFeePayerSigner, setTransactionMessageLifetimeUsingBlockhash, Signature, signTransactionMessageWithSigners, simulateTransactionFactory, SolanaError, SolanaRpcApi, TransactionSigner } from "gill";
+import { Address, appendTransactionMessageInstructions, BaseTransactionMessage, createSolanaRpc, createSolanaRpcSubscriptions, createTransactionMessage, FullySignedTransaction, getSignatureFromTransaction, MessageSigner, pipe, Rpc, sendAndConfirmTransactionFactory, setTransactionMessageFeePayerSigner, setTransactionMessageLifetimeUsingBlockhash, Signature, signTransactionMessageWithSigners, simulateTransactionFactory, SolanaError, SolanaRpcApi, TransactionSigner } from "gill";
 import { createHelius } from "helius-sdk";
 import type { GetAssetResponseList, SearchAssetsRequest } from 'helius-sdk/types/das';
 import pThrottle from 'p-throttle';
@@ -21,7 +21,7 @@ export interface RpcClient {
     umi: Umi & { rpc: DasApiInterface; };
     buildAndSendTransaction: (instructions: ReadonlyArray<BaseTransactionMessage['instructions'][number]>, commitment?: "processed" | "confirmed" | "finalized") => Promise<{ signature: Signature; logs: readonly string[] | null }>;
     simulateTransaction: (transaction: FullySignedTransaction) => Promise<{ logs: readonly string[] | null; err: any }>;
-    searchAssets: (params: SearchAssetsRequest) => Promise<GetAssetResponseList>;
+    searchAssets: (params: SearchAssetsRequest & { tree?: Address }) => Promise<GetAssetResponseList>;
 }
 
 // =============================================================================
@@ -245,7 +245,7 @@ interface AssetServiceDependencies {
 
 class AssetService {
     private readonly helius: ReturnType<typeof createHelius>;
-    private readonly searchAssetsThrottled: (params: SearchAssetsRequest) => Promise<GetAssetResponseList>;
+    private readonly searchAssetsThrottled: (params: SearchAssetsRequest & { tree?: Address }) => Promise<GetAssetResponseList>;
 
     constructor(private readonly deps: AssetServiceDependencies) {
         this.helius = createHelius({
@@ -254,12 +254,12 @@ class AssetService {
         });
 
         this.searchAssetsThrottled = ThrottleService.createThrottledFunction(
-            (params: SearchAssetsRequest) => this.helius.searchAssets(params),
+            (params: SearchAssetsRequest & { tree?: Address }) => this.helius.searchAssets(params),
             deps.throttleConfig
         );
     }
 
-    async searchAssets(params: SearchAssetsRequest): Promise<GetAssetResponseList> {
+    async searchAssets(params: SearchAssetsRequest & { tree?: Address }): Promise<GetAssetResponseList> {
         const allAssets: GetAssetResponseList['items'] = [];
         let cursor: string | undefined = params.cursor;
         const limit = params.limit ?? 1000;
