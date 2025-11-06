@@ -278,11 +278,6 @@ pub fn process_stake<'a>(
         )?;
     }
 
-    if user_position.opted_out_at_month_period > 0 {
-        msg!("Error: User has opted out of staking");
-        return Err(ProgramError::InvalidArgument);
-    }
-
     if user_position.stake_entries.len() >= UserStakePosition::MAX_ENTRIES {
         msg!(
             "Error: Maximum stake entries reached ({})",
@@ -299,6 +294,12 @@ pub fn process_stake<'a>(
     };
     let old_stake = user_position.staked_amount;
     let old_points = calculate_points(old_checker_count, old_stake);
+
+    // Check if user has opted out
+    // Allow re-staking only if still in the same month (changing your mind before month rolls)
+    if user_position.opted_out_at_month_period > 0 {
+        handle_restake(&mut monthly_pool, &mut user_position, current_month_period, old_points)?;
+    }
 
     // Add new StakeEntry
     let new_entry = StakeEntry {
@@ -445,5 +446,42 @@ pub fn process_stake<'a>(
         new_points,
         user_position.staked_amount
     );
+    Ok(())
+}
+
+/// Handle re-staking when user has opted out but is re-staking in the same month
+/// This reverses the opt-out accounting to allow the user to change their mind
+fn handle_restake(
+    monthly_pool: &mut MonthlyPool,
+    user_position: &mut UserStakePosition,
+    current_month_period: u16,
+    old_points: u64,
+) -> ProgramResult {
+    if current_month_period == user_position.opted_out_at_month_period.saturating_sub(1) {
+        // Re-staking in the same month - reverse opt-out accounting
+        msg!("User is re-staking in the same month (reversing opt-out)");
+
+        // Reverse the opt-out accounting for base pool
+        monthly_pool.base_pool.total_opted_out = monthly_pool
+            .base_pool
+            .total_opted_out
+            .checked_sub(user_position.staked_amount)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+
+        // Reverse the opt-out accounting for addon pool (points)
+        monthly_pool.addon_pool.total_opted_out = monthly_pool
+            .addon_pool
+            .total_opted_out
+            .checked_sub(old_points)
+            .ok_or(ProgramError::ArithmeticOverflow)?;        
+
+        // Clear opt-out flag
+        user_position.opted_out_at_month_period = 0;
+    } else {
+        // Month has rolled over - must withdraw first
+        msg!("Error: Month has rolled over. Must withdraw before staking again");
+        return Err(ProgramError::InvalidArgument);
+    }
+
     Ok(())
 }

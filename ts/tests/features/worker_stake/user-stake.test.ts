@@ -8,7 +8,8 @@ import {
     MonthlyPoolAccount,
     UserStakePositionAccount,
     WORKER_STAKE_PROGRAM,
-    BMB_MINT
+    BMB_MINT,
+    Unstake
 } from '@beamable-network/depin';
 import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -560,8 +561,8 @@ describe('User Stake Instructions', async () => {
         });
     });
 
-    describe('Unstaking Prevention', () => {
-        it('should fail to stake after unstaking', async () => {
+    describe('Unstaking and Re-staking', () => {
+        it('should fail to stake after unstaking when month has rolled over', async () => {
             const user = await lite.generateKeyPair();
             await lite.airdrop(user, 2);
 
@@ -571,7 +572,7 @@ describe('User Stake Instructions', async () => {
 
             await lite.mintToken(BMB_MINT, user.address, totalMint, tokenAuthorities.bmbMintAuthority);
 
-            // First stake
+            // First stake in month 5
             let stake = new Stake({
                 user: user.address,
                 worker: worker.address,
@@ -593,8 +594,112 @@ describe('User Stake Instructions', async () => {
             let position = UserStakePositionAccount.deserializeFrom(positionData!);
             expect(position.staked_amount).toBe(firstStake);
 
-            // Unstake (opt out)
+            // Unstake in month 5 (opt out)
             const { Unstake } = await import('@beamable-network/depin');
+
+            // Get last_active_pool_month from config
+            const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
+            let configData = lite.getAccountData(configPda);
+            let config = WorkerStakeConfigAccount.deserializeFrom(configData!);
+
+            const unstake = new Unstake({
+                user: user.address,
+                worker_collection: workerCollection,
+                last_active_pool_month_period: config.last_active_pool_month,
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await unstake.getInstruction())
+                .sendTransaction({ payer: user });
+
+            // Verify user opted out
+            positionData = lite.getAccountData(userPositionPda);
+            position = UserStakePositionAccount.deserializeFrom(positionData!);
+            expect(position.opted_out_at_month_period).toBe(6); // Opted out starting next month
+
+            // Move to month 6 (month has rolled over)
+            lite.goToMonthPeriod(6);
+
+            // Create pool for month 6
+            const pools: MonthlyPoolConfig[] = [{
+                month_period: 6,
+                base_revenue_percentage: 2000,
+                addon_revenue_percentage: 1000,
+                base_emission_percentage: 1500,
+            }];
+
+            const setPool = new SetMonthlyPool({
+                collection_authority: collectionCreator.address,
+                worker_collection: workerCollection,
+                pools,
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await setPool.getInstruction())
+                .sendTransaction({ payer: collectionCreator });
+
+            // Try to stake again in month 6 - should fail
+            stake = new Stake({
+                user: user.address,
+                worker: worker.address,
+                worker_license: workerLicense,
+                worker_collection: workerCollection,
+                amount: secondStake,
+                checker_count: 2,
+                current_month_period: 6,
+                previous_pool_month_period: 5,
+            });
+
+            await expect(async () => {
+                lite.buildTransaction()
+                    .addInstruction(await stake.getInstruction())
+                    .sign(user)
+                    .sendTransaction({ payer: worker });
+            }).rejects.toThrow("Month has rolled over. Must withdraw before staking again");
+        });
+
+        it('should allow re-staking in the same month after unstaking', async () => {
+            const user = await lite.generateKeyPair();
+            await lite.airdrop(user, 2);
+
+            const firstStake = bmbToBaseUnits(5000);
+            const secondStake = bmbToBaseUnits(2500);
+            const totalMint = firstStake + secondStake;
+
+            await lite.mintToken(BMB_MINT, user.address, totalMint, tokenAuthorities.bmbMintAuthority);
+
+            // First stake in month 5
+            let stake = new Stake({
+                user: user.address,
+                worker: worker.address,
+                worker_license: workerLicense,
+                worker_collection: workerCollection,
+                amount: firstStake,
+                checker_count: 2,
+                current_month_period: 5,
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await stake.getInstruction())
+                .sign(user)
+                .sendTransaction({ payer: worker });
+
+            // Verify first stake succeeded
+            const [userPositionPda] = await UserStakePositionAccount.findUserStakePositionPDA(user.address, workerCollection);
+            let positionData = lite.getAccountData(userPositionPda);
+            let position = UserStakePositionAccount.deserializeFrom(positionData!);
+            expect(position.staked_amount).toBe(firstStake);
+
+            // Verify pool state before unstaking
+            const [poolPda] = await MonthlyPoolAccount.findMonthlyPoolPDA(workerCollection, 5);
+            let poolData = lite.getAccountData(poolPda);
+            let pool = MonthlyPoolAccount.deserializeFrom(poolData!);
+            expect(pool.base_pool.total).toBe(firstStake);
+            expect(pool.base_pool.total_opted_out).toBe(0n);
+            expect(pool.addon_pool.total).toBe(2n); // 2 points
+            expect(pool.addon_pool.total_opted_out).toBe(0n);
+
+            // Unstake in month 5 (opt out)
 
             // Get last_active_pool_month from config
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
@@ -616,7 +721,13 @@ describe('User Stake Instructions', async () => {
             position = UserStakePositionAccount.deserializeFrom(positionData!);
             expect(position.opted_out_at_month_period).toBe(6); // Opted out starting next month
 
-            // Try to stake again - should fail
+            // Verify opt-out accounting was updated
+            poolData = lite.getAccountData(poolPda);
+            pool = MonthlyPoolAccount.deserializeFrom(poolData!);
+            expect(pool.base_pool.total_opted_out).toBe(firstStake);
+            expect(pool.addon_pool.total_opted_out).toBe(2n); // 2 points opted out
+
+            // Re-stake in the same month (month 5) - should succeed
             stake = new Stake({
                 user: user.address,
                 worker: worker.address,
@@ -627,12 +738,29 @@ describe('User Stake Instructions', async () => {
                 current_month_period: 5,
             });
 
-            await expect(async () => {
-                lite.buildTransaction()
-                    .addInstruction(await stake.getInstruction())
-                    .sign(user)
-                    .sendTransaction({ payer: worker });
-            }).rejects.toThrow("User has opted out of staking");
+            lite.buildTransaction()
+                .addInstruction(await stake.getInstruction())
+                .sign(user)
+                .sendTransaction({ payer: worker });
+
+            // Verify re-staking succeeded
+            positionData = lite.getAccountData(userPositionPda);
+            position = UserStakePositionAccount.deserializeFrom(positionData!);
+            expect(position.staked_amount).toBe(firstStake + secondStake);
+            expect(position.opted_out_at_month_period).toBe(0); // Opted back in
+            expect(position.stake_entries).toHaveLength(2); // 2 entries
+
+            // Verify opt-out accounting was reversed
+            poolData = lite.getAccountData(poolPda);
+            pool = MonthlyPoolAccount.deserializeFrom(poolData!);
+            expect(pool.base_pool.total).toBe(firstStake + secondStake);
+            expect(pool.base_pool.total_opted_out).toBe(0n); // Reversed
+            expect(pool.addon_pool.total).toBe(2n); // Still 2 points (min(2, 7500/2500))
+            expect(pool.addon_pool.total_opted_out).toBe(0n); // Reversed
+
+            // Verify tokens were transferred
+            const finalBalance = await lite.getTokenBalance(BMB_MINT, user.address);
+            expect(finalBalance).toBe(0n);
         });
     });
 });
