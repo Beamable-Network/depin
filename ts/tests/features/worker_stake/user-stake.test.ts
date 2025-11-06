@@ -423,6 +423,72 @@ describe('User Stake Instructions', async () => {
             expect(position.stake_entries[1].checker_count).toBe(3);
         });
 
+        it('should earn addon points when crossing 2500 BMB threshold across multiple stakes', async () => {
+            const user = await lite.generateKeyPair();
+            await lite.airdrop(user, 2);
+
+            const firstStake = bmbToBaseUnits(1500);
+            const secondStake = bmbToBaseUnits(1100);
+            const totalMint = firstStake + secondStake;
+
+            await lite.mintToken(BMB_MINT, user.address, totalMint, tokenAuthorities.bmbMintAuthority);
+
+            // First stake with 1 checker license (below 2500 threshold)
+            let stake = new Stake({
+                user: user.address,
+                worker: worker.address,
+                worker_license: workerLicense,
+                worker_collection: workerCollection,
+                amount: firstStake,
+                checker_count: 1,
+                current_month_period: 5,
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await stake.getInstruction())
+                .sign(user)
+                .sendTransaction({ payer: worker });
+
+            // Verify 0 addon points (min(1, 1500/2500) = min(1, 0) = 0)
+            let [poolPda] = await MonthlyPoolAccount.findMonthlyPoolPDA(workerCollection, 5);
+            let poolData = lite.getAccountData(poolPda);
+            let pool = MonthlyPoolAccount.deserializeFrom(poolData!);
+            expect(pool.addon_pool.total).toBe(0n);
+            expect(pool.base_pool.total).toBe(firstStake);
+
+            // Second stake with 1 checker license (total 2600 BMB, crossing threshold)
+            stake = new Stake({
+                user: user.address,
+                worker: worker.address,
+                worker_license: workerLicense,
+                worker_collection: workerCollection,
+                amount: secondStake,
+                checker_count: 1,
+                current_month_period: 5,
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await stake.getInstruction())
+                .sign(user)
+                .sendTransaction({ payer: worker });
+
+            // Verify 1 addon point (min(1, 2600/2500) = min(1, 1) = 1)
+            poolData = lite.getAccountData(poolPda);
+            pool = MonthlyPoolAccount.deserializeFrom(poolData!);
+            expect(pool.addon_pool.total).toBe(1n);
+            expect(pool.base_pool.total).toBe(firstStake + secondStake);
+
+            // Verify user position
+            const [userPositionPda] = await UserStakePositionAccount.findUserStakePositionPDA(user.address, workerCollection);
+            const positionData = lite.getAccountData(userPositionPda);
+            const position = UserStakePositionAccount.deserializeFrom(positionData!);
+
+            expect(position.staked_amount).toBe(firstStake + secondStake);
+            expect(position.stake_entries).toHaveLength(2);
+            expect(position.stake_entries[0].checker_count).toBe(1);
+            expect(position.stake_entries[1].checker_count).toBe(1);
+        });
+
         it('should handle multiple users staking independently', async () => {
             const user1 = await lite.generateKeyPair();
             const user2 = await lite.generateKeyPair();
