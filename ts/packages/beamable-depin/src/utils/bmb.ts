@@ -116,3 +116,66 @@ export function getMonthStartTimestamp(monthPeriod: number): bigint {
 
     return BigInt(daysSinceEpoch * 86400);
 }
+
+/**
+ * Returns Unix timestamp for the exclusive end of a month
+ * (first second of the next month)
+ *
+ * This mirrors the Rust function get_month_end_timestamp.
+ *
+ * @param monthPeriod - Months since June 2025
+ * @returns Unix timestamp marking the start of the next month (exclusive boundary)
+ */
+export function getMonthEndTimestamp(monthPeriod: number): bigint {
+    return getMonthStartTimestamp(monthPeriod) + BigInt(daysInMonth(monthPeriod) * 86400);
+}
+
+/**
+ * Calculates the number of complete days between two timestamps
+ *
+ * This mirrors the Rust function days_between.
+ *
+ * @param start - Earlier timestamp (seconds since epoch)
+ * @param end - Later timestamp (seconds since epoch)
+ * @returns Number of complete days (floor division). Can be negative if end < start.
+ */
+export function daysBetween(start: bigint, end: bigint): bigint {
+    return (end - start) / BigInt(86400);
+}
+
+/**
+ * Check if a year is a leap year
+ *
+ * @param year - Calendar year
+ * @returns true if the year is a leap year
+ */
+function isLeapYear(year: number): boolean {
+    return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+}
+
+/**
+ * Returns the number of days in a given month period (28-31)
+ *
+ * This mirrors the Rust function days_in_month.
+ *
+ * @param monthPeriod - Months since June 2025 (0 = June 2025, 1 = July 2025, etc.)
+ * @returns Number of days in the month (28, 29, 30, or 31)
+ */
+export function daysInMonth(monthPeriod: number): number {
+    const monthOffset = monthPeriod;
+    const totalMonths = 5 + monthOffset;
+    const year = 2025 + Math.floor(totalMonths / 12);
+    const month = (totalMonths % 12) + 1;
+
+    switch (month) {
+        case 4:
+        case 6:
+        case 9:
+        case 11:
+            return 30;
+        case 2:
+            return isLeapYear(year) ? 29 : 28;
+        default:
+            return 31;
+    }
+}

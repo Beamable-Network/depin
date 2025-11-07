@@ -6,6 +6,9 @@ export * from './user-stake-position-account.js';
 // Nested types
 export * from './types/index.js';
 
+// Utilities
+export * from './reward-calculation.js';
+
 // Instructions
 export * from './initialize-worker-stake-config.js';
 export * from './update-worker-wallet.js';
