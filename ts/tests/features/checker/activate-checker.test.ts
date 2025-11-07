@@ -1,19 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import { ActivateChecker, CheckerMetadataAccount } from '@beamable-network/depin';
+import { ActivateChecker, CheckerMetadataAccount, BMBStateAccount } from '@beamable-network/depin';
 import { address, none } from 'gill';
 import { LiteDepin } from '../../helpers/lite-depin.js';
+import { standardNetworkSetup } from '../../helpers/bmb-utils.js';
 
 describe('Checker activation', async () => {
     const lite = new LiteDepin();
 
     const signer = await lite.generateKeyPair();
-    await lite.airdrop(signer, 10);
-
-    await lite.createLicenseTree({ creator: signer });
+    await standardNetworkSetup({lite, signer});
 
     it('should be able to activate a checker', async () => {
         const lic1 = await lite.mintLicense({ to: signer, creator: signer });
+
+        // Get initial count
+        const initialCount = await getCheckersActivatedCount();
 
         const activateCheckerInput = new ActivateChecker({
             checker_license: lic1,
@@ -39,6 +41,9 @@ describe('Checker activation', async () => {
         const checkerMetadata = CheckerMetadataAccount.deserializeFrom(accountData!);
         expect(checkerMetadata.suspendedAt).toEqual(none());
         expect(checkerMetadata.delegatedTo).toBe(signer.address);
+
+        // Verify BMBState checkers_activated was incremented
+        await assertCheckersActivatedCount(initialCount + 1);
     });
 
     it('shouldn\'t be able to activate someone else checker', async () => {
@@ -64,6 +69,9 @@ describe('Checker activation', async () => {
         const delegate = await lite.generateKeyPair();
         const lic2 = await lite.mintLicense({ to: signer, creator: signer });
 
+        // Get initial count
+        const initialCount = await getCheckersActivatedCount();
+
         const activateCheckerInput = new ActivateChecker({
             checker_license: lic2,
             delegated_to: delegate.address,
@@ -88,11 +96,17 @@ describe('Checker activation', async () => {
         const checkerMetadata = CheckerMetadataAccount.deserializeFrom(accountData!);
         expect(checkerMetadata.suspendedAt).toEqual(none());
         expect(checkerMetadata.delegatedTo).toBe(delegate.address);
+
+        // Verify BMBState checkers_activated was incremented (new checker)
+        await assertCheckersActivatedCount(initialCount + 1);
     });
 
     it('should be able to reactivate an existing checker (update delegation)', async () => {
         const newDelegate = await lite.generateKeyPair();
         const lic3 = await lite.mintLicense({ to: signer, creator: signer });
+
+        // Get initial count before first activation
+        const initialCount = await getCheckersActivatedCount();
 
         // First activation
         const firstActivation = new ActivateChecker({
@@ -117,7 +131,10 @@ describe('Checker activation', async () => {
         let checkerMetadata = CheckerMetadataAccount.deserializeFrom(accountData!);
         expect(checkerMetadata.delegatedTo).toBe(signer.address);
 
-        // Second activation with different delegation
+        // Verify BMBState checkers_activated was incremented (new checker)
+        await assertCheckersActivatedCount(initialCount + 1);
+
+        // Second activation with different delegation (REACTIVATION)
         const secondActivation = new ActivateChecker({
             checker_license: lic3,
             delegated_to: newDelegate.address,
@@ -137,5 +154,21 @@ describe('Checker activation', async () => {
         checkerMetadata = CheckerMetadataAccount.deserializeFrom(accountData!);
         expect(checkerMetadata.suspendedAt).toEqual(none());
         expect(checkerMetadata.delegatedTo).toBe(newDelegate.address);
+
+        // Verify BMBState checkers_activated was NOT incremented (reactivation, not new)
+        await assertCheckersActivatedCount(initialCount + 1); // Should still be +1, not +2
     });
+    
+    async function getCheckersActivatedCount(): Promise<number> {
+        const bmbStatePda = await BMBStateAccount.findPDA();
+        const bmbData = lite.getAccountData(bmbStatePda[0]);
+        expect(bmbData).not.toBeNull();
+        const bmbState = BMBStateAccount.deserializeFrom(bmbData!);
+        return bmbState.checkers_activated;
+    }
+
+    async function assertCheckersActivatedCount(expected: number): Promise<void> {
+        const actual = await getCheckersActivatedCount();
+        expect(actual).toBe(expected);
+    }
 });

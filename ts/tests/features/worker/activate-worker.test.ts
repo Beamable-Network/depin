@@ -1,19 +1,23 @@
 import { describe, expect, it } from 'vitest';
 
-import { ActivateWorker, WorkerMetadataAccount } from '@beamable-network/depin';
+import { ActivateWorker, WorkerMetadataAccount, BMBStateAccount } from '@beamable-network/depin';
 import { address, none } from 'gill';
 import { LiteDepin } from '../../helpers/lite-depin.js';
+import { standardNetworkSetup } from '../../helpers/bmb-utils.js';
 
 describe('Worker activation', async () => {
     const lite = new LiteDepin();
 
-    const signer = await lite.generateKeyPair();
-    await lite.airdrop(signer, 10);
 
-    await lite.createLicenseTree({ creator: signer });
+    const signer = await lite.generateKeyPair();
+    await standardNetworkSetup({lite, signer});
+    
 
     it('should be able to activate a worker', async () => {
         const lic1 = await lite.mintLicense({ to: signer, creator: signer });
+
+        // Get initial count
+        const initialCount = await getWorkersActivatedCount();
 
         const activateWorkerInput = new ActivateWorker({
             worker_license: lic1,
@@ -43,6 +47,9 @@ describe('Worker activation', async () => {
         expect(workerMetadata.discoveryUri).toBe("https://example.com/worker/1");
         expect(workerMetadata.license).toBe(address(lic1.rpcAsset.id));
         expect(workerMetadata.owner).toBe(signer.address);
+
+        // Verify BMBState workers_activated was incremented
+        await assertWorkersActivatedCount(initialCount + 1);
     });
 
     it('shouldn\'t be able to activate someone else worker', async () => {
@@ -68,6 +75,9 @@ describe('Worker activation', async () => {
     it('should be able to delegate to a different address', async () => {
         const delegate = await lite.generateKeyPair();
         const lic2 = await lite.mintLicense({ to: signer, creator: signer });
+
+        // Get initial count
+        const initialCount = await getWorkersActivatedCount();
 
         const activateWorkerInput = new ActivateWorker({
             worker_license: lic2,
@@ -95,11 +105,17 @@ describe('Worker activation', async () => {
         expect(workerMetadata.suspendedAt).toEqual(none());
         expect(workerMetadata.delegatedTo).toBe(delegate.address);
         expect(workerMetadata.discoveryUri).toBe("https://example.com/worker/3");
+
+        // Verify BMBState workers_activated was incremented (new worker)
+        await assertWorkersActivatedCount(initialCount + 1);
     });
 
     it('should be able to reactivate an existing worker (update delegation and URI)', async () => {
         const newDelegate = await lite.generateKeyPair();
         const lic3 = await lite.mintLicense({ to: signer, creator: signer });
+
+        // Get initial count before first activation
+        const initialCount = await getWorkersActivatedCount();
 
         // First activation
         const firstActivation = new ActivateWorker({
@@ -126,7 +142,10 @@ describe('Worker activation', async () => {
         expect(workerMetadata.delegatedTo).toBe(signer.address);
         expect(workerMetadata.discoveryUri).toBe("https://example.com/worker/4");
 
-        // Second activation with different delegation and URI
+        // Verify BMBState workers_activated was incremented (new worker)
+        await assertWorkersActivatedCount(initialCount + 1);
+
+        // Second activation with different delegation and URI (REACTIVATION)
         const secondActivation = new ActivateWorker({
             worker_license: lic3,
             delegated_to: newDelegate.address,
@@ -148,12 +167,18 @@ describe('Worker activation', async () => {
         expect(workerMetadata.suspendedAt).toEqual(none());
         expect(workerMetadata.delegatedTo).toBe(newDelegate.address);
         expect(workerMetadata.discoveryUri).toBe("https://updated.example.com/worker/4");
+
+        // Verify BMBState workers_activated was NOT incremented (reactivation, not new)
+        await assertWorkersActivatedCount(initialCount + 1); // Should still be +1, not +2
     });
 
     it('should handle different discovery URI formats/lengths', async () => {
         const lic4 = await lite.generateKeyPair();
         await lite.airdrop(lic4, 10);
         const workerLic = await lite.mintLicense({ to: lic4, creator: signer });
+
+        // Get initial count before first activation
+        const initialCount = await getWorkersActivatedCount();
 
         const testUris = [
             "https://ipfs.io/ipfs/QmHash123",
@@ -189,5 +214,21 @@ describe('Worker activation', async () => {
             expect(workerMetadata.delegatedTo).toBe(lic4.address);
             expect(workerMetadata.discoveryUri).toBe(uri);
         }
+
+        // Verify BMBState workers_activated was incremented only once (same worker, 3 reactivations)
+        await assertWorkersActivatedCount(initialCount + 1); // Should be +1, not +3
     });
+
+    async function getWorkersActivatedCount(): Promise<number> {
+        const bmbStatePda = await BMBStateAccount.findPDA();
+        const bmbData = lite.getAccountData(bmbStatePda[0]);
+        expect(bmbData).not.toBeNull();
+        const bmbState = BMBStateAccount.deserializeFrom(bmbData!);
+        return bmbState.workers_activated;
+    }
+
+    async function assertWorkersActivatedCount(expected: number): Promise<void> {
+        const actual = await getWorkersActivatedCount();
+        expect(actual).toBe(expected);
+    }
 });

@@ -12,6 +12,7 @@ import { DEPIN_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM, SYSTEM_PROGRAM_ADDRESS 
 import { DepinInstruction } from "../../enums.js";
 import { assetToCNftContext, CNftContext, CNftContextCodec } from "../../utils/bubblegum.js";
 import { CheckerMetadataAccount } from "./checker-metadata-account.js";
+import { BMBStateAccount } from "../global/bmb-state-account.js";
 
 export interface ActivateCheckerParams {
     license_context: CNftContext;
@@ -54,19 +55,22 @@ export class ActivateChecker {
             address(this.checker_license.rpcAsset.id),
             address(this.params.license_context.owner)
         );
-        
+
+        const bmbStatePda = await BMBStateAccount.findPDA();
+
         let accounts = [
             { address: this.signer, role: AccountRole.READONLY_SIGNER },
             { address: checkerMetadataPda[0], role: AccountRole.WRITABLE },
             { address: MPL_ACCOUNT_COMPRESSION_PROGRAM, role: AccountRole.READONLY },
             { address: address(this.checker_license.merkleTree), role: AccountRole.READONLY },
+            { address: bmbStatePda[0], role: AccountRole.WRITABLE },
             { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY },
             ...this.checker_license.proof.map(proof => ({
                 address: address(proof),
                 role: AccountRole.READONLY
             }))
         ];
-        
+
         return {
             programAddress: DEPIN_PROGRAM,
             accounts: accounts,

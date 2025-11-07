@@ -3,14 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { ActivateWorker, UpdateWorkerUri, WorkerMetadataAccount } from '@beamable-network/depin';
 import { address, none } from 'gill';
 import { LiteDepin } from '../../helpers/lite-depin.js';
+import { standardNetworkSetup } from '../../helpers/bmb-utils.js';
 
 describe('Worker URI update', async () => {
     const lite = new LiteDepin();
 
     const signer = await lite.generateKeyPair();
-    await lite.airdrop(signer, 10);
-
-    await lite.createLicenseTree({ creator: signer });
+    await standardNetworkSetup({lite, signer});
 
     it('should be able to update worker URI when called by delegate', async () => {
         const delegate = await lite.generateKeyPair();

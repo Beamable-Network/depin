@@ -13,6 +13,7 @@ use solana_program::{
 };
 use crate::shared::{
     features::worker::accounts::WorkerMetadata,
+    features::global::accounts::BMBState,
 };
 use depin_core::{
     types::account::DepinAccountType,
@@ -34,17 +35,36 @@ pub fn process_activate_worker<'info>(
     // 1. [writable] WorkerMetadata PDA account (will be created or updated)
     // 2. [readonly] mpl_account_compression program
     // 3. [readonly] Merkle tree account
-    // 4. [readonly] System program account (for account creation)
+    // 4. [writable] BMBState PDA account
+    // 5. [readonly] System program account (for account creation)
     // N. [readonly] Proof accounts as remaining accounts
     let account_info_iter = &mut accounts.iter();
     let worker_owner_account = next_account_info(account_info_iter)?;
     let worker_metadata_account = next_account_info(account_info_iter)?;
     let _mpl_account_compression_program_account = next_account_info(account_info_iter)?;
     let merkle_tree_account = next_account_info(account_info_iter)?;
+    let bmb_state_account = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
     let input = input::ActivateWorkerInput::try_from_slice(instruction_data)?;
     let license = input.license_context;
+
+    // Validate BMBState PDA
+    let (bmb_state_pda, _) = BMBState::find_pda(program_id);
+    if *bmb_state_account.key != bmb_state_pda {
+        msg!("Error: BMBState account does not match expected PDA");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    if !bmb_state_account.is_writable {
+        msg!("Error: BMBState account must be writable");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    if bmb_state_account.data_is_empty() {
+        msg!("Error: BMBState account is not initialized");
+        return Err(ProgramError::UninitializedAccount);
+    }
 
     // Calculate the leaf PDA (worker license)
     let leaf_asset_id = get_asset_id(merkle_tree_account.key, license.nonce);
@@ -145,6 +165,19 @@ pub fn process_activate_worker<'info>(
                 &[bump_seed],
             ]],
         )?;
+
+        // Increment workers_activated in BMBState for new worker
+        let mut bmb_state: BMBState = read_account_data(
+            &bmb_state_account.try_borrow_data()?,
+            DepinAccountType::BMBState
+        )?;
+        
+        bmb_state.workers_activated = bmb_state.workers_activated
+            .checked_add(1)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+        
+        let mut bmb_data = bmb_state_account.try_borrow_mut_data()?;
+        write_account_data(&mut bmb_data, BMBState::account_type(), &bmb_state)?;
     }
 
     // Write metadata to the account
