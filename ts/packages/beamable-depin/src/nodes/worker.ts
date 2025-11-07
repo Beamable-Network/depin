@@ -176,6 +176,29 @@ export const WorkerErrorResponseSchema = Type.Object({
 
 export type WorkerErrorResponse = Static<typeof WorkerErrorResponseSchema>;
 
+export class WorkerResponseError extends Error {
+  public readonly statusCode: number;
+  public readonly workerError?: WorkerErrorResponse;
+
+  constructor(statusCode: number, responseText: string) {
+    super(`HTTP ${statusCode}: ${responseText}`);
+    this.name = 'WorkerResponseError';
+    this.statusCode = statusCode;
+
+    try {
+      const parsed = JSON.parse(responseText);
+      if (parsed && typeof parsed.error === 'string' && typeof parsed.message === 'string' && typeof parsed.timestamp === 'number') {
+        this.workerError = parsed as WorkerErrorResponse;
+      }
+    } catch {
+    }
+  }
+
+  get isProofConflict(): boolean {
+    return this.workerError?.error === 'proof_conflict';
+  }
+}
+
 export type WorkerProofPayload = Static<typeof ProofPayloadSchema>;
 
 export const WorkerProofReceiptPayloadSchema = Type.Object({

@@ -1,4 +1,4 @@
-import { ProgramAccount, SignedPayload, WorkerDiscoveryDocument, WorkerHealthCheckRequestPayloadSchema, WorkerMetadataAccount, ProofPayloadSchema, sleep } from '@beamable-network/depin';
+import { ProgramAccount, SignedPayload, WorkerDiscoveryDocument, WorkerHealthCheckRequestPayloadSchema, WorkerMetadataAccount, ProofPayloadSchema, sleep, WorkerResponseError } from '@beamable-network/depin';
 import pLimit from 'p-limit';
 import { Agent, request } from 'undici';
 import { CheckerNode } from '../checker.js';
@@ -436,15 +436,26 @@ class HealthCheckSession {
           }, 'Successfully submitted proof to worker');
           return; // Success
         } else {
-          // Throw error to trigger retry
-          const error = new Error(`HTTP ${res.statusCode}: ${responseText}`);
-          logger.warn({
-            ...this.logContext,
-            statusCode: res.statusCode,
-            response: responseText,
-            attempt
-          }, 'Failed to submit proof to worker');
-          throw error;
+          const error = new WorkerResponseError(res.statusCode, responseText);
+          
+          if (error.isProofConflict) {
+            logger.info({
+              ...this.logContext,
+              statusCode: res.statusCode,
+              error: error.workerError?.error,
+              message: error.workerError?.message,
+              attempt
+            }, 'Proof already submitted for this period');
+          } else {
+            logger.warn({
+              ...this.logContext,
+              statusCode: res.statusCode,
+              response: responseText,
+              attempt
+            }, 'Failed to submit proof to worker');
+            // Throw to trigger retry
+            throw error;
+          }
         }
       }, {
         maxRetries: 5,
