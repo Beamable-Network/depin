@@ -17,6 +17,7 @@ pub mod constants {
 pub mod features {
     pub mod rewards {
         pub mod accounts;
+        pub mod emission_schedule;
     }
     pub mod worker {
         pub mod accounts;

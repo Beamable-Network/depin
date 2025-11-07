@@ -4,6 +4,7 @@ pub const DISC_SIZE: usize = 1;
 pub const BMB_DECIMALS: u8 = 9;
 
 pub const LICENSE_ADMIN: Pubkey = solana_program::pubkey!("BMBazb5g4wVcNMcaPuxjVgMA8GmV65mY29ZxFRALEhdS");
+pub const NETWORK_ADMIN: Pubkey = solana_program::pubkey!("BMBazb5g4wVcNMcaPuxjVgMA8GmV65mY29ZxFRALEhdS");
 
 pub const USDC_MINT: Pubkey = solana_program::pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 pub const BMB_MINT: Pubkey = solana_program::pubkey!("BMBtwz6LFDJVJd2aZvL5F64fdvWP3RPn4NP5q9Xe15UD");
