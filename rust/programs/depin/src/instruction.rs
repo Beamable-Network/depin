@@ -8,7 +8,8 @@ pub enum DepinInstruction {
     ActivateChecker = 6,
     Unlock = 7,
     PayoutCheckerRewards = 8,
-    UpdateWorkerUri = 9
+    UpdateWorkerUri = 9,
+    SetBMBState = 10,
 }
 
 impl DepinInstruction {
@@ -26,6 +27,7 @@ impl DepinInstruction {
             7 => Self::Unlock,
             8 => Self::PayoutCheckerRewards,
             9 => Self::UpdateWorkerUri,
+            10 => Self::SetBMBState,
             _ => return Err(ProgramError::InvalidInstructionData),
         })
     }

@@ -2,6 +2,7 @@ use crate::instructions::{
     checker::{self, activate::process_activate_checker},
     admin::process_activate_checker_licenses,
     admin::process_init_network,
+    admin::process_set_bmb_state,
     treasury::unlock::process_unlock,
     worker::{process_activate_worker, process_submit_worker_proof, process_update_worker_uri},
 };
@@ -40,6 +41,9 @@ pub fn process<'a>(
         },
         DepinInstruction::UpdateWorkerUri => {
             process_update_worker_uri(program_id, accounts, data)?;
+        },
+        DepinInstruction::SetBMBState => {
+            process_set_bmb_state(program_id, accounts, data)?;
         }
     }
     Ok(())

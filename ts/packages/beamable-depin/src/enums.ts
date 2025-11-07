@@ -6,7 +6,8 @@ export enum DepinInstruction {
     ActivateChecker = 6,
     Unlock = 7,
     PayoutCheckerRewards = 8,
-    UpdateWorkerUri = 9
+    UpdateWorkerUri = 9,
+    SetBMBState = 10,
 }
 
 export enum DepinAccountType {
