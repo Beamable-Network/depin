@@ -1,4 +1,4 @@
-use borsh::BorshDeserialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
@@ -17,12 +17,15 @@ use depin_core::{
     types::account::DepinAccountType,
     utils::{
         account::{read_account_data, write_account_data},
-        bmb::get_current_period
+        bmb::get_current_period, program_data::validate_upgrade_authority
     }
 };
-#[cfg(not(feature = "test"))]
-use depin_core::constants::LICENSE_ADMIN;
-use super::input::ActivateCheckersInput;
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct ActivateCheckersInput {
+    pub period: u16,
+    pub checker_count: u32,
+}
 
 pub fn process_activate_checker_licenses<'info>(
     program_id: &Pubkey,
@@ -30,28 +33,24 @@ pub fn process_activate_checker_licenses<'info>(
     instruction_data: &[u8],
 ) -> ProgramResult {
     // Expected Accounts:
-    // 0. [signer] BMB License Admin
-    // 1. [writable] BMBState PDA account (will be created if doesn't exist)
-    // 2. [readonly] System program account (for account creation)
+    // 0. [signer] Program upgrade authority
+    // 1. [readonly] ProgramData account (contains upgrade authority)
+    // 2. [writable] BMBState PDA account (will be created if doesn't exist)
+    // 3. [readonly] System program account (for account creation)
     let account_info_iter = &mut accounts.iter();
-    let admin_account = next_account_info(account_info_iter)?;
+    let upgrade_authority_account = next_account_info(account_info_iter)?;
+    let program_data_account = next_account_info(account_info_iter)?;
     let bmb_state_account = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
     let input = ActivateCheckersInput::try_from_slice(instruction_data)?;
 
-    // Verify admin is signer
-    if !admin_account.is_signer {
-        msg!("Error: BMB License Admin must sign the transaction");
-        return Err(ProgramError::MissingRequiredSignature);
-    }
-
-    // Verify admin authority (skip in test builds)
-    #[cfg(not(feature = "test"))]
-    if *admin_account.key != LICENSE_ADMIN {
-        msg!("Error: Only BMB License Admin can update BMB state");
-        return Err(ProgramError::InvalidAccountOwner);
-    }
+    // Validate upgrade authority
+    validate_upgrade_authority(
+        program_id,
+        program_data_account,
+        upgrade_authority_account
+    )?;
 
     // Validate the PDA
     let (bmb_state_pda, bump_seed) = Pubkey::find_program_address(
@@ -100,14 +99,14 @@ pub fn process_activate_checker_licenses<'info>(
 
         invoke_signed(
             &system_instruction::create_account(
-                admin_account.key,
+                upgrade_authority_account.key,
                 &bmb_state_pda,
                 rent_lamports,
                 space as u64,
                 program_id,
             ),
             &[
-                admin_account.clone(),
+                upgrade_authority_account.clone(),
                 bmb_state_account.clone(),
                 system_program.clone(),
             ],

@@ -12,7 +12,7 @@ use solana_program::{
 use crate::{
     state::worker_stake_config::WorkerStakeConfig,
     types::WorkerStakeAccountType,
-    utils::{validate_pda_account, require_signer},
+    utils::{validate_pda_account},
 };
 
 pub fn process_update_min_stake_requirement<'a>(
@@ -30,14 +30,11 @@ pub fn process_update_min_stake_requirement<'a>(
     let program_data_account = next_account_info(account_info_iter)?;
     let worker_stake_config_account = next_account_info(account_info_iter)?;
 
-    // Validate upgrade authority signature
-    require_signer(upgrade_authority_account, "Program upgrade authority")?;
-
-    // Validate upgrade authority from ProgramData account
+    // Validate upgrade authority
     validate_upgrade_authority(
         program_id,
         program_data_account,
-        upgrade_authority_account.key
+        upgrade_authority_account
     )?;
 
     // Validate new_min_stake_requirement > 0

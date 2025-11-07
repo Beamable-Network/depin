@@ -1,4 +1,4 @@
-import { Address, Base58EncodedBytes, Codec, getBase58Codec, getProgramDerivedAddress, getStructCodec, ProgramDerivedAddress } from "gill";
+import { Address, Base58EncodedBytes, Codec, getBase58Codec, getProgramDerivedAddress, getStructCodec, getU32Codec, ProgramDerivedAddress } from "gill";
 import { LRUCache } from "lru-cache";
 import { DEPIN_PROGRAM, GLOBAL_SEED, STATE_SEED } from "../../constants.js";
 import { DepinAccountType } from "../../enums.js";
@@ -6,17 +6,29 @@ import { RingBuffer64, RingBuffer64Data } from "../../types/ring-buffer-64.js";
 
 interface BMBStateAccountData {
     period_checkers_buffer: RingBuffer64Data;
+    checkers_desired: number;
+    checkers_activated: number;
+    workers_activated: number;
 }
 
 export class BMBStateAccount implements BMBStateAccountData {
     period_checkers_buffer: RingBuffer64Data;
+    checkers_desired: number;
+    checkers_activated: number;
+    workers_activated: number;
 
     public static readonly DataCodecV1: Codec<BMBStateAccountData> = getStructCodec([
         ["period_checkers_buffer", RingBuffer64.getDataCodec(16)],
+        ["checkers_desired", getU32Codec()],
+        ["checkers_activated", getU32Codec()],
+        ["workers_activated", getU32Codec()],
     ]);
 
     constructor(fields: BMBStateAccountData) {
         this.period_checkers_buffer = fields.period_checkers_buffer;
+        this.checkers_desired = fields.checkers_desired;
+        this.checkers_activated = fields.checkers_activated;
+        this.workers_activated = fields.workers_activated;
     }
 
     public static deserializeFrom(accountData: ArrayLike<number>): BMBStateAccount;
@@ -42,7 +54,10 @@ export class BMBStateAccount implements BMBStateAccountData {
 
     public static readonly LEN: bigint = BigInt(
         1 + // discriminator
-        RingBuffer64.getLen(16)
+        RingBuffer64.getLen(16) +
+        4 + // checkers_desired (u32)
+        4 + // checkers_activated (u32)
+        4   // workers_activated (u32)
     );
 
     public static async findPDA(): Promise<ProgramDerivedAddress> {

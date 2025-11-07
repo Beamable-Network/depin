@@ -26,14 +26,20 @@ impl PeriodCheckersCodec {
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct BMBState {
     pub period_checkers_buffer: RingBuffer<PeriodCheckersData, 16>,
+    pub checkers_desired: u32,
+    pub checkers_activated: u32,
+    pub workers_activated: u32,
 }
 
 impl BMBState {
-    pub const LEN: usize = 1 +(8 * 16) + 1;
+    pub const LEN: usize = 1 +(8 * 16) + 1 + 4 + 4 + 4;
 
     pub fn new() -> Self {
         Self {
             period_checkers_buffer: RingBuffer::new(),
+            checkers_desired: 0,
+            checkers_activated: 0,
+            workers_activated: 0,
         }
     }
 

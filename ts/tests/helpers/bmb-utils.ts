@@ -1,4 +1,4 @@
-import { ActivateChecker, ActivateCheckerLicenses, ActivateWorker, BMB_MINT, InitNetwork, TreasuryAuthority } from "@beamable-network/depin";
+import { ActivateChecker, ActivateCheckerLicenses, ActivateWorker, BMB_MINT, DEPIN_PROGRAM, InitNetwork, TreasuryAuthority } from "@beamable-network/depin";
 import { AssetWithProof } from "@metaplex-foundation/mpl-bubblegum";
 import { LiteDepin, LiteKeyPair } from "./lite-depin.js";
 import { Address } from "gill";
@@ -78,6 +78,7 @@ export async function standardNetworkSetup(params: StandardNetworkSetupParams): 
     const { lite, signer } = params;
     await lite.airdrop(signer, 10);
 
+    await lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, signer.web3PublicKey);
     await initializeNetwork({ lite, signer });
 
     // Initialize BMB mint and treasury with some tokens

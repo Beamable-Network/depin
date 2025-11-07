@@ -35,8 +35,13 @@ use solana_program::{
 pub fn validate_upgrade_authority(
     program_id: &Pubkey,
     program_data_account: &AccountInfo,
-    expected_authority: &Pubkey,
+    actual_authority_account: &AccountInfo,
 ) -> Result<(), ProgramError> {
+    if !actual_authority_account.is_signer {
+        msg!("Error: Program upgrade authority must sign the transaction");
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
     // Validate ProgramData account matches expected PDA
     let (expected_program_data, _bump) = Pubkey::find_program_address(
         &[program_id.as_ref()],
@@ -51,7 +56,7 @@ pub fn validate_upgrade_authority(
     let authority = extract_upgrade_authority(program_data_account)?;
 
     // Validate expected authority matches actual authority
-    if expected_authority != &authority {
+    if actual_authority_account.key != &authority {
         msg!("Error: Expected authority does not match program upgrade authority");
         return Err(ProgramError::InvalidArgument);
     }

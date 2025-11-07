@@ -1,7 +1,7 @@
 use crate::instructions::{
     checker::{self, activate::process_activate_checker},
-    global::process_activate_checker_licenses,
-    init::process_init_network,
+    admin::process_activate_checker_licenses,
+    admin::process_init_network,
     treasury::unlock::process_unlock,
     worker::{process_activate_worker, process_submit_worker_proof, process_update_worker_uri},
 };

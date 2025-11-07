@@ -1,11 +1,12 @@
 import { assert, describe, expect, it } from 'vitest';
 
-import { ActivateCheckerLicenses, BMBStateAccount } from '@beamable-network/depin';
+import { ActivateCheckerLicenses, BMBStateAccount, DEPIN_PROGRAM } from '@beamable-network/depin';
 import { LiteDepin } from '../../helpers/lite-depin.js';
 
 describe('Checker licenses activation', async () => {
     const lite = new LiteDepin();
     const admin = await lite.generateKeyPair();
+    lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, admin.web3PublicKey);
     await lite.airdrop(admin, 10);
 
     it('should be able to activate checker licenses', async () => {

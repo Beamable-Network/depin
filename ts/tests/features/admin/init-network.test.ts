@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { BMB_MINT, GlobalRewardsAccount, InitNetwork, TreasuryAuthority, TreasuryStateAccount, TreasuryConfigAccount } from '@beamable-network/depin';
+import { BMB_MINT, GlobalRewardsAccount, InitNetwork, TreasuryAuthority, TreasuryStateAccount, TreasuryConfigAccount, DEPIN_PROGRAM } from '@beamable-network/depin';
 import { initializeNetwork } from '../../helpers/bmb-utils.js';
 import { LiteDepin } from '../../helpers/lite-depin.js';
 
@@ -8,6 +8,7 @@ describe('Init network', async () => {
     const lite = new LiteDepin();
     const signer = await lite.generateKeyPair();
     await lite.airdrop(signer, 10);
+    lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, signer.web3PublicKey);
 
     // Initialize BMB mint and treasury with some tokens
     await lite.createToken(BMB_MINT, signer);

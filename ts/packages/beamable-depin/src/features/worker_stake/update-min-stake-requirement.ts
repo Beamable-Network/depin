@@ -5,17 +5,14 @@ import {
     Codec,
     Endian,
     getAddressCodec,
-    getAddressEncoder,
-    getProgramDerivedAddress,
     getStructCodec,
     getU64Codec
 } from "gill";
 
-import { BPF_LOADER_UPGRADEABLE_PROGRAM, WORKER_STAKE_PROGRAM } from "../../constants.js";
+import { WORKER_STAKE_PROGRAM } from "../../constants.js";
 import { WorkerStakeInstruction } from "../../enums.js";
+import { getProgramDataAddress } from "../../utils/bpf.js";
 import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
-
-const addressEncoder = getAddressEncoder();
 
 export interface UpdateMinStakeRequirementParams {
     worker_collection: Address;
@@ -55,14 +52,8 @@ export class UpdateMinStakeRequirement {
     public async getInstruction() {
         const configPda = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(this.worker_collection);
 
-        // Calculate ProgramData PDA
-        // Need to encode the worker_stake program address to bytes for the seed        
-        const programBytes = addressEncoder.encode(WORKER_STAKE_PROGRAM);
-
-        const [programDataAddress] = await getProgramDerivedAddress({
-            programAddress: BPF_LOADER_UPGRADEABLE_PROGRAM,
-            seeds: [programBytes]
-        });
+        // Calculate ProgramData PDA for upgrade authority verification
+        const programDataAddress = await getProgramDataAddress(WORKER_STAKE_PROGRAM);
 
         const accounts = [
             { address: this.upgrade_authority, role: AccountRole.READONLY_SIGNER },

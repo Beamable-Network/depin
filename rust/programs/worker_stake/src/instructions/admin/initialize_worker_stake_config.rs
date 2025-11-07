@@ -39,17 +39,11 @@ pub fn process_initialize_worker_stake_config<'a>(
     let worker_stake_config_account = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
-    // Validate upgrade authority signature
-    if !upgrade_authority_account.is_signer {
-        msg!("Error: Program upgrade authority must sign the transaction");
-        return Err(ProgramError::MissingRequiredSignature);
-    }
-
-    // Validate upgrade authority from ProgramData account
+    // Validate upgrade authority
     validate_upgrade_authority(
         program_id,
         program_data_account,
-        upgrade_authority_account.key
+        upgrade_authority_account
     )?;
 
     // Validate WorkerStakeConfig PDA

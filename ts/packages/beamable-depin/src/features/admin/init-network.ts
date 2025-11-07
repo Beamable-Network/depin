@@ -10,7 +10,9 @@ import { DepinInstruction } from "../../enums.js";
 import { GlobalRewardsAccount } from "../global/global-rewards-account.js";
 import { TreasuryStateAccount } from "../treasury/treasury-state-account.js";
 import { TreasuryConfigAccount } from "../treasury/treasury-config-account.js";
+import { BMBStateAccount } from "../global/bmb-state-account.js";
 import { SYSTEM_PROGRAM_ADDRESS } from "@solana-program/system";
+import { getProgramDataAddress } from "../../index.js";
 
 export interface IntNetworkParams {
 }
@@ -36,12 +38,18 @@ export class InitNetwork {
         const globalRewardsPda = await GlobalRewardsAccount.findGlobalRewardsPDA();
         const treasuryStatePda = await TreasuryStateAccount.findTreasuryStatePDA();
         const treasuryConfigPda = await TreasuryConfigAccount.findTreasuryConfigPDA();
-        
+        const bmbStatePda = await BMBStateAccount.findPDA();
+
+        // Calculate ProgramData PDA for upgrade authority verification
+        const programDataAddress = await getProgramDataAddress(DEPIN_PROGRAM);
+
         let accounts = [
             { address: this.payer, role: AccountRole.READONLY_SIGNER },
+            { address: programDataAddress, role: AccountRole.READONLY },
             { address: globalRewardsPda[0], role: AccountRole.WRITABLE },
             { address: treasuryStatePda[0], role: AccountRole.WRITABLE },
             { address: treasuryConfigPda[0], role: AccountRole.WRITABLE },
+            { address: bmbStatePda[0], role: AccountRole.WRITABLE },
             { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY }
         ];
         return {

@@ -1,8 +1,11 @@
 use crate::shared::constants::seeds::{GLOBAL_REWARDS_SEED, GLOBAL_SEED, TREASURY_SEED, STATE_SEED};
 use crate::shared::features::rewards::accounts::GlobalRewards;
 use crate::shared::features::treasury::accounts::{TreasuryState, TreasuryConfig};
+use crate::shared::features::global::accounts::BMBState;
+use borsh::{BorshDeserialize, BorshSerialize};
 use depin_core::types::account::DepinAccountType;
-use depin_core::utils::account::write_account_data;
+use depin_core::utils::account::{write_account_data, reallocate_account_if_needed};
+use depin_core::utils::program_data::validate_upgrade_authority;
 use solana_program::program::invoke_signed;
 use solana_program::rent::Rent;
 use solana_program::{system_instruction};
@@ -15,32 +18,43 @@ use solana_program::{
     pubkey::Pubkey,
 };
 
-pub fn process_init_network(
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct InitInput {
+}
+
+pub fn process_init_network<'a>(
     program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    accounts: &'a [AccountInfo<'a>],
     _instruction_data: &[u8],
 ) -> ProgramResult {
     // Expected Accounts:
-    // 0. [signer] Caller
-    // 1. [writable] GlobalRewards PDA
-    // 2. [writable] TreasuryState PDA
-    // 3. [writable] TreasuryConfig PDA
-    // 4. [] System program account (for account creation)
+    // 0. [signer] Program upgrade authority
+    // 1. [readonly] ProgramData account (contains upgrade authority)
+    // 2. [writable] GlobalRewards PDA
+    // 3. [writable] TreasuryState PDA
+    // 4. [writable] TreasuryConfig PDA
+    // 5. [writable] BMBState PDA
+    // 6. [] System program account (for account creation)
     let account_info_iter = &mut accounts.iter();
-    let caller_account = next_account_info(account_info_iter)?;
+    let upgrade_authority_account = next_account_info(account_info_iter)?;
+    let program_data_account = next_account_info(account_info_iter)?;
     let global_rewards_account = next_account_info(account_info_iter)?;
     let treasury_state_account = next_account_info(account_info_iter)?;
     let treasury_config_account = next_account_info(account_info_iter)?;
+    let bmb_state_account = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
-    if !caller_account.is_signer {
-        msg!("Error: Caller must sign the transaction");
-        return Err(ProgramError::MissingRequiredSignature);
-    }
+    // Validate upgrade authority
+    validate_upgrade_authority(
+        program_id,
+        program_data_account,
+        upgrade_authority_account
+    )?;
 
-    init_global_rewards(program_id, caller_account, global_rewards_account, system_program)?;
-    init_treasury_state(program_id, caller_account, treasury_state_account, system_program)?;
-    init_treasury_config(program_id, caller_account, treasury_config_account, system_program)?;
+    init_global_rewards(program_id, upgrade_authority_account, global_rewards_account, system_program)?;
+    init_treasury_state(program_id, upgrade_authority_account, treasury_state_account, system_program)?;
+    init_treasury_config(program_id, upgrade_authority_account, treasury_config_account, system_program)?;
+    init_bmb_state(program_id, upgrade_authority_account, bmb_state_account, system_program)?;
     Ok(())
 }
 
@@ -264,5 +278,76 @@ fn init_treasury_config<'a>(
     write_account_data(&mut data, TreasuryConfig::account_type(), &config)?;
 
     msg!("TreasuryConfig created and initialized successfully");
+    Ok(())
+}
+
+fn init_bmb_state<'a>(
+    program_id: &Pubkey,
+    payer_account: &'a AccountInfo<'a>,
+    bmb_state_account: &'a AccountInfo<'a>,
+    system_program: &'a AccountInfo<'a>
+) -> ProgramResult {
+    let (pda, bump_seed) = BMBState::find_pda(program_id);
+
+    if *bmb_state_account.key != pda {
+        msg!("Error: BMBState account does not match expected PDA");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    if !bmb_state_account.is_writable {
+        msg!("Error: BMBState account must be writable");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    let account_exists = !bmb_state_account.data_is_empty();
+    let rent = Rent::get()?;
+
+    if account_exists {
+        msg!("BMBState account exists, reallocating if needed");
+
+        // Realloc preserves existing data and zero-initializes new space
+        reallocate_account_if_needed(
+            payer_account,
+            bmb_state_account,
+            system_program,
+            &rent,
+            BMBState::LEN
+        )?;
+
+        msg!("BMBState updated successfully");
+    } else {
+        msg!("Creating BMBState PDA");
+
+        let space = BMBState::LEN;
+        let rent_lamports = rent.minimum_balance(space);
+
+        invoke_signed(
+            &system_instruction::create_account(
+                payer_account.key,
+                &pda,
+                rent_lamports,
+                space as u64,
+                program_id,
+            ),
+            &[
+                payer_account.clone(),
+                bmb_state_account.clone(),
+                system_program.clone(),
+            ],
+            &[&[
+                GLOBAL_SEED,
+                STATE_SEED,
+                &[bump_seed],
+            ]],
+        )?;
+
+        // Initialize with new state
+        let bmb_state = BMBState::new();
+        let mut data = bmb_state_account.try_borrow_mut_data()?;
+        write_account_data(&mut data, BMBState::account_type(), &bmb_state)?;
+
+        msg!("BMBState created and initialized successfully");
+    }
+
     Ok(())
 }

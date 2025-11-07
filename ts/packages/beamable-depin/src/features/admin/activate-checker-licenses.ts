@@ -10,7 +10,8 @@ import {
 
 import { DEPIN_PROGRAM, SYSTEM_PROGRAM_ADDRESS } from "../../constants.js";
 import { DepinInstruction } from "../../enums.js";
-import { BMBStateAccount } from "./bmb-state-account.js";
+import { getProgramDataAddress } from "../../index.js";
+import { BMBStateAccount } from "../global/bmb-state-account.js";
 
 export interface ActivateCheckerLicensesParams {
     period: number;
@@ -49,8 +50,12 @@ export class ActivateCheckerLicenses {
     public async getInstruction() {
         const bmbStatePda = await BMBStateAccount.findPDA();
 
+        // Calculate ProgramData PDA for upgrade authority verification
+        const programDataAddress = await getProgramDataAddress(DEPIN_PROGRAM);
+
         let accounts = [
             { address: this.signer, role: AccountRole.WRITABLE_SIGNER },
+            { address: programDataAddress, role: AccountRole.READONLY },
             { address: bmbStatePda[0], role: AccountRole.WRITABLE },
             { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY },
         ];
