@@ -5,6 +5,7 @@ import {
     address,
     createTransaction,
     getExplorerLink,
+    isAddress,
     setTransactionMessageLifetimeUsingBlockhash,
     signTransactionMessageWithSigners
 } from 'gill';
@@ -16,12 +17,22 @@ const client = await createClient('devnet');
 
 // Get checker license address from user
 const licenseAddress = await askForInput("Enter checker license");
+if (!isAddress(licenseAddress)) {
+    throw new Error("Invalid license address");
+}
+
+// Get checker delegate address from user
+const delegateAddress = await askForInput("Enter delegate address");
+if (!isAddress(delegateAddress)) {
+    throw new Error("Invalid delegate address");
+}
+
 const licenseProof = await getAssetWithProof(client.umi, publicKey(licenseAddress), { truncateCanopy: true });
 
 // Activate checker license and set delegate
 const activation = new ActivateChecker({
     checker_license: licenseProof,
-    delegated_to: address(client.umi.identity.publicKey),
+    delegated_to: address(delegateAddress),
     signer: address(client.umi.identity.publicKey)
 });
 
