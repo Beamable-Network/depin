@@ -9,11 +9,14 @@ import {
     setTransactionMessageLifetimeUsingBlockhash,
     signTransactionMessageWithSigners
 } from 'gill';
-import { askForInput } from 'utils';
+import { askForInput, askForSecretKey } from '../utils';
 import { createClient } from '../client';
 
 // Initialize Solana client
 const client = await createClient('devnet');
+
+// Get license owner signer
+const licenseOwner = await askForSecretKey("License owner");
 
 // Get checker license address from user
 const licenseAddress = await askForInput("Enter checker license");
@@ -39,7 +42,7 @@ const activation = new ActivateChecker({
 // Build and sign transaction
 const tx = createTransaction({
     instructions: [await activation.getInstruction()],
-    feePayer: client.signer
+    feePayer: licenseOwner
 });
 
 const { value: latestBlockhash } = await client.rpcClient.rpc.getLatestBlockhash().send();

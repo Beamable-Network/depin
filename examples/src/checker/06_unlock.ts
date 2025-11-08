@@ -11,18 +11,21 @@ import {
     signTransactionMessageWithSigners
 } from "gill";
 import { createClient } from "../client";
+import { askForSecretKey } from "../utils";
 
 // Initialize Solana client
 const client = await createClient('devnet');
 
+const ownerKey = await askForSecretKey("Tokens owner");
+
 // Fetch all locked token accounts for the current user
-console.log("Finding locked token accounts for:", client.signer.address);
+console.log("Finding locked token accounts for:", ownerKey.address);
 const lockedTokenAccounts = await LockedTokensAccount.getLockedTokens(
     async (program, config) => {
         const resp = await client.rpcClient.rpc.getProgramAccounts(program, config).send();
         return resp.map(({ pubkey, account }) => ({ pubkey, account }));
     },
-    client.signer.address
+    ownerKey.address
 );
 
 console.log('Found locked token accounts:', lockedTokenAccounts.length);
@@ -64,13 +67,13 @@ if (lockedTokenAccounts.length > 0) {
 
     const transactionMessage = pipe(
         createTransactionMessage({ version: 0 }),
-        (tx) => setTransactionMessageFeePayerSigner(client.signer, tx),
+        (tx) => setTransactionMessageFeePayerSigner(ownerKey, tx),
         (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
         (tx) => {
             if (needsDestinationAccount) {
                 return appendTransactionMessageInstruction(
                     getCreateAssociatedTokenIdempotentInstruction({
-                        payer: client.signer,
+                        payer: ownerKey,
                         ata: destinationTokenAccount,
                         owner: unlock.owner,
                         mint: BMB_MINT,

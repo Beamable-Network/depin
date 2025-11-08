@@ -1,8 +1,15 @@
 import { LockedTokensAccount } from "@beamable-network/depin";
 import { createClient } from "../client";
+import { isAddress } from "gill";
+import { askForInput } from "../utils";
 
 // Initialize Solana client
 const client = await createClient('devnet');
+
+const userAddress = await askForInput("Enter user address");
+if (!isAddress(userAddress)) {
+    throw new Error("Invalid user address");
+}
 
 // Fetch all locked token accounts for the current user
 const lockedTokenAccounts = await LockedTokensAccount.getLockedTokens(
@@ -10,7 +17,7 @@ const lockedTokenAccounts = await LockedTokensAccount.getLockedTokens(
         const resp = await client.rpcClient.rpc.getProgramAccounts(program, config).send();
         return resp.map(({ pubkey, account }) => ({ pubkey, account }));
     },
-    client.signer.address
+    userAddress
 );
 
 console.log('Found locked token accounts:', lockedTokenAccounts.length);

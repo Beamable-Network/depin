@@ -10,6 +10,7 @@
         "args": ["${file}"],
         "skipFiles": ["<node_internals>/**"],
         "outputCapture": "std",
+        "console": "integratedTerminal",
         "env": {
         }
       }
