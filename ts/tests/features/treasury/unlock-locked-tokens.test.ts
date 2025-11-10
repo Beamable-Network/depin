@@ -2,10 +2,9 @@ import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/t
 import { Address, none, some } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { BMB_MINT, DEPIN_PROGRAM, LockedTokensAccount, TreasuryAuthority, TreasuryStateAccount, Unlock } from '@beamable-network/depin';
+import { BMB_MINT, getCurrentPeriod, LockedTokensAccount, TreasuryAuthority, TreasuryStateAccount, Unlock } from '@beamable-network/depin';
 import { standardNetworkSetup } from '../../helpers/bmb-utils.js';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
-import { getCurrentPeriod } from '@beamable-network/depin';
 
 describe('Unlock locked tokens', async () => {
     let lite: LiteDepin;
@@ -37,7 +36,8 @@ describe('Unlock locked tokens', async () => {
 
     it('should unlock tokens with no penalty after unlock period', async () => {
         const lockedAmount = 10_000n;
-        const lockPeriod = lite.getPeriod() - 1;;
+        lite.goToPeriod(100);
+        const lockPeriod = 99;
 
         // Mock locked tokens account with unlock period in the past
         await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, 100, lockPeriod, null);
@@ -113,9 +113,9 @@ describe('Unlock locked tokens', async () => {
         const finalOwnerBalance = await lite.getTokenBalance(BMB_MINT, tokenOwner.address);
         const actualReceivedAmount = finalOwnerBalance - initialOwnerBalance;
 
-        // Verify penalty was applied correctly (~50% through lock period)
+        // Verify penalty was applied correctly (50% through lock period = 50% vested)
         expect(actualReceivedAmount).toBeLessThan(lockedAmount); // Should receive less than full amount
-        expect(actualReceivedAmount).toBeGreaterThan(lockedAmount / 2n); // Should receive more than 50%
+        expect(actualReceivedAmount).toBeGreaterThanOrEqual(lockedAmount / 2n); // Should receive at least 50%
 
         // Verify all unlock results using the received amount
         await verifyUnlockResults(
@@ -129,6 +129,31 @@ describe('Unlock locked tokens', async () => {
             initialTreasuryBalance,
             initialTreasuryState
         );
+    });
+
+    it('should fail to unlocked immediately', async () => {
+        const lockedAmount = 10_000n;
+        // Create locked tokens at period 100, then unlock immediately at period 100
+        lite.goToPeriod(100);
+        const lockPeriod = lite.getPeriod();
+        const unlockPeriod = 190; // 90 days from period 100
+
+        // Mock locked tokens account
+        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, unlockPeriod, lockPeriod, null);
+
+        // Stay at current period (same as lock period = immediate unlock = maximum penalty)
+        const unlock = new Unlock({
+            owner: tokenOwner.address,
+            lock_period: lockPeriod,
+            owner_bmb_token_account: tokenOwnerAtaAddress,
+            unlock_period_for_address: unlockPeriod,
+        });
+
+        // Execute unlock transaction
+        await expect(async () => lite.buildTransaction()
+            .addInstruction(await unlock.getInstruction())
+            .sendTransaction({ payer: tokenOwner }))
+            .rejects.toThrow("Tokens can be unlocked next day after locking. Current period: 100, Lock period: 100");
     });
 
     it('should apply maximum penalty when unlocked immediately', async () => {
@@ -154,16 +179,71 @@ describe('Unlock locked tokens', async () => {
         const initialTreasuryBalance = await getTreasuryBalance(lite);
         const initialTreasuryState = await getTreasuryState(lite);
 
+        lite.goToPeriod(101); // Move to next period to allow unlock with max penalty
+
         // Execute unlock transaction
         const unlockResult = await lite.buildTransaction()
             .addInstruction(await unlock.getInstruction())
             .sendTransaction({ payer: tokenOwner });
         expect(unlockResult.logs).toBeDefined();
 
-        // Verify owner received only 10% (90% penalty for immediate unlock)
+        // Verify owner received 1/90 of amount (linear vesting: 1 day elapsed out of 90)
+        // vested_amount = (10000 * 1 + 45) / 90 = 111 (rounded)
         const finalOwnerBalance = await lite.getTokenBalance(BMB_MINT, tokenOwner.address);
         const receivedAmount = finalOwnerBalance - initialOwnerBalance;
-        const expectedAmount = lockedAmount / 10n; // 10% of original amount
+        const expectedAmount = 111n; // (10000 * 1 + 45) / 90 = 111
+        expect(receivedAmount).toBe(expectedAmount);
+
+        // Verify all unlock results
+        await verifyUnlockResults(
+            lite,
+            tokenOwner.address,
+            lockPeriod,
+            unlockPeriod,
+            lockedAmount,
+            expectedAmount,
+            initialOwnerBalance,
+            initialTreasuryBalance,
+            initialTreasuryState
+        );
+    });
+
+    it('should properly round vested amounts', async () => {
+        const lockedAmount = 10_000n;
+        // Create locked tokens at period 100, then unlock immediately at period 100
+        lite.goToPeriod(100);
+        const lockPeriod = lite.getPeriod();
+        const unlockPeriod = 190; // 90 days from period 100
+
+        // Mock locked tokens account
+        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, unlockPeriod, lockPeriod, null);
+
+        // Stay at current period (same as lock period = immediate unlock = maximum penalty)
+        const unlock = new Unlock({
+            owner: tokenOwner.address,
+            lock_period: lockPeriod,
+            owner_bmb_token_account: tokenOwnerAtaAddress,
+            unlock_period_for_address: unlockPeriod,
+        });
+
+        // Get initial balances
+        const initialOwnerBalance = await lite.getTokenBalance(BMB_MINT, tokenOwner.address);
+        const initialTreasuryBalance = await getTreasuryBalance(lite);
+        const initialTreasuryState = await getTreasuryState(lite);
+
+        lite.goToPeriod(108);
+
+        // Execute unlock transaction
+        const unlockResult = await lite.buildTransaction()
+            .addInstruction(await unlock.getInstruction())
+            .sendTransaction({ payer: tokenOwner });
+        expect(unlockResult.logs).toBeDefined();
+
+        // Verify owner received 8/90 of amount (linear vesting: 8 days elapsed out of 90)
+        // vested_amount = (10000 * 8 + 45) / 90 = 889 (rounded)
+        const finalOwnerBalance = await lite.getTokenBalance(BMB_MINT, tokenOwner.address);
+        const receivedAmount = finalOwnerBalance - initialOwnerBalance;
+        const expectedAmount = 889n; // (10000 * 8 + 45) / 90 = 889
         expect(receivedAmount).toBe(expectedAmount);
 
         // Verify all unlock results

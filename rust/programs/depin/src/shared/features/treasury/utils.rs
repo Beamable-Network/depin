@@ -165,25 +165,34 @@ pub fn grant_locked<'a>(
     Ok(())
 }
 
-/// Calculate dynamic penalty rate based on periods elapsed
-fn calculate_penalty_rate(lock_period: u16, current_period: u16, unlock_period: u16) -> u16 {
-    // Rates are expressed in basis points (bps): 10000 bps = 100%
-    const MAX_PENALTY_BPS: u16 = 9000; // 90% (9000 bps) at start
-
-    // Duration of the lock window
+/// Calculate vested amount based on linear vesting.
+/// Vests linearly from 0% at `lock_period` to 100% at `unlock_period`.
+/// Returns the **total vested so far** (not the delta for this period).
+pub fn calculate_vested_amount(
+    total_locked: u64,
+    lock_period: u16,
+    current_period: u16,
+    unlock_period: u16,
+) -> u64 {
+    // Duration of the vesting window
     let dur = unlock_period.saturating_sub(lock_period);
     if dur == 0 {
-        return 0; // No penalty if duration is zero
+        // By convention: fully vested if no window (unlock <= lock).
+        return total_locked;
     }
 
-    // Remaining time until unlock, clamped to [0, dur]
-    let remaining = unlock_period
-        .saturating_sub(current_period)
-        .min(dur);
+    // Elapsed time since lock, clamped to [0, dur]
+    let elapsed = current_period.saturating_sub(lock_period).min(dur);
 
-    // Linear decay: 90% -> 0% as remaining goes dur -> 0
-    let rate = (MAX_PENALTY_BPS as u32) * (remaining as u32) / (dur as u32);
-    rate as u16
+    // Use u128 for intermediate math to avoid u64 overflow.
+    let num = (total_locked as u128) * (elapsed as u128);
+    let den = dur as u128;
+
+    // Round to nearest (half-up): add den/2 before integer division
+    let vested = (num + den / 2) / den;
+
+    // Defensive clamp back to total_locked
+    vested.min(total_locked as u128) as u64
 }
 
 /// Unlocks tokens with dynamic penalty calculation
@@ -196,8 +205,7 @@ pub fn unlock<'a>(
     locked_tokens_account: &AccountInfo<'a>,
     owner_token_account: &AccountInfo<'a>,
     token_program: &AccountInfo<'a>,
-) -> Result<(), ProgramError> {
-    const DENOMINATOR_BPS: u64 = 10_000; // 100% in basis points
+) -> Result<(), ProgramError> {    
     // Validate locked tokens account
     if locked_tokens_account.data_is_empty() {
         msg!("Error: LockedTokens account does not exist");
@@ -226,17 +234,22 @@ pub fn unlock<'a>(
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    // Get current period and calculate penalty
+    // Get current period and calculate vested amount
     let current_period = get_current_period();
 
     if locked_tokens.lock_period >= current_period {
-        msg!("Error: Tokens cannot be unlocked before at least one full period/day has passed since locking");
+        msg!("Error: Tokens can be unlocked next day after locking. Current period: {}, Lock period: {}",
+            current_period, locked_tokens.lock_period);
         return Err(ProgramError::InvalidArgument);
     }
 
-    let penalty_rate = calculate_penalty_rate(locked_tokens.lock_period, current_period, locked_tokens.unlock_period);
-    let penalty_amount = (locked_tokens.total_locked * penalty_rate as u64) / DENOMINATOR_BPS;
-    let payout_amount = locked_tokens.total_locked - penalty_amount;
+    let payout_amount = calculate_vested_amount(
+        locked_tokens.total_locked,
+        locked_tokens.lock_period,
+        current_period,
+        locked_tokens.unlock_period
+    );
+    let penalty_amount = locked_tokens.total_locked - payout_amount;
     
     // Validate treasury accounts
     let (treasury_state_pda, _) = TreasuryState::find_pda(program_id);
@@ -312,8 +325,61 @@ pub fn unlock<'a>(
     write_account_data(&mut locked_tokens_data, LockedTokens::account_type(), &updated_locked_tokens)?;
 
     // Note: Penalty amount stays in treasury, locked tokens account can be closed for rent recovery
-    msg!("Successfully unlocked {} BMB tokens (penalty: {} BMB retained in treasury)", 
+    msg!("Successfully unlocked {} BMB tokens (penalty: {} BMB retained in treasury)",
         payout_amount, penalty_amount);
-    
+
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_calculate_vested_amount_all_durations() {
+        let total_locked = 10_000u64;
+        let lock_period = 100u16;
+        let unlock_period = 190u16;
+        let duration = (unlock_period - lock_period) as u64; // 90 days
+
+        println!("\nTesting linear vesting for {} tokens over {} days:", total_locked, duration);
+        println!("Day | Current Period | Elapsed | Vested Amount | Penalty | % Vested");
+        println!("----+----------------+---------+---------------+---------+---------");
+
+        // Test from day 0 to day 110 (beyond unlock period)
+        for day in 0..=110 {
+            let current_period = lock_period + day;
+            let vested = calculate_vested_amount(total_locked, lock_period, current_period, unlock_period);
+            let penalty = total_locked - vested;
+            let elapsed = if current_period <= lock_period {
+                0
+            } else {
+                (current_period - lock_period).min(unlock_period - lock_period)
+            };
+            let percent_vested = (vested as f64 / total_locked as f64) * 100.0;
+
+            println!("{:3} | {:14} | {:7} | {:13} | {:7} | {:6.2}%",
+                day, current_period, elapsed, vested, penalty, percent_vested);
+
+            // Verify invariants
+            assert_eq!(vested + penalty, total_locked, "Day {}: vested + penalty must equal total_locked", day);
+
+            // At day 0, vested should be 0
+            if day == 0 {
+                assert_eq!(vested, 0, "Day 0: no vesting should occur");
+            }
+
+            // At unlock period or beyond, should be fully vested
+            if current_period >= unlock_period {
+                assert_eq!(vested, total_locked, "Day {}: should be fully vested at or after unlock period", day);
+            }
+
+            // Vesting should be monotonically increasing
+            if day > 0 && current_period <= unlock_period {
+                let prev_period = lock_period + day - 1;
+                let prev_vested = calculate_vested_amount(total_locked, lock_period, prev_period, unlock_period);
+                assert!(vested >= prev_vested, "Day {}: vesting should be monotonically increasing", day);
+            }
+        }
+    }
 }
