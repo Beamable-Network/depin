@@ -95,6 +95,11 @@ pub fn process_deposit_emissions<'a>(
     let worker_wallet = config.worker_wallet; // Extract for later use
     drop(config_data);
 
+    if *worker_wallet_account.key != config.worker_wallet {
+        msg!("Error: Worker wallet account does not match config");
+        return Err(ProgramError::InvalidArgument);
+    }
+
     // Check if pool exists for this month
     let has_pool = config.created_pools.contains(&month_period);
 

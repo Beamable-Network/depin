@@ -1,9 +1,15 @@
+use crate::{
+    state::{MonthlyPool, WorkerStakeConfig},
+    types::WorkerStakeAccountType,
+    utils::{find_usdc_treasury_pda, initialize_pool_with_inheritance, MAX_BASIS_POINTS},
+};
 use depin_core::{
     constants::USDC_MINT,
     utils::{
         account::{read_account_data, write_account_data},
         bmb::{get_current_period, get_month_from_period},
-        tokens::initialize_ata_if_needed, validation::{require_signer, validate_ata_account, validate_mint, validate_pda_account},
+        tokens::initialize_ata_if_needed,
+        validation::{require_signer, validate_ata_account, validate_mint, validate_pda_account},
     },
 };
 use solana_program::{
@@ -15,15 +21,6 @@ use solana_program::{
     pubkey::Pubkey,
 };
 use spl_token::instruction::transfer_checked;
-use crate::{
-    state::{WorkerStakeConfig, MonthlyPool},
-    types::WorkerStakeAccountType,
-    utils::{
-        find_usdc_treasury_pda,
-        initialize_pool_with_inheritance,
-        MAX_BASIS_POINTS,
-    },
-};
 
 const USDC_DECIMALS: u8 = 6;
 
@@ -77,13 +74,24 @@ pub fn process_deposit_revenue<'a>(
 
     // Validate WorkerStakeConfig PDA
     let (config_pda, _bump) = WorkerStakeConfig::find_pda(program_id, &worker_collection);
-    validate_pda_account(worker_stake_config_account, &config_pda, "WorkerStakeConfig")?;
+    validate_pda_account(
+        worker_stake_config_account,
+        &config_pda,
+        "WorkerStakeConfig",
+    )?;
 
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
-    let mut config: WorkerStakeConfig = read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
+    let mut config: WorkerStakeConfig =
+        read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
     let worker_wallet = config.worker_wallet; // Extract for later use
     drop(config_data);
+
+    // Validate worker wallet account matches config
+    if *worker_wallet_account.key != worker_wallet {
+        msg!("Error: Worker wallet account does not match config");
+        return Err(ProgramError::InvalidArgument);
+    }
 
     // Check if current month has pool
     let has_pool = config.created_pools.contains(&current_month_period);
@@ -96,12 +104,14 @@ pub fn process_deposit_revenue<'a>(
         })?;
 
         // Validate MonthlyPool PDA
-        let (pool_pda, _pool_bump) = MonthlyPool::find_pda(program_id, &worker_collection, current_month_period);
+        let (pool_pda, _pool_bump) =
+            MonthlyPool::find_pda(program_id, &worker_collection, current_month_period);
         validate_pda_account(monthly_pool_account, &pool_pda, "MonthlyPool")?;
 
         // Load monthly pool
         let pool_data = monthly_pool_account.try_borrow_data()?;
-        let mut monthly_pool: MonthlyPool = read_account_data(&pool_data, WorkerStakeAccountType::MonthlyPool)?;
+        let mut monthly_pool: MonthlyPool =
+            read_account_data(&pool_data, WorkerStakeAccountType::MonthlyPool)?;
         drop(pool_data);
 
         // Initialize pool if needed (with inheritance)
@@ -142,11 +152,17 @@ pub fn process_deposit_revenue<'a>(
             .ok_or(ProgramError::ArithmeticOverflow)?;
 
         // Validate USDC treasury PDA
-        let (expected_treasury_pda, _treasury_bump) = find_usdc_treasury_pda(program_id, &worker_collection);
+        let (expected_treasury_pda, _treasury_bump) =
+            find_usdc_treasury_pda(program_id, &worker_collection);
         validate_pda_account(usdc_treasury_pda, &expected_treasury_pda, "USDC treasury")?;
 
         // Validate USDC treasury ATA
-        validate_ata_account(usdc_treasury_ata, usdc_treasury_pda.key, usdc_mint_account.key, "USDC treasury")?;
+        validate_ata_account(
+            usdc_treasury_ata,
+            usdc_treasury_pda.key,
+            usdc_mint_account.key,
+            "USDC treasury",
+        )?;
 
         // Initialize USDC treasury ATA if needed (lazy)
         initialize_ata_if_needed(
@@ -158,12 +174,6 @@ pub fn process_deposit_revenue<'a>(
             associated_token_program,
             system_program,
         )?;
-
-        // Validate worker wallet account matches config
-        if *worker_wallet_account.key != worker_wallet {
-            msg!("Error: Worker wallet account does not match config");
-            return Err(ProgramError::InvalidArgument);
-        }
 
         // Initialize worker wallet USDC ATA if needed (lazy, idempotent)
         initialize_ata_if_needed(
@@ -227,20 +237,32 @@ pub fn process_deposit_revenue<'a>(
         }
 
         // Update pool collected amounts
-        monthly_pool.base_pool.collected = monthly_pool.base_pool.collected
+        monthly_pool.base_pool.collected = monthly_pool
+            .base_pool
+            .collected
             .checked_add(base_share)
             .ok_or(ProgramError::ArithmeticOverflow)?;
-        monthly_pool.addon_pool.collected = monthly_pool.addon_pool.collected
+        monthly_pool.addon_pool.collected = monthly_pool
+            .addon_pool
+            .collected
             .checked_add(addon_share)
             .ok_or(ProgramError::ArithmeticOverflow)?;
 
         // Save updated pool
         let mut pool_data = monthly_pool_account.try_borrow_mut_data()?;
-        write_account_data(&mut pool_data, WorkerStakeAccountType::MonthlyPool, &monthly_pool)?;
+        write_account_data(
+            &mut pool_data,
+            WorkerStakeAccountType::MonthlyPool,
+            &monthly_pool,
+        )?;
 
         // Save updated config (in case inheritance ran)
         let mut config_data = worker_stake_config_account.try_borrow_mut_data()?;
-        write_account_data(&mut config_data, WorkerStakeAccountType::WorkerStakeConfig, &config)?;
+        write_account_data(
+            &mut config_data,
+            WorkerStakeAccountType::WorkerStakeConfig,
+            &config,
+        )?;
 
         msg!(
             "Deposited revenue: {} USDC total (base: {}, addon: {}, worker: {})",
@@ -251,12 +273,6 @@ pub fn process_deposit_revenue<'a>(
         );
     } else {
         // No pool - full revenue to worker wallet
-
-        // Validate worker wallet account matches config
-        if *worker_wallet_account.key != worker_wallet {
-            msg!("Error: Worker wallet account does not match config");
-            return Err(ProgramError::InvalidArgument);
-        }
 
         // Initialize worker wallet USDC ATA if needed (lazy, idempotent)
         initialize_ata_if_needed(
@@ -291,7 +307,10 @@ pub fn process_deposit_revenue<'a>(
             ],
         )?;
 
-        msg!("No pool exists. Full {} USDC revenue sent to worker", total_revenue);
+        msg!(
+            "No pool exists. Full {} USDC revenue sent to worker",
+            total_revenue
+        );
     }
 
     Ok(())
