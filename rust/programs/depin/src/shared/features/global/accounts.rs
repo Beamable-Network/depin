@@ -37,7 +37,7 @@ impl BMBState {
     pub fn new() -> Self {
         Self {
             period_checkers_buffer: RingBuffer::new(),
-            checkers_desired: 6000,
+            checkers_desired: 6000, // Default initial desired checkers
             checkers_activated: 0,
             workers_activated: 0,
         }
