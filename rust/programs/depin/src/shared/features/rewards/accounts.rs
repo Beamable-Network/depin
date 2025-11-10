@@ -19,29 +19,66 @@ impl GlobalRewards {
         Pubkey::find_program_address(&[GLOBAL_SEED, GLOBAL_REWARDS_SEED], program_id)
     }
 
-    pub fn get_checker_reward(period: u16, bmb_state: &BMBState) -> u64 {        
+    pub fn get_checker_reward(period: u16, bmb_state: &BMBState) -> Result<u64, ProgramError> {
+        // Early return: Not seeking checkers = no rewards
+        if bmb_state.checkers_desired == 0 {
+            return Ok(0);
+        }
+
         let month_period = depin_core::utils::bmb::get_month_from_period(period);
         let emissions = get_node_emissions(month_period);
         let days_in_month = days_in_month(month_period);
-        
-        let active_checkers_ratio = if bmb_state.checkers_desired == 0 {
-            1.0
-        } else {
-            let ratio = bmb_state.checkers_activated as f64 / bmb_state.checkers_desired as f64;
-            if ratio > 1.0 { 1.0 } else { ratio }
-        };
 
         let remaining_emissions = if bmb_state.remaining_checker_emissions_sync_month == month_period {
             bmb_state.remaining_checker_emissions
         } else {
             0
         };
-        let total_checker_emissions = emissions.checkers + remaining_emissions;
 
-        let checker_activities_max = bmb_state.workers_activated as u64 * 512 as u64 * days_in_month as u64;
+        let total_checker_emissions = emissions.checkers
+            .checked_add(remaining_emissions)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
 
-        let activity_reward = ((active_checkers_ratio * total_checker_emissions as f64) / checker_activities_max as f64).floor() as u64;
-        activity_reward * 10_u64.pow(BMB_DECIMALS as u32)
+        // Early return if no emissions this month
+        if total_checker_emissions == 0 {
+            return Ok(0);
+        }
+
+        // Calculate max checker activities with overflow checks
+        // checker_activities_max = workers_activated * 512 * days_in_month
+        let checker_activities_max = (bmb_state.workers_activated as u64)
+            .checked_mul(512)
+            .and_then(|v| v.checked_mul(days_in_month as u64))
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+
+        // Calculate active checker ratio (capped at 1.0)
+        let ratio_numerator = if bmb_state.checkers_activated > bmb_state.checkers_desired {
+            bmb_state.checkers_desired as u64
+        } else {
+            bmb_state.checkers_activated as u64
+        };
+        let ratio_denominator = bmb_state.checkers_desired as u64;
+
+        // Pure integer arithmetic using u128 to prevent overflow
+        // Formula: (ratio_numerator * total_emissions) / (ratio_denominator * max_activities)
+        let numerator = (ratio_numerator as u128)
+            .checked_mul(total_checker_emissions as u128)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+
+        let denominator = (ratio_denominator as u128)
+            .checked_mul(checker_activities_max as u128)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+
+        // Division in u128 space (denominator cannot be 0 due to earlier checks)
+        let activity_reward_base = (numerator / denominator) as u64;
+
+        // Apply BMB decimals with overflow check
+        let decimals_multiplier = 10_u64.pow(BMB_DECIMALS as u32);
+        let activity_reward = activity_reward_base
+            .checked_mul(decimals_multiplier)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+
+        Ok(activity_reward)
     }
 
     const fn pending_offset() -> usize {

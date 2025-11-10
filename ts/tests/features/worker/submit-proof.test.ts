@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    baseUnitsToBmb,
+    BMBStateAccount,
     findWorkerProofPDA,
+    getCurrentPeriod,
     GlobalRewardsAccount,
     runBrand,
     SubmitWorkerProof,
@@ -19,10 +22,10 @@ describe('Submit worker proofs', async () => {
     await standardNetworkSetup({ lite, signer: authority });
     await activateCheckerLicenses({ lite, signer: authority, count: 1000 });
     const worker = await createAndActivateWorker({ lite, signer: authority, owner: authority });
-
-    // Advance time to period 2 so we can submit for period 1
-    lite.goToPeriod(2);
-    const targetPeriod = 1; // Submit for period 1 (the previous period when current is 2)
+    
+    // Advance time to period 170 so we can submit for period 169
+    lite.goToPeriod(170);
+    const targetPeriod = 169; // Submit for period 169 (the previous period when current is 170)
 
     // Setup checker bitmap with specific bits set
     const checkersBitmap = new Uint8Array(64);
@@ -76,18 +79,20 @@ describe('Submit worker proofs', async () => {
         // Verify BRAND algorithm was applied correctly
         const brandOutput = runBrand(bs58.decode(worker.rpcAsset.id), targetPeriod, 1000);
 
-        expect(globalRewards.checkers[brandOutput[0]]).toBeGreaterThan(0);
-        expect(globalRewards.checkers[brandOutput[1]]).toBeGreaterThan(0);
-        expect(globalRewards.checkers[brandOutput[8]]).toBeGreaterThan(0);
-        expect(globalRewards.checkers[brandOutput[64]]).toBeGreaterThan(0);
+        const checker1BmbReward = baseUnitsToBmb(globalRewards.checkers[brandOutput[0]]);
+        const checker2BmbReward = baseUnitsToBmb(globalRewards.checkers[brandOutput[1]]);
+        const checker3BmbReward = baseUnitsToBmb(globalRewards.checkers[brandOutput[8]]);
+        const checker4BmbReward = baseUnitsToBmb(globalRewards.checkers[brandOutput[64]]);
+
+        expect(checker1BmbReward).toBeGreaterThan(0);
+        expect(checker2BmbReward).toBeGreaterThan(0);
+        expect(checker3BmbReward).toBeGreaterThan(0);
+        expect(checker4BmbReward).toBeGreaterThan(0);
 
         // Verify pending_rewards and lifetime_rewards were updated correctly
-        const totalRewardsAdded = globalRewards.checkers[brandOutput[0]] +
-            globalRewards.checkers[brandOutput[1]] +
-            globalRewards.checkers[brandOutput[8]] +
-            globalRewards.checkers[brandOutput[64]];
-        expect(globalRewards.pending_rewards).toBe(totalRewardsAdded);
-        expect(globalRewards.lifetime_rewards).toBe(totalRewardsAdded);
+        const totalRewardsAdded = checker1BmbReward + checker2BmbReward + checker3BmbReward + checker4BmbReward;
+        expect(baseUnitsToBmb(globalRewards.pending_rewards)).toBe(totalRewardsAdded);
+        expect(baseUnitsToBmb(globalRewards.lifetime_rewards)).toBe(totalRewardsAdded);
     });
 
     it('should reject invalid proof submissions and allow duplicate after first submission', async () => {

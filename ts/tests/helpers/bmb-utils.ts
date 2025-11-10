@@ -1,4 +1,4 @@
-import { ActivateChecker, ActivateCheckerLicenses, ActivateWorker, BMB_MINT, DEPIN_PROGRAM, InitNetwork, TreasuryAuthority } from "@beamable-network/depin";
+import { ActivateChecker, ActivateCheckerLicenses, ActivateWorker, BMB_MINT, BMBStateAccount, DEPIN_PROGRAM, InitNetwork, SetBMBState, TreasuryAuthority } from "@beamable-network/depin";
 import { AssetWithProof } from "@metaplex-foundation/mpl-bubblegum";
 import { Address } from "gill";
 import { LiteDepin, LiteKeyPair } from "./lite-depin.js";
@@ -111,6 +111,19 @@ export async function activateCheckerLicenses(params: ActivateCheckerLicensesPar
 
     params.lite.buildTransaction()
         .addInstruction(await activate.getInstruction())
+        .sendTransaction({ payer: params.signer });
+
+    const bmbStatePda = await BMBStateAccount.findPDA();
+    const bmbStateData = params.lite.getAccountData(bmbStatePda[0]);
+    const bmbState = BMBStateAccount.deserializeFrom(bmbStateData);
+
+    const setBmbState = new SetBMBState({
+        signer: params.signer.address,
+        checkers_activated: bmbState.checkers_activated + params.count
+    });
+
+    params.lite.buildTransaction()
+        .addInstruction(await setBmbState.getInstruction())
         .sendTransaction({ payer: params.signer });
 
     params.lite.goToPeriod(1);
