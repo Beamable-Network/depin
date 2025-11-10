@@ -1,8 +1,8 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{pubkey::Pubkey, program_error::ProgramError};
 
-use crate::shared::constants::seeds::{GLOBAL_REWARDS_SEED, GLOBAL_SEED};
-use depin_core::constants::DISC_SIZE;
+use crate::{shared::{constants::seeds::{GLOBAL_REWARDS_SEED, GLOBAL_SEED}, features::{global::accounts::BMBState, rewards::emission_schedule::get_node_emissions}}};
+use depin_core::{constants::{BMB_DECIMALS, DISC_SIZE}, utils::bmb::days_in_month};
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct GlobalRewards {
@@ -19,43 +19,30 @@ impl GlobalRewards {
         Pubkey::find_program_address(&[GLOBAL_SEED, GLOBAL_REWARDS_SEED], program_id)
     }
 
-    pub fn get_checker_reward(period: u16) -> u16 {
-        let month = depin_core::utils::bmb::get_month_from_period(period);
+    // TODO: review
+    pub fn get_checker_reward(period: u16, bmb_state: &BMBState) -> u64 {        
+        let month_period = depin_core::utils::bmb::get_month_from_period(period);
+        let emissions = get_node_emissions(month_period);
+        let days_in_month = days_in_month(month_period);
+        
+        let active_checkers_ratio = if bmb_state.checkers_desired == 0 {
+            1.0
+        } else {
+            let ratio = bmb_state.checkers_activated as f64 / bmb_state.checkers_desired as f64;
+            if ratio > 1.0 { 1.0 } else { ratio }
+        };
 
-        match month {
-            // Year 1 (2025-2026) - Months 0-11
-            0 => 1000,   // Jun 2025: 1000
-            1 => 950,    // Jul 2025: 950
-            2 => 900,    // Aug 2025: 900
-            3 => 850,    // Sep 2025: 850
-            4 => 800,    // Oct 2025: 800
-            5 => 750,    // Nov 2025: 750
-            6 => 700,    // Dec 2025: 700
-            7 => 650,    // Jan 2026: 650
-            8 => 600,    // Feb 2026: 600
-            9 => 550,    // Mar 2026: 550
-            10 => 500,   // Apr 2026: 500
-            11 => 450,   // May 2026: 450
+        let remaining_emissions = if bmb_state.remaining_checker_emissions_sync_month == month_period {
+            bmb_state.remaining_checker_emissions
+        } else {
+            0
+        };
+        let total_checker_emissions = emissions.checkers + remaining_emissions;
 
-            // Year 2 (2026-2027) - Months 12-23
-            12..=17 => 400,   // Jun-Nov 2026: 400
-            18..=23 => 350,   // Dec 2026-May 2027: 350
+        let checker_activities_max = bmb_state.workers_activated as u64 * 512 as u64 * days_in_month as u64;
 
-            // Year 3 (2027-2028) - Months 24-35
-            24..=29 => 300,   // Jun-Nov 2027: 300
-            30..=35 => 250,   // Dec 2027-May 2028: 250
-
-            // Year 4 (2028-2029) - Months 36-47
-            36..=41 => 200,   // Jun-Nov 2028: 200
-            42..=47 => 175,   // Dec 2028-May 2029: 175
-
-            // Year 5 (2029-2030) - Months 48-59
-            48..=53 => 150,   // Jun-Nov 2029: 150
-            54..=59 => 125,   // Dec 2029-May 2030: 125
-
-            // Year 6+ (2030+) - Months 60+
-            _ => 100,         // Jun 2030+: 100
-        }
+        let activity_reward = ((active_checkers_ratio * total_checker_emissions as f64) / checker_activities_max as f64).floor() as u64;
+        activity_reward * 10_u64.pow(BMB_DECIMALS as u32)
     }
 
     const fn pending_offset() -> usize {

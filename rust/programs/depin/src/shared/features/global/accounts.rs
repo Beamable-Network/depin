@@ -29,17 +29,21 @@ pub struct BMBState {
     pub checkers_desired: u32,
     pub checkers_activated: u32,
     pub workers_activated: u32,
+    pub remaining_checker_emissions: u64,
+    pub remaining_checker_emissions_sync_month: u16,
 }
 
 impl BMBState {
-    pub const LEN: usize = 1 +(8 * 16) + 1 + 4 + 4 + 4;
+    pub const LEN: usize = 1 +(8 * 16) + 1 + 4 + 4 + 4 + 8 + 2;
 
     pub fn new() -> Self {
         Self {
             period_checkers_buffer: RingBuffer::new(),
-            checkers_desired: 6000, // Default initial desired checkers
+            checkers_desired: 1000, // Default initial desired checkers
             checkers_activated: 0,
             workers_activated: 0,
+            remaining_checker_emissions: 0,
+            remaining_checker_emissions_sync_month: 0,
         }
     }
 

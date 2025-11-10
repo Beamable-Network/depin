@@ -1,4 +1,4 @@
-import { Address, Base58EncodedBytes, Codec, getBase58Codec, getProgramDerivedAddress, getStructCodec, getU32Codec, ProgramDerivedAddress } from "gill";
+import { Address, Base58EncodedBytes, Codec, getBase58Codec, getProgramDerivedAddress, getStructCodec, getU16Codec, getU32Codec, getU64Codec, ProgramDerivedAddress } from "gill";
 import { LRUCache } from "lru-cache";
 import { DEPIN_PROGRAM, GLOBAL_SEED, STATE_SEED } from "../../constants.js";
 import { DepinAccountType } from "../../enums.js";
@@ -9,6 +9,8 @@ interface BMBStateAccountData {
     checkers_desired: number;
     checkers_activated: number;
     workers_activated: number;
+    remaining_checker_emissions: bigint;
+    remaining_checker_emissions_sync_month: number;
 }
 
 export class BMBStateAccount implements BMBStateAccountData {
@@ -16,12 +18,16 @@ export class BMBStateAccount implements BMBStateAccountData {
     checkers_desired: number;
     checkers_activated: number;
     workers_activated: number;
+    remaining_checker_emissions: bigint;
+    remaining_checker_emissions_sync_month: number;
 
     public static readonly DataCodecV1: Codec<BMBStateAccountData> = getStructCodec([
         ["period_checkers_buffer", RingBuffer64.getDataCodec(16)],
         ["checkers_desired", getU32Codec()],
         ["checkers_activated", getU32Codec()],
         ["workers_activated", getU32Codec()],
+        ["remaining_checker_emissions", getU64Codec()],
+        ["remaining_checker_emissions_sync_month", getU16Codec()],
     ]);
 
     constructor(fields: BMBStateAccountData) {
@@ -29,6 +35,8 @@ export class BMBStateAccount implements BMBStateAccountData {
         this.checkers_desired = fields.checkers_desired;
         this.checkers_activated = fields.checkers_activated;
         this.workers_activated = fields.workers_activated;
+        this.remaining_checker_emissions = fields.remaining_checker_emissions;
+        this.remaining_checker_emissions_sync_month = fields.remaining_checker_emissions_sync_month;
     }
 
     public static deserializeFrom(accountData: ArrayLike<number>): BMBStateAccount;

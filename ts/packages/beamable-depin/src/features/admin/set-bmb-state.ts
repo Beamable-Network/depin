@@ -5,6 +5,7 @@ import {
     getOptionCodec,
     getStructCodec,
     getU32Codec,
+    getU64Codec,
     none,
     Option,
     some
@@ -19,12 +20,14 @@ export interface SetBMBStateParams {
     checkers_desired: Option<number>;
     checkers_activated: Option<number>;
     workers_activated: Option<number>;
+    remaining_checker_emissions: Option<bigint>;
 }
 
 export const SetBMBStateParamsCodec: Codec<SetBMBStateParams> = getStructCodec([
     ["checkers_desired", getOptionCodec(getU32Codec())],
     ["checkers_activated", getOptionCodec(getU32Codec())],
     ["workers_activated", getOptionCodec(getU32Codec())],
+    ["remaining_checker_emissions", getOptionCodec(getU64Codec())],
 ]);
 
 export interface CreateSetBMBStateInput {
@@ -32,6 +35,7 @@ export interface CreateSetBMBStateInput {
     checkers_desired?: number;
     checkers_activated?: number;
     workers_activated?: number;
+    remaining_checker_emissions?: bigint;
 }
 
 export class SetBMBState {
@@ -43,6 +47,7 @@ export class SetBMBState {
             checkers_desired: input.checkers_desired ? some(input.checkers_desired) : none(),
             checkers_activated: input.checkers_activated ? some(input.checkers_activated) : none(),
             workers_activated: input.workers_activated ? some(input.workers_activated) : none(),
+            remaining_checker_emissions: input.remaining_checker_emissions ? some(input.remaining_checker_emissions) : none(),
         };
 
         this.signer = input.signer;
