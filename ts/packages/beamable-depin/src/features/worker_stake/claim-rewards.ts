@@ -5,15 +5,12 @@ import {
     Endian,
     getAddressEncoder,
     getStructCodec,
-    getU16Codec,
-    getProgramDerivedAddress
+    getU16Codec
 } from "gill";
 
 import {
     BMB_MINT,
-    BMB_TREASURY_SEED,
     USDC_MINT,
-    USDC_TREASURY_SEED,
     WORKER_STAKE_PROGRAM
 } from "../../constants.js";
 import { WorkerStakeInstruction } from "../../enums.js";
@@ -22,9 +19,7 @@ import { UserStakePositionAccount } from "./user-stake-position-account.js";
 import { MonthlyPoolAccount } from "./monthly-pool-account.js";
 import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS, ASSOCIATED_TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import { SYSTEM_PROGRAM_ADDRESS } from "@solana-program/system";
-import { findBmbTreasuryPda, findUsdcTreasuryPda } from "./accounts.js";
-
-const addressEncoder = getAddressEncoder();
+import { TreasuryAuthority } from "../treasury/treasury-authority.js";
 
 export interface ClaimRewardsParams {
     month_period: number;
@@ -62,22 +57,18 @@ export class ClaimRewards {
         const configPda = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(this.worker_collection);
         const userPositionPda = await UserStakePositionAccount.findUserStakePositionPDA(this.user, this.worker_collection);
         const monthlyPoolPda = await MonthlyPoolAccount.findMonthlyPoolPDA(this.worker_collection, this.params.month_period);
-
-        // USDC treasury PDA
-        const usdcTreasuryPda = await findUsdcTreasuryPda(this.worker_collection);
-
-        // BMB treasury PDA
-        const bmbTreasuryPda = await findBmbTreasuryPda(this.worker_collection);
+        
+        const treasuryPda = await TreasuryAuthority.finWorkerStakeTreasuryPDA(this.worker_collection);
 
         // ATAs for treasuries
         const usdcTreasuryAta = await findAssociatedTokenPda({
             mint: USDC_MINT,
-            owner: usdcTreasuryPda[0],
+            owner: treasuryPda[0],
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
         const bmbTreasuryAta = await findAssociatedTokenPda({
             mint: BMB_MINT,
-            owner: bmbTreasuryPda[0],
+            owner: treasuryPda[0],
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
@@ -99,10 +90,10 @@ export class ClaimRewards {
             { address: configPda[0], role: AccountRole.READONLY },
             { address: monthlyPoolPda[0], role: AccountRole.READONLY },
             { address: userPositionPda[0], role: AccountRole.WRITABLE },
-            { address: usdcTreasuryPda[0], role: AccountRole.READONLY },
+            { address: treasuryPda[0], role: AccountRole.READONLY },
             { address: usdcTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: userUsdcAccount[0], role: AccountRole.WRITABLE },
-            { address: bmbTreasuryPda[0], role: AccountRole.READONLY },
+            { address: treasuryPda[0], role: AccountRole.READONLY },
             { address: bmbTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: userBmbAccount[0], role: AccountRole.WRITABLE },
             { address: USDC_MINT, role: AccountRole.READONLY },

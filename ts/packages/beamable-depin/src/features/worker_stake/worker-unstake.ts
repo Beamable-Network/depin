@@ -5,15 +5,14 @@ import {
     Endian,
     getAddressEncoder,
     getStructCodec,
-    getU64Codec,
-    getProgramDerivedAddress
+    getU64Codec
 } from "gill";
 
-import { BMB_MINT, WORKER_STAKE_PROGRAM, WORKER_STAKE_VAULT_SEED } from "../../constants.js";
+import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+import { BMB_MINT, WORKER_STAKE_PROGRAM } from "../../constants.js";
 import { WorkerStakeInstruction } from "../../enums.js";
 import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
-import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
-import { findWorkerStakeVaultPda } from "./accounts.js";
+import { WorkerStakeVault } from "./worker-stake-vault.js";
 
 const addressEncoder = getAddressEncoder();
 
@@ -53,7 +52,7 @@ export class WorkerUnstake {
         const configPda = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(this.worker_collection);
 
         // Worker stake vault PDA
-        const workerStakeVaultPda = await findWorkerStakeVaultPda(this.worker_collection);
+        const workerStakeVaultPda = await WorkerStakeVault.findWorkerStakeVaultPda(this.worker_collection);
 
         // ATA for worker stake vault
         const workerStakeVaultAta = await findAssociatedTokenPda({

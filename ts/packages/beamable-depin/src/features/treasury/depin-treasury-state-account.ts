@@ -2,7 +2,7 @@ import { Base58EncodedBytes, Codec, getProgramDerivedAddress, getStructCodec, ge
 import { DEPIN_PROGRAM, TREASURY_SEED, STATE_SEED } from "../../constants.js";
 import { DepinAccountType } from "../../enums.js";
 
-export class TreasuryStateAccount {
+export class DepinTreasuryStateAccount {
     lockedBalance: bigint;
 
     constructor(fields: { 
@@ -15,11 +15,11 @@ export class TreasuryStateAccount {
         return 1 + 8; // discriminator + lockedBalance (u64)
     }
 
-    public static readonly DataCodecV1: Codec<TreasuryStateAccount> = getStructCodec([
+    public static readonly DataCodecV1: Codec<DepinTreasuryStateAccount> = getStructCodec([
         ["lockedBalance", getU64Codec()],
     ]);
 
-    public static serialize(account: TreasuryStateAccount): Uint8Array {
+    public static serialize(account: DepinTreasuryStateAccount): Uint8Array {
         const data = this.DataCodecV1.encode(account);
         const result = new Uint8Array(1 + data.length);
         result[0] = DepinAccountType.TreasuryState;
@@ -27,9 +27,9 @@ export class TreasuryStateAccount {
         return result;
     }
 
-    public static deserializeFrom(accountData: ArrayLike<number>): TreasuryStateAccount;
-    public static deserializeFrom(accountDataBase58: Base58EncodedBytes): TreasuryStateAccount;
-    public static deserializeFrom(accountData: ArrayLike<number> | Base58EncodedBytes): TreasuryStateAccount {
+    public static deserializeFrom(accountData: ArrayLike<number>): DepinTreasuryStateAccount;
+    public static deserializeFrom(accountDataBase58: Base58EncodedBytes): DepinTreasuryStateAccount;
+    public static deserializeFrom(accountData: ArrayLike<number> | Base58EncodedBytes): DepinTreasuryStateAccount {
         let accountDataBuffer: ArrayLike<number>;
 
         if (typeof accountData === 'string') {

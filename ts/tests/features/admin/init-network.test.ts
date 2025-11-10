@@ -12,11 +12,11 @@ describe('Init network', async () => {
 
     // Initialize BMB mint and treasury with some tokens
     await lite.createToken(BMB_MINT, signer);
-    const [treasury] = await TreasuryAuthority.findTreasuryPDA();
-    await lite.mintToken(BMB_MINT, treasury, BigInt(10_000_000_000), signer);
+    const [depinTreasury] = await TreasuryAuthority.findDepinTreasuryPDA();
+    await lite.mintToken(BMB_MINT, depinTreasury, BigInt(10_000_000_000), signer);
 
     it('should have treasury balance', async () => {
-        const treasuryBalance = await lite.getTokenBalance(BMB_MINT, treasury);
+        const treasuryBalance = await lite.getTokenBalance(BMB_MINT, depinTreasury);
         expect(treasuryBalance).toEqual(BigInt(10_000_000_000n));
     });
 

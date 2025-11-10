@@ -19,7 +19,7 @@ use crate::{
     state::{WorkerStakeConfig, MonthlyPool},
     types::WorkerStakeAccountType,
     utils::{
-        find_bmb_treasury_pda,
+        find_treasury_pda,
         initialize_pool_with_inheritance,
         MAX_BASIS_POINTS,
     }
@@ -157,7 +157,7 @@ pub fn process_deposit_emissions<'a>(
             .ok_or(ProgramError::ArithmeticOverflow)?;
 
         // Validate BMB treasury PDA
-        let (expected_treasury_pda, _treasury_bump) = find_bmb_treasury_pda(program_id, worker_collection_account.key);
+        let (expected_treasury_pda, _treasury_bump) = find_treasury_pda(program_id, worker_collection_account.key);
         validate_pda_account(bmb_treasury_pda, &expected_treasury_pda, "BMB treasury")?;
 
         // Validate BMB treasury ATA

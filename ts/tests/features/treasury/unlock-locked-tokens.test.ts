@@ -403,7 +403,7 @@ async function updateTreasuryStateLockedBalance(lite: LiteDepin, additionalLocke
 }
 
 async function getTreasuryBalance(lite: LiteDepin): Promise<bigint> {
-    const treasuryAuthorityPda = await TreasuryAuthority.findTreasuryPDA();
+    const treasuryAuthorityPda = await TreasuryAuthority.findDepinTreasuryPDA();
     return lite.getTokenBalance(BMB_MINT, treasuryAuthorityPda[0]);
 }
 

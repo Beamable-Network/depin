@@ -2,6 +2,7 @@
 export * from './worker-stake-config-account.js';
 export * from './monthly-pool-account.js';
 export * from './user-stake-position-account.js';
+export * from './worker-stake-vault.js';
 
 // Nested types
 export * from './types/index.js';
@@ -22,4 +23,3 @@ export * from './withdraw.js';
 export * from './claim-rewards.js';
 export * from './deposit-revenue.js';
 export * from './deposit-emissions.js';
-export * from './accounts.js';

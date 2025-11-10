@@ -17,8 +17,7 @@ pub use weighting::{
 /// Seeds for token vault PDAs
 pub const WORKER_STAKE_VAULT_SEED: &[u8] = b"worker_stake_vault";
 pub const COMMUNITY_STAKE_VAULT_SEED: &[u8] = b"community_stake_vault";
-pub const USDC_TREASURY_SEED: &[u8] = b"usdc_treasury";
-pub const BMB_TREASURY_SEED: &[u8] = b"bmb_treasury";
+pub const TREASURY_SEED: &[u8] = b"treasury";
 
 /// Maximum basis points (100%)
 pub const MAX_BASIS_POINTS: u16 = 10_000;
@@ -70,37 +69,9 @@ pub fn find_community_stake_vault_ata(
     spl_associated_token_account::get_associated_token_address(&vault_pda, mint)
 }
 
-/// Find USDC treasury PDA (the authority/owner of the token account)
-pub fn find_usdc_treasury_pda(program_id: &Pubkey, worker_collection: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[USDC_TREASURY_SEED, worker_collection.as_ref()],
-        program_id,
-    )
-}
-
-/// Find USDC treasury ATA (the actual token account)
-pub fn find_usdc_treasury_ata(
-    program_id: &Pubkey,
-    worker_collection: &Pubkey,
-    usdc_mint: &Pubkey,
-) -> Pubkey {
-    let (treasury_pda, _) = find_usdc_treasury_pda(program_id, worker_collection);
-    spl_associated_token_account::get_associated_token_address(&treasury_pda, usdc_mint)
-}
-
-/// Find BMB treasury PDA (the authority/owner of the token account)
-pub fn find_bmb_treasury_pda(program_id: &Pubkey, worker_collection: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[BMB_TREASURY_SEED, worker_collection.as_ref()], program_id)
-}
-
-/// Find BMB treasury ATA (the actual token account)
-pub fn find_bmb_treasury_ata(
-    program_id: &Pubkey,
-    worker_collection: &Pubkey,
-    bmb_mint: &Pubkey,
-) -> Pubkey {
-    let (treasury_pda, _) = find_bmb_treasury_pda(program_id, worker_collection);
-    spl_associated_token_account::get_associated_token_address(&treasury_pda, bmb_mint)
+/// Find treasury PDA (the authority/owner of the token account)
+pub fn find_treasury_pda(program_id: &Pubkey, worker_collection: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[TREASURY_SEED, worker_collection.as_ref()], program_id)
 }
 
 /// Validates that the signer is the collection's update authority

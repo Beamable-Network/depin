@@ -1,7 +1,7 @@
 import { ActivateChecker, ActivateCheckerLicenses, ActivateWorker, BMB_MINT, DEPIN_PROGRAM, InitNetwork, TreasuryAuthority } from "@beamable-network/depin";
 import { AssetWithProof } from "@metaplex-foundation/mpl-bubblegum";
-import { LiteDepin, LiteKeyPair } from "./lite-depin.js";
 import { Address } from "gill";
+import { LiteDepin, LiteKeyPair } from "./lite-depin.js";
 
 // Parameter types
 export interface InitializeNetworkParams {
@@ -81,10 +81,10 @@ export async function standardNetworkSetup(params: StandardNetworkSetupParams): 
     await lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, signer.web3PublicKey);
     await initializeNetwork({ lite, signer });
 
-    // Initialize BMB mint and treasury with some tokens
+    // Initialize BMB mint and depintreasury with some tokens
     await lite.createToken(BMB_MINT, signer);
-    const [treasury] = await TreasuryAuthority.findTreasuryPDA();
-    await lite.mintToken(BMB_MINT, treasury, BigInt(10_000_000_000), signer);
+    const [depinTreasury] = await TreasuryAuthority.findDepinTreasuryPDA();
+    await lite.mintToken(BMB_MINT, depinTreasury, BigInt(10_000_000_000), signer);
 
     await lite.createLicenseTree({ creator: signer });
 }

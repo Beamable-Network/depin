@@ -7,17 +7,18 @@ import {
 } from "gill";
 
 import { AssetWithProof } from "@metaplex-foundation/mpl-bubblegum";
-import { DEPIN_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM, SYSTEM_PROGRAM_ADDRESS } from "../../constants.js";
+import { BMB_MINT, DEPIN_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM, SYSTEM_PROGRAM_ADDRESS } from "../../constants.js";
 import { DepinInstruction } from "../../enums.js";
 import { assetToCNftContext, CNftContext, CNftContextCodec } from "../../utils/bubblegum.js";
 import { getCurrentPeriod } from "../../utils/bmb.js";
 import { GlobalRewardsAccount } from "../global/global-rewards-account.js";
 import { LockedTokensAccount } from "../treasury/locked-tokens-account.js";
 import { TreasuryAuthority } from "../treasury/treasury-authority.js";
-import { TreasuryConfigAccount } from "../treasury/treasury-config-account.js";
-import { TreasuryStateAccount } from "../treasury/treasury-state-account.js";
+import { DepinTreasuryConfigAccount } from "../treasury/depin-treasury-config-account.js";
+import { DepinTreasuryStateAccount } from "../treasury/depin-treasury-state-account.js";
 import { CheckerLicenseMetadataAccount } from "./checker-license-metadata-account.js";
 import { CheckerMetadataAccount } from "./checker-metadata-account.js";
+import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 
 export interface PayoutCheckerRewardsParams {
     license_context: CNftContext;
@@ -51,7 +52,7 @@ export class PayoutCheckerRewards {
         return Uint8Array.of(DepinInstruction.PayoutCheckerRewards, ...inner);
     }
 
-    public async getInstruction(treasuryConfig: { address: Address; data: TreasuryConfigAccount }, currentPeriod?: number) {
+    public async getInstruction(treasuryConfig: { address: Address; data: DepinTreasuryConfigAccount }, currentPeriod?: number) {
         const globalRewardsPda = await GlobalRewardsAccount.findGlobalRewardsPDA();
         const checkerMetadataPda = await CheckerMetadataAccount.findCheckerMetadataPDA(
             address(this.checker_license.rpcAsset.id),
@@ -60,8 +61,13 @@ export class PayoutCheckerRewards {
         const checkerLicenseMetadataPda = await CheckerLicenseMetadataAccount.findCheckerLicenseMetadataPDA(
             address(this.checker_license.rpcAsset.id)
         );
-        const treasuryStatePda = await TreasuryStateAccount.findTreasuryStatePDA();
-        const treasuryAtaPda = await TreasuryAuthority.findAssociatedTokenAccount();
+        const treasuryStatePda = await DepinTreasuryStateAccount.findTreasuryStatePDA();
+        const treasuryPda = await TreasuryAuthority.findDepinTreasuryPDA();
+        const treasuryAta = await findAssociatedTokenPda({
+            mint: BMB_MINT,
+            owner: treasuryPda[0],
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
 
         if (!currentPeriod) {
             currentPeriod = getCurrentPeriod();
@@ -84,7 +90,7 @@ export class PayoutCheckerRewards {
             { address: address(this.checker_license.merkleTree), role: AccountRole.READONLY },
             { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY },
             { address: treasuryStatePda[0], role: AccountRole.WRITABLE },
-            { address: treasuryAtaPda[0], role: AccountRole.WRITABLE },
+            { address: treasuryAta[0], role: AccountRole.WRITABLE },
             { address: treasuryConfig.address, role: AccountRole.READONLY },
             { address: lockedTokensPda[0], role: AccountRole.WRITABLE },
             ...this.checker_license.proof.map(proof => ({

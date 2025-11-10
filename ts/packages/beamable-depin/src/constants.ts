@@ -26,8 +26,6 @@ export const MONTHLY_POOL_SEED = "monthly_pool";
 export const USER_POSITION_SEED = "user_position";
 export const WORKER_STAKE_VAULT_SEED = "worker_stake_vault";
 export const COMMUNITY_STAKE_VAULT_SEED = "community_stake_vault";
-export const USDC_TREASURY_SEED = "usdc_treasury";
-export const BMB_TREASURY_SEED = "bmb_treasury";
 
 export const SYSTEM_PROGRAM_ADDRESS = address('11111111111111111111111111111111');
 

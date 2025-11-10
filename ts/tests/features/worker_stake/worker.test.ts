@@ -1,16 +1,16 @@
-import { 
-    bmbToBaseUnits, 
-    InitializeWorkerStakeConfig, 
+import {
+    BMB_MINT,
+    bmbToBaseUnits,
+    InitializeWorkerStakeConfig,
+    MonthlyPoolAccount,
+    MonthlyPoolConfig,
     SetMonthlyPool,
     UpdateWorkerWallet,
-    WorkerStake,
-    WorkerUnstake,
-    MonthlyPoolConfig,
-    WorkerStakeConfigAccount,
-    MonthlyPoolAccount,
     WORKER_STAKE_PROGRAM,
-    BMB_MINT,
-    findWorkerStakeVaultPda
+    WorkerStake,
+    WorkerStakeConfigAccount,
+    WorkerStakeVault,
+    WorkerUnstake
 } from '@beamable-network/depin';
 import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -301,7 +301,7 @@ describe('Worker Instructions', async () => {
             const [poolPda] = await MonthlyPoolAccount.findMonthlyPoolPDA(workerCollection, 10);
             const poolData = lite.getAccountData(poolPda);
             const pool = MonthlyPoolAccount.deserializeFrom(poolData!);
-            
+
             expect(pool.base_revenue_percentage).toBe(3000);
             expect(pool.addon_revenue_percentage).toBe(2000);
             expect(pool.base_emission_percentage).toBe(2500);
@@ -326,7 +326,7 @@ describe('Worker Instructions', async () => {
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
             const configData = lite.getAccountData(configPda);
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
-            
+
             expect(config.worker_wallet).toBe(newWallet.address);
         });
 
@@ -390,7 +390,7 @@ describe('Worker Instructions', async () => {
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
             const configData = lite.getAccountData(configPda);
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
-            
+
             expect(config.worker_wallet).toBe(wallet3.address);
         });
     });
@@ -420,12 +420,12 @@ describe('Worker Instructions', async () => {
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
             const configData = lite.getAccountData(configPda);
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
-            
+
             expect(config.total_staked).toBe(stakeAmount);
 
             // Verify tokens were transferred from worker
             const finalBalance = await lite.getTokenBalance(BMB_MINT, collectionCreator.address);
-            const stakeVault = await findWorkerStakeVaultPda(workerCollection);
+            const stakeVault = await WorkerStakeVault.findWorkerStakeVaultPda(workerCollection);
             const vaultBalance = await lite.getTokenBalance(BMB_MINT, stakeVault[0]);
             expect(vaultBalance).toBe(stakeAmount);
             expect(finalBalance).toBe(0n);
@@ -469,12 +469,12 @@ describe('Worker Instructions', async () => {
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
             const configData = lite.getAccountData(configPda);
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
-            
+
             expect(config.total_staked).toBe(firstStake + secondStake);
 
             // Verify all tokens were staked
             balance = await lite.getTokenBalance(BMB_MINT, collectionCreator.address);
-            const stakeVault = await findWorkerStakeVaultPda(workerCollection);
+            const stakeVault = await WorkerStakeVault.findWorkerStakeVaultPda(workerCollection);
             const vaultBalance = await lite.getTokenBalance(BMB_MINT, stakeVault[0]);
             expect(vaultBalance).toBe(firstStake + secondStake);
             expect(balance).toBe(0n);
@@ -534,7 +534,7 @@ describe('Worker Instructions', async () => {
 
             // Verify initial balance is 0 (all staked)
             let balance = await lite.getTokenBalance(BMB_MINT, collectionCreator.address);
-            const stakeVault = await findWorkerStakeVaultPda(workerCollection);
+            const stakeVault = await WorkerStakeVault.findWorkerStakeVaultPda(workerCollection);
             let vaultBalance = await lite.getTokenBalance(BMB_MINT, stakeVault[0]);
             expect(balance).toBe(0n);
             expect(vaultBalance).toBe(bmbToBaseUnits(200));
@@ -553,7 +553,7 @@ describe('Worker Instructions', async () => {
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
             const configData = lite.getAccountData(configPda);
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
-            
+
             expect(config.total_staked).toBe(bmbToBaseUnits(150));
 
             // Verify tokens were returned to worker
@@ -627,7 +627,7 @@ describe('Worker Instructions', async () => {
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
             const configData = lite.getAccountData(configPda);
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
-            
+
             expect(config.total_staked).toBe(bmbToBaseUnits(100));
         });
 
@@ -665,7 +665,7 @@ describe('Worker Instructions', async () => {
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
             const configData = lite.getAccountData(configPda);
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
-            
+
             expect(config.total_staked).toBe(bmbToBaseUnits(150));
 
             // Verify final balance
@@ -722,7 +722,7 @@ describe('Worker Instructions', async () => {
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
             const configData = lite.getAccountData(configPda);
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
-            
+
             expect(config.total_staked).toBe(bmbToBaseUnits(150));
             expect(config.worker_wallet).toBe(newWallet.address);
 
@@ -776,7 +776,7 @@ describe('Worker Instructions', async () => {
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
             const configData = lite.getAccountData(configPda);
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
-            
+
             expect(config.total_staked).toBe(stakeAmount);
             expect(config.created_pools).toContain(5);
             expect(config.created_pools).toContain(6);

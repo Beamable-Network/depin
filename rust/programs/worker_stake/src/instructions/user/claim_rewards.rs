@@ -2,9 +2,7 @@ use crate::{
     state::{MonthlyPool, UserStakePosition, WorkerStakeConfig},
     types::WorkerStakeAccountType,
     utils::{
-        compute_month_weight_totals, find_bmb_treasury_pda, find_usdc_treasury_pda,
-        transfer_from_treasury, BMB_TREASURY_SEED,
-        USDC_TREASURY_SEED,
+        TREASURY_SEED, compute_month_weight_totals, find_treasury_pda, transfer_from_treasury
     },
 };
 use depin_core::{
@@ -244,8 +242,8 @@ pub fn process_claim_rewards<'a>(
             system_program,
             program_id,
             worker_collection_account.key,
-            USDC_TREASURY_SEED,
-            find_usdc_treasury_pda,
+            TREASURY_SEED,
+            find_treasury_pda,
             total_usdc,
             USDC_DECIMALS,
             "USDC",
@@ -265,8 +263,8 @@ pub fn process_claim_rewards<'a>(
             system_program,
             program_id,
             worker_collection_account.key,
-            BMB_TREASURY_SEED,
-            find_bmb_treasury_pda,
+            TREASURY_SEED,
+            find_treasury_pda,
             total_bmb,
             depin_core::constants::BMB_DECIMALS,
             "BMB",

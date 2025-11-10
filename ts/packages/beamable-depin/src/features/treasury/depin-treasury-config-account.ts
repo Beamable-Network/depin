@@ -2,7 +2,7 @@ import { Address, Base58EncodedBytes, Codec, ProgramDerivedAddress, getBase58Cod
 import { CONFIG_SEED, DEPIN_PROGRAM, TREASURY_SEED } from "../../constants.js";
 import { DepinAccountType } from "../../enums.js";
 
-export class TreasuryConfigAccount {
+export class DepinTreasuryConfigAccount {
     checkerRewardsLockDays: number;
 
     constructor(fields: { checkerRewardsLockDays: number }) {
@@ -13,11 +13,11 @@ export class TreasuryConfigAccount {
         return 1 + 2; // discriminator + checkerRewardsLockDays (u16)
     }
 
-    public static readonly DataCodecV1: Codec<TreasuryConfigAccount> = getStructCodec([
+    public static readonly DataCodecV1: Codec<DepinTreasuryConfigAccount> = getStructCodec([
         ["checkerRewardsLockDays", getU16Codec()],
     ]);
 
-    public static serialize(account: TreasuryConfigAccount): Uint8Array {
+    public static serialize(account: DepinTreasuryConfigAccount): Uint8Array {
         const data = this.DataCodecV1.encode(account);
         const result = new Uint8Array(1 + data.length);
         result[0] = DepinAccountType.TreasuryConfig;
@@ -25,9 +25,9 @@ export class TreasuryConfigAccount {
         return result;
     }
 
-    public static deserializeFrom(accountData: ArrayLike<number>): TreasuryConfigAccount;
-    public static deserializeFrom(accountDataBase58: Base58EncodedBytes): TreasuryConfigAccount;
-    public static deserializeFrom(accountData: ArrayLike<number> | Base58EncodedBytes): TreasuryConfigAccount {
+    public static deserializeFrom(accountData: ArrayLike<number>): DepinTreasuryConfigAccount;
+    public static deserializeFrom(accountDataBase58: Base58EncodedBytes): DepinTreasuryConfigAccount;
+    public static deserializeFrom(accountData: ArrayLike<number> | Base58EncodedBytes): DepinTreasuryConfigAccount {
         let accountDataBuffer: ArrayLike<number>;
 
         if (typeof accountData === 'string') {
@@ -56,7 +56,7 @@ export class TreasuryConfigAccount {
 
     public static async readFromState(
         getAccountData: (address: Address) => Promise<Uint8Array | Base58EncodedBytes | null>
-    ): Promise<{ address: Address; data: TreasuryConfigAccount } | null> {
+    ): Promise<{ address: Address; data: DepinTreasuryConfigAccount } | null> {
         const [addr] = await this.findTreasuryConfigPDA();
         const raw = await getAccountData(addr);
         if (!raw) return null;

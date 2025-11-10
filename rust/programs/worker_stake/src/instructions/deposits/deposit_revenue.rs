@@ -1,7 +1,7 @@
 use crate::{
     state::{MonthlyPool, WorkerStakeConfig},
     types::WorkerStakeAccountType,
-    utils::{find_usdc_treasury_pda, initialize_pool_with_inheritance, MAX_BASIS_POINTS},
+    utils::{find_treasury_pda, initialize_pool_with_inheritance, MAX_BASIS_POINTS},
 };
 use depin_core::{
     constants::USDC_MINT,
@@ -153,7 +153,7 @@ pub fn process_deposit_revenue<'a>(
 
         // Validate USDC treasury PDA
         let (expected_treasury_pda, _treasury_bump) =
-            find_usdc_treasury_pda(program_id, &worker_collection);
+            find_treasury_pda(program_id, &worker_collection);
         validate_pda_account(usdc_treasury_pda, &expected_treasury_pda, "USDC treasury")?;
 
         // Validate USDC treasury ATA

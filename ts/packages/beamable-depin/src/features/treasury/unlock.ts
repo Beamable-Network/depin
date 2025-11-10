@@ -9,12 +9,12 @@ import {
     SolanaRpcApi
 } from "gill";
 
-import { TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
-import { DEPIN_PROGRAM } from "../../constants.js";
+import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+import { BMB_MINT, DEPIN_PROGRAM } from "../../constants.js";
 import { DepinInstruction } from "../../enums.js";
 import { LockedTokensAccount } from "./locked-tokens-account.js";
 import { TreasuryAuthority } from "./treasury-authority.js";
-import { TreasuryStateAccount } from "./treasury-state-account.js";
+import { DepinTreasuryStateAccount } from "./depin-treasury-state-account.js";
 
 export interface UnlockParams {
     lock_period: number;
@@ -53,9 +53,13 @@ export class Unlock {
     }
 
     public async getInstruction(rpc?: Rpc<SolanaRpcApi>) {
-        const treasuryStatePda = await TreasuryStateAccount.findTreasuryStatePDA();
-        const treasuryAtaPda = await TreasuryAuthority.findAssociatedTokenAccount();
-        const treasuryAuthorityPda = await TreasuryAuthority.findTreasuryPDA();
+        const treasuryStatePda = await DepinTreasuryStateAccount.findTreasuryStatePDA();
+        const treasuryAuthorityPda = await TreasuryAuthority.findDepinTreasuryPDA();
+        const treasuryAta = await findAssociatedTokenPda({
+            mint: BMB_MINT,
+            owner: treasuryAuthorityPda[0],
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
         // Derive the locked tokens account address using lock+unlock period.
         // If not provided, discover from program accounts when rpc is available.
         let unlockPeriod = this.unlock_period_for_address;
@@ -83,7 +87,7 @@ export class Unlock {
         let accounts = [
             { address: this.owner, role: AccountRole.READONLY_SIGNER },
             { address: treasuryStatePda[0], role: AccountRole.WRITABLE },
-            { address: treasuryAtaPda[0], role: AccountRole.WRITABLE },
+            { address: treasuryAta[0], role: AccountRole.WRITABLE },
             { address: treasuryAuthorityPda[0], role: AccountRole.READONLY },
             { address: lockedTokensPda[0], role: AccountRole.WRITABLE },
             { address: this.owner_bmb_token_account, role: AccountRole.WRITABLE },

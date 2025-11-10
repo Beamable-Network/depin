@@ -13,7 +13,7 @@ import {
 import { DEPIN_PROGRAM } from "../../constants.js";
 import { DepinInstruction } from "../../enums.js";
 import { getProgramDataAddress } from "../../index.js";
-import { TreasuryConfigAccount } from "../treasury/treasury-config-account.js";
+import { DepinTreasuryConfigAccount } from "../treasury/depin-treasury-config-account.js";
 
 export interface SetTreasuryConfigParams {
     checker_rewards_lock_days: Option<number>;
@@ -46,7 +46,7 @@ export class SetTreasuryConfig {
     }
 
     public async getInstruction() {
-        const treasuryConfigPda = await TreasuryConfigAccount.findTreasuryConfigPDA();
+        const treasuryConfigPda = await DepinTreasuryConfigAccount.findTreasuryConfigPDA();
 
         // Calculate ProgramData PDA for upgrade authority verification
         const programDataAddress = await getProgramDataAddress(DEPIN_PROGRAM);

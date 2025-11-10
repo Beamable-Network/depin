@@ -10,8 +10,8 @@ import {
 import { ASSOCIATED_TOKEN_PROGRAM_ADDRESS, findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import { BMB_MINT, SYSTEM_PROGRAM_ADDRESS, WORKER_STAKE_PROGRAM } from "../../constants.js";
 import { WorkerStakeInstruction } from "../../enums.js";
-import { findWorkerStakeVaultPda } from "./accounts.js";
 import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
+import { WorkerStakeVault } from "./worker-stake-vault.js";
 
 export interface WorkerStakeParams {
     amount: bigint;
@@ -49,7 +49,7 @@ export class WorkerStake {
         const configPda = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(this.worker_collection);
 
         // Worker stake vault PDA
-        const workerStakeVaultPda = await findWorkerStakeVaultPda(this.worker_collection);
+        const workerStakeVaultPda = await WorkerStakeVault.findWorkerStakeVaultPda(this.worker_collection);
 
         // ATA for worker stake vault
         const workerStakeVaultAta = await findAssociatedTokenPda({

@@ -1,29 +1,23 @@
 import {
     AccountRole,
-    address,
     Address,
     Codec,
     Endian,
-    getAddressEncoder,
     getStructCodec,
     getU16Codec,
-    getU64Codec,
-    getProgramDerivedAddress
+    getU64Codec
 } from "gill";
 
+import { ASSOCIATED_TOKEN_PROGRAM_ADDRESS, findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import {
     BMB_MINT,
-    BMB_TREASURY_SEED,
     SYSTEM_PROGRAM_ADDRESS,
     WORKER_STAKE_PROGRAM
 } from "../../constants.js";
 import { WorkerStakeInstruction } from "../../enums.js";
-import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
+import { TreasuryAuthority } from "../treasury/treasury-authority.js";
 import { MonthlyPoolAccount } from "./monthly-pool-account.js";
-import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS, ASSOCIATED_TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
-import { findBmbTreasuryPda } from "./accounts.js";
-
-const addressEncoder = getAddressEncoder();
+import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
 
 export interface DepositEmissionsParams {
     month_period: number;
@@ -74,12 +68,12 @@ export class DepositEmissions {
         const configPda = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(this.worker_collection);
 
         // BMB treasury PDA
-        const bmbTreasuryPda = await findBmbTreasuryPda(this.worker_collection);
+        const treasuryPda = await TreasuryAuthority.finWorkerStakeTreasuryPDA(this.worker_collection);
 
         // ATA for BMB treasury
         const bmbTreasuryAta = await findAssociatedTokenPda({
             mint: BMB_MINT,
-            owner: bmbTreasuryPda[0],
+            owner: treasuryPda[0],
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
@@ -100,7 +94,7 @@ export class DepositEmissions {
             { address: this.worker_collection, role: AccountRole.READONLY },
             { address: configPda[0], role: AccountRole.WRITABLE },
             { address: depositorBmbAccount[0], role: AccountRole.WRITABLE },
-            { address: bmbTreasuryPda[0], role: AccountRole.READONLY },
+            { address: treasuryPda[0], role: AccountRole.READONLY },
             { address: bmbTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: this.worker_wallet, role: AccountRole.WRITABLE },
             { address: workerWalletBmbAccount[0], role: AccountRole.WRITABLE },

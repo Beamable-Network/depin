@@ -1,29 +1,24 @@
 import {
     AccountRole,
-    address,
     Address,
     Codec,
     Endian,
     getAddressCodec,
     getAddressEncoder,
     getStructCodec,
-    getU64Codec,
-    getProgramDerivedAddress
+    getU64Codec
 } from "gill";
 
+import { ASSOCIATED_TOKEN_PROGRAM_ADDRESS, findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import {
     SYSTEM_PROGRAM_ADDRESS,
     USDC_MINT,
-    USDC_TREASURY_SEED,
     WORKER_STAKE_PROGRAM
 } from "../../constants.js";
 import { WorkerStakeInstruction } from "../../enums.js";
-import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
+import { TreasuryAuthority } from "../treasury/treasury-authority.js";
 import { MonthlyPoolAccount } from "./monthly-pool-account.js";
-import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS, ASSOCIATED_TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
-import { findUsdcTreasuryPda } from "./accounts.js";
-
-const addressEncoder = getAddressEncoder();
+import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
 
 export interface DepositRevenueParams {
     worker_collection: Address;
@@ -76,12 +71,12 @@ export class DepositRevenue {
         const configPda = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(this.worker_collection);
 
         // USDC treasury PDA
-        const usdcTreasuryPda = await findUsdcTreasuryPda(this.worker_collection);
+        const treasuryPda = await TreasuryAuthority.finWorkerStakeTreasuryPDA(this.worker_collection);
 
         // ATA for USDC treasury
         const usdcTreasuryAta = await findAssociatedTokenPda({
             mint: USDC_MINT,
-            owner: usdcTreasuryPda[0],
+            owner: treasuryPda[0],
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
@@ -101,7 +96,7 @@ export class DepositRevenue {
             { address: this.revenue_source, role: AccountRole.WRITABLE_SIGNER },
             { address: configPda[0], role: AccountRole.WRITABLE },
             { address: revenueSourceUsdcAccount[0], role: AccountRole.WRITABLE },
-            { address: usdcTreasuryPda[0], role: AccountRole.READONLY },
+            { address: treasuryPda[0], role: AccountRole.READONLY },
             { address: usdcTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: this.worker_wallet, role: AccountRole.WRITABLE },
             { address: workerWalletUsdcAccount[0], role: AccountRole.WRITABLE },
