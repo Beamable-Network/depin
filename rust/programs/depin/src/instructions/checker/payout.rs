@@ -42,7 +42,7 @@ pub fn process_payout_checker_rewards<'info>(
     execute_payout(program_id, &accounts, &input, payout_amount)?;
 
     // Reset balance and log success
-    reset_checker_balance(accounts.global_rewards, checker_index)?;
+    reset_checker_balance(accounts.global_rewards, checker_index, payout_amount)?;
     msg!("Successfully paid out {} BMB as locked tokens to checker (12-month lock)", payout_amount);
 
     Ok(())
@@ -257,9 +257,9 @@ fn execute_payout(
     Ok(())
 }
 
-fn reset_checker_balance(global_rewards_account: &AccountInfo, checker_index: usize) -> ProgramResult {
+fn reset_checker_balance(global_rewards_account: &AccountInfo, checker_index: usize, old_balance: u64) -> ProgramResult {
     let mut global_rewards_data = global_rewards_account.try_borrow_mut_data()?;
-    GlobalRewards::reset_checker_balance(&mut global_rewards_data, checker_index)?;
+    GlobalRewards::reset_checker_balance(&mut global_rewards_data, checker_index, old_balance)?;
     Ok(())
 }
 

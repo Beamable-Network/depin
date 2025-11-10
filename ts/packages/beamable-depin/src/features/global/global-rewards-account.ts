@@ -4,13 +4,23 @@ import { DepinAccountType } from "../../enums.js";
 
 export class GlobalRewardsAccount {
     checkers: bigint[];
+    pending_rewards: bigint;
+    lifetime_rewards: bigint;
 
-    constructor(checkers: bigint[] = new Array(100_000).fill(0)) {
+    constructor(
+        checkers: bigint[] = new Array(100_000).fill(0),
+        pending_rewards: bigint = 0n,
+        lifetime_rewards: bigint = 0n
+    ) {
         this.checkers = checkers;
+        this.pending_rewards = pending_rewards;
+        this.lifetime_rewards = lifetime_rewards;
     }
 
     public static readonly DataCodec: Codec<GlobalRewardsAccount> = getStructCodec([
         ["checkers", getArrayCodec(getU64Codec({ endian: Endian.Little }), { size: 100_000 })],
+        ["pending_rewards", getU64Codec()],
+        ["lifetime_rewards", getU64Codec()],
     ]);
 
     public static deserializeFrom(accountData: ArrayLike<number>): GlobalRewardsAccount;
@@ -31,7 +41,7 @@ export class GlobalRewardsAccount {
 
         const data = Buffer.from(accountDataBuffer).subarray(1); // Skip the first byte (discriminator)
         const result = this.DataCodec.decode(data);
-        return new GlobalRewardsAccount(result.checkers);
+        return new GlobalRewardsAccount(result.checkers, result.pending_rewards, result.lifetime_rewards);
     }
 
     public static serialize(account: GlobalRewardsAccount): Uint8Array {
@@ -42,7 +52,7 @@ export class GlobalRewardsAccount {
         return result;
     }
 
-    public static readonly LEN: bigint = BigInt(800_001);
+    public static readonly LEN: bigint = BigInt(800_001 + 8 + 8);
 
     public static async findGlobalRewardsPDA(): Promise<ProgramDerivedAddress> {
         const pda = await getProgramDerivedAddress({

@@ -51,6 +51,11 @@ describe('Payout checker rewards', async () => {
         await verifyLockedTokensAccount(lite, checkerOwner.address, currentPeriod, BigInt(mockedRewards));
         await verifyGlobalRewardsReset(lite, checkerIndex);
         await verifyTreasuryState(lite, BigInt(mockedRewards));
+
+        // Verify pending_rewards decreased and lifetime_rewards unchanged
+        const globalRewards = await getGlobalRewards(lite);
+        expect(globalRewards.pending_rewards).toBe(0n); // Should be 0 after payout
+        expect(globalRewards.lifetime_rewards).toBe(mockedRewards); // Should remain unchanged
     });
 
     it('should fail when trying to payout with zero rewards', async () => {
@@ -198,6 +203,11 @@ describe('Payout checker rewards', async () => {
         // Verify first payout created locked tokens account with first reward amount
         await verifyLockedTokensAccount(lite, singleOwner.address, currentPeriod, BigInt(rewards1));
 
+        // Verify pending_rewards decreased by first payout, lifetime_rewards accumulated
+        let globalRewards = await getGlobalRewards(lite);
+        expect(globalRewards.pending_rewards).toBe(rewards2); // Only second checker's rewards remain pending
+        expect(globalRewards.lifetime_rewards).toBe(rewards1 + rewards2); // Both are in lifetime
+
         // Payout for second checker (same owner)
         const payout2 = new PayoutCheckerRewards({
             signer: singleOwner.address,
@@ -213,6 +223,11 @@ describe('Payout checker rewards', async () => {
 
         // Verify that the same locked tokens account now contains accumulated rewards
         await verifyLockedTokensAccount(lite, singleOwner.address, currentPeriod, BigInt(totalRewards));
+
+        // Verify pending_rewards is now 0, lifetime_rewards still accumulated
+        globalRewards = await getGlobalRewards(lite);
+        expect(globalRewards.pending_rewards).toBe(0n); // All rewards paid out
+        expect(globalRewards.lifetime_rewards).toBe(totalRewards); // Both are in lifetime
 
         // Verify both checkers' balances were reset
         await verifyGlobalRewardsReset(lite, checker1License.index);
@@ -276,6 +291,11 @@ describe('Payout checker rewards', async () => {
         // Verify period 1 locked tokens account still exists with original amount
         await verifyLockedTokensAccount(lite, singleOwner.address, period1, BigInt(rewardsPeriod1));
 
+        // Verify pending_rewards is 0 and lifetime_rewards accumulated across both periods
+        const globalRewards = await getGlobalRewards(lite);
+        expect(globalRewards.pending_rewards).toBe(0n); // All rewards paid out
+        expect(globalRewards.lifetime_rewards).toBe(rewardsPeriod1 + rewardsPeriod2); // Accumulated across periods
+
         // Verify treasury state reflects total locked amount from both periods
         await verifyTreasuryState(lite, BigInt(rewardsPeriod1 + rewardsPeriod2));
 
@@ -298,8 +318,17 @@ async function setMockedRewardsInGlobalRewards(
 
     const globalRewards = GlobalRewardsAccount.deserializeFrom(current);
     globalRewards.checkers[checkerIndex] = rewardsAmount;
+    globalRewards.pending_rewards += rewardsAmount;
+    globalRewards.lifetime_rewards += rewardsAmount;
     const updated = GlobalRewardsAccount.serialize(globalRewards);
     lite.setAccountData(globalRewardsPda[0], updated);
+}
+
+async function getGlobalRewards(lite: LiteDepin): Promise<GlobalRewardsAccount> {
+    const globalRewardsPda = await GlobalRewardsAccount.findGlobalRewardsPDA();
+    const globalRewardsData = lite.getAccountData(globalRewardsPda[0]);
+    if (!globalRewardsData) throw new Error('GlobalRewards account not found');
+    return GlobalRewardsAccount.deserializeFrom(globalRewardsData);
 }
 
 async function verifyLockedTokensAccount(

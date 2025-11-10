@@ -80,6 +80,14 @@ describe('Submit worker proofs', async () => {
         expect(globalRewards.checkers[brandOutput[1]]).toBeGreaterThan(0);
         expect(globalRewards.checkers[brandOutput[8]]).toBeGreaterThan(0);
         expect(globalRewards.checkers[brandOutput[64]]).toBeGreaterThan(0);
+
+        // Verify pending_rewards and lifetime_rewards were updated correctly
+        const totalRewardsAdded = globalRewards.checkers[brandOutput[0]] +
+            globalRewards.checkers[brandOutput[1]] +
+            globalRewards.checkers[brandOutput[8]] +
+            globalRewards.checkers[brandOutput[64]];
+        expect(globalRewards.pending_rewards).toBe(totalRewardsAdded);
+        expect(globalRewards.lifetime_rewards).toBe(totalRewardsAdded);
     });
 
     it('should reject invalid proof submissions and allow duplicate after first submission', async () => {

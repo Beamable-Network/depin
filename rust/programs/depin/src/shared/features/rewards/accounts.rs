@@ -7,11 +7,13 @@ use depin_core::constants::DISC_SIZE;
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct GlobalRewards {
     pub checkers: [u64; 100_000],
+    pub pending_rewards: u64,
+    pub lifetime_rewards: u64,
 }
 
 impl GlobalRewards {
     pub const ELEMENTS: usize = 100_000;
-    pub const LEN: usize = 1 + (GlobalRewards::ELEMENTS * 8);
+    pub const LEN: usize = 1 + (GlobalRewards::ELEMENTS * 8) + 8 + 8;
 
     pub fn find_pda(program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[GLOBAL_SEED, GLOBAL_REWARDS_SEED], program_id)
@@ -56,6 +58,46 @@ impl GlobalRewards {
         }
     }
 
+    const fn pending_offset() -> usize {
+        const ELEM_SIZE: usize = core::mem::size_of::<u64>();
+        DISC_SIZE + (Self::ELEMENTS * ELEM_SIZE)
+    }
+
+    const fn lifetime_offset() -> usize {
+        Self::pending_offset() + 8
+    }
+
+    fn read_pending_rewards(account_data: &[u8]) -> u64 {
+        let offset = Self::pending_offset();
+        u64::from_le_bytes(account_data[offset..offset + 8].try_into().unwrap())
+    }
+
+    fn add_pending_rewards(account_data: &mut [u8], amount: u64) {
+        let offset = Self::pending_offset();
+        let current = Self::read_pending_rewards(account_data);
+        let new_value = current.saturating_add(amount);
+        account_data[offset..offset + 8].copy_from_slice(&new_value.to_le_bytes());
+    }
+
+    fn subtract_pending_rewards(account_data: &mut [u8], amount: u64) {
+        let offset = Self::pending_offset();
+        let current = Self::read_pending_rewards(account_data);
+        let new_value = current.saturating_sub(amount);
+        account_data[offset..offset + 8].copy_from_slice(&new_value.to_le_bytes());
+    }
+
+    fn read_lifetime_rewards(account_data: &[u8]) -> u64 {
+        let offset = Self::lifetime_offset();
+        u64::from_le_bytes(account_data[offset..offset + 8].try_into().unwrap())
+    }
+
+    fn add_lifetime_rewards(account_data: &mut [u8], amount: u64) {
+        let offset = Self::lifetime_offset();
+        let current = Self::read_lifetime_rewards(account_data);
+        let new_value = current.saturating_add(amount);
+        account_data[offset..offset + 8].copy_from_slice(&new_value.to_le_bytes());
+    }
+
     pub fn read_checker_balance(account_data: &[u8], checker_index: usize) -> Result<u64, ProgramError> {
         if checker_index >= Self::ELEMENTS {
             return Err(ProgramError::InvalidInstructionData);
@@ -86,10 +128,15 @@ impl GlobalRewards {
         let new_balance = current_balance.saturating_add(reward_amount);
 
         checker_bytes[start..end].copy_from_slice(&new_balance.to_le_bytes());
+
+        // Update pending_rewards and lifetime_rewards
+        Self::add_pending_rewards(account_data, reward_amount);
+        Self::add_lifetime_rewards(account_data, reward_amount);
+
         Ok(())
     }
 
-    pub fn reset_checker_balance(account_data: &mut [u8], checker_index: usize) -> Result<(), ProgramError> {
+    pub fn reset_checker_balance(account_data: &mut [u8], checker_index: usize, old_balance: u64) -> Result<(), ProgramError> {
         if checker_index >= Self::ELEMENTS {
             return Err(ProgramError::InvalidInstructionData);
         }
@@ -101,6 +148,10 @@ impl GlobalRewards {
         let end = start + ELEM_SIZE;
 
         checker_bytes[start..end].copy_from_slice(&0u64.to_le_bytes());
+
+        // Remove old_balance from pending_rewards
+        Self::subtract_pending_rewards(account_data, old_balance);
+
         Ok(())
     }
 }
