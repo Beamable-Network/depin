@@ -1,4 +1,4 @@
-use borsh::BorshDeserialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{next_account_info, AccountInfo}, 
     entrypoint::ProgramResult, 
@@ -10,7 +10,11 @@ use crate::shared::{
     features::treasury::{accounts::{TreasuryState, LockedTokens}, utils::unlock as unlock_tokens}
 };
 use depin_core::utils::account::read_account_data;
-use super::input;
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct UnlockInput {
+    pub lock_period: u16,  // The period when the tokens were locked
+}
 
 pub fn process_unlock<'info>(
     program_id: &Pubkey,
@@ -41,7 +45,7 @@ pub fn process_unlock<'info>(
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    let input = input::UnlockInput::try_from_slice(instruction_data)?;
+    let input = UnlockInput::try_from_slice(instruction_data)?;
 
     // Validate TreasuryState PDA
     let (treasury_state_pda, _) = TreasuryState::find_pda(program_id);

@@ -280,8 +280,8 @@ describe('Payout checker rewards', async () => {
         await verifyTreasuryState(lite, BigInt(rewardsPeriod1 + rewardsPeriod2));
 
         // Verify that the PDAs are different for different periods
-        const period1Pda = await LockedTokensAccount.findLockedTokensPDA(singleOwner.address, period1, period1 + 365);
-        const period2Pda = await LockedTokensAccount.findLockedTokensPDA(singleOwner.address, period2, period2 + 365);
+        const period1Pda = await LockedTokensAccount.findLockedTokensPDA(singleOwner.address, period1, period1 + 90);
+        const period2Pda = await LockedTokensAccount.findLockedTokensPDA(singleOwner.address, period2, period2 + 90);
         expect(period1Pda[0]).not.toBe(period2Pda[0]); // Different PDA addresses
     });
 });
@@ -308,7 +308,7 @@ async function verifyLockedTokensAccount(
     lockPeriod: number,
     expectedAmount: bigint
 ): Promise<void> {
-    const lockedTokensPda = await LockedTokensAccount.findLockedTokensPDA(ownerAddress, lockPeriod, lockPeriod + 365);
+    const lockedTokensPda = await LockedTokensAccount.findLockedTokensPDA(ownerAddress, lockPeriod, lockPeriod + 90);
     const lockedTokensAccountData = lite.getAccountData(lockedTokensPda[0]);
     expect(lockedTokensAccountData).not.toBeNull();
 
@@ -343,7 +343,7 @@ async function verifyNoLockedTokensForAddress(
     address: Address,
     lockPeriod: number
 ): Promise<void> {
-    const lockedTokensPda = await LockedTokensAccount.findLockedTokensPDA(address, lockPeriod, lockPeriod + 365);
+    const lockedTokensPda = await LockedTokensAccount.findLockedTokensPDA(address, lockPeriod, lockPeriod + 90);
     const lockedTokensAccountData = lite.getAccountData(lockedTokensPda[0]);
 
     // The account should not exist (should be null) since no locked tokens were created for this address

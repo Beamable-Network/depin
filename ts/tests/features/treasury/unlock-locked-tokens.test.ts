@@ -81,8 +81,8 @@ describe('Unlock locked tokens', async () => {
         const lockedAmount = 10_000n;
         lite.goToPeriod(100); // Set period to 100 for consistent test behavior
         const lockPeriod = lite.getPeriod();
-        const lockDuration = 365; // 365 days lock period
-        const unlockPeriod = 100 + lockDuration; // Will unlock at period 465
+        const lockDuration = 90; // 90 days lock period
+        const unlockPeriod = 100 + lockDuration; // Will unlock at period 190
 
         // Mock locked tokens account
         await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, unlockPeriod, lockPeriod, null);
@@ -136,7 +136,7 @@ describe('Unlock locked tokens', async () => {
         // Create locked tokens at period 100, then unlock immediately at period 100
         lite.goToPeriod(100);
         const lockPeriod = lite.getPeriod();
-        const unlockPeriod = 465; // 365 days from period 100
+        const unlockPeriod = 190; // 90 days from period 100
 
         // Mock locked tokens account
         await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, unlockPeriod, lockPeriod, null);

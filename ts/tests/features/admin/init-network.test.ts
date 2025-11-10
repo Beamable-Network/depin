@@ -95,5 +95,5 @@ async function verifyTreasuryConfigAccount(lite: LiteDepin): Promise<void> {
     expect(treasuryConfigData!.length).toBeGreaterThan(0);
 
     const treasuryConfig = TreasuryConfigAccount.deserializeFrom(treasuryConfigData!);
-    expect(treasuryConfig.checkerRewardsLockDays).toBe(365);
+    expect(treasuryConfig.checkerRewardsLockDays).toBe(90);
 }

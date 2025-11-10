@@ -58,7 +58,7 @@ impl TreasuryConfig {
 
     pub fn new() -> Self {
         Self {
-            checker_rewards_lock_days: 365,
+            checker_rewards_lock_days: 90,
         }
     }
 

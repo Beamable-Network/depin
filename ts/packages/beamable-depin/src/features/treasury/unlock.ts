@@ -72,7 +72,7 @@ export class Unlock {
         }
         if (unlockPeriod === undefined) {
             // Fallback to default schedule length (client-side guess) for error-path tests
-            unlockPeriod = this.params.lock_period + 365;
+            unlockPeriod = this.params.lock_period + 90;
         }
         const lockedTokensPda = await LockedTokensAccount.findLockedTokensPDA(
             this.owner,
