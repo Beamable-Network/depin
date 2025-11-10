@@ -24,6 +24,8 @@ export { ActivateChecker } from './features/checker/activate-checker.js';
 export { PayoutCheckerRewards } from './features/checker/payout-checker-rewards.js';
 export { LockedTokensAccount } from './features/treasury/locked-tokens-account.js';
 export { assetToCNftContext } from './utils/bubblegum.js';
+export { SetBMBState } from './features/admin/set-bmb-state.js';
+export { SetTreasuryConfig } from './features/admin/set-treasury-config.js';
 
 export * from './features/worker/worker-metadata-account.js';
 export * from './features/checker/checker-metadata-account.js';
