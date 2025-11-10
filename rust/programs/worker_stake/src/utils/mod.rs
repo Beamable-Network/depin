@@ -1,4 +1,4 @@
-use depin_core::constants::BMB_DECIMALS;
+use depin_core::constants::BMB_MULTIPLIER;
 use solana_program::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
 
 // Sub-modules
@@ -25,7 +25,7 @@ pub const MAX_BASIS_POINTS: u16 = 10_000;
 /// BMB tokens required per checker point (for addon pool eligibility)
 /// Points = min(checker_count, floor(staked_bmb / BMB_PER_POINT))
 /// This is 2500 BMB in base units
-pub const BMB_PER_POINT: u64 = 2_500 * 10_u64.pow(BMB_DECIMALS as u32);
+pub const BMB_PER_POINT: u64 = 2_500 * BMB_MULTIPLIER;
 
 /// Find worker stake vault PDA (the authority/owner of the token account)
 pub fn find_worker_stake_vault_pda(
