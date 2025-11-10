@@ -229,6 +229,11 @@ pub fn unlock<'a>(
     // Get current period and calculate penalty
     let current_period = get_current_period();
 
+    if locked_tokens.lock_period >= current_period {
+        msg!("Error: Tokens cannot be unlocked before at least one full period/day has passed since locking");
+        return Err(ProgramError::InvalidArgument);
+    }
+
     let penalty_rate = calculate_penalty_rate(locked_tokens.lock_period, current_period, locked_tokens.unlock_period);
     let penalty_amount = (locked_tokens.total_locked * penalty_rate as u64) / DENOMINATOR_BPS;
     let payout_amount = locked_tokens.total_locked - penalty_amount;
