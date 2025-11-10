@@ -14,7 +14,7 @@ export class TreasuryAuthority {
     }
 
     // Treasury authority PDA
-    public static async finWorkerStakeTreasuryPDA(worker_collection: Address): Promise<ProgramDerivedAddress> {
+    public static async findWorkerStakeTreasuryPDA(worker_collection: Address): Promise<ProgramDerivedAddress> {
         const pda = await getProgramDerivedAddress({
             programAddress: WORKER_STAKE_PROGRAM,
             seeds: [TREASURY_SEED, addressEncoder.encode(worker_collection)]

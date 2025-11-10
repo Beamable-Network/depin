@@ -58,7 +58,7 @@ export class ClaimRewards {
         const userPositionPda = await UserStakePositionAccount.findUserStakePositionPDA(this.user, this.worker_collection);
         const monthlyPoolPda = await MonthlyPoolAccount.findMonthlyPoolPDA(this.worker_collection, this.params.month_period);
         
-        const treasuryPda = await TreasuryAuthority.finWorkerStakeTreasuryPDA(this.worker_collection);
+        const treasuryPda = await TreasuryAuthority.findWorkerStakeTreasuryPDA(this.worker_collection);
 
         // ATAs for treasuries
         const usdcTreasuryAta = await findAssociatedTokenPda({

@@ -71,7 +71,7 @@ export class DepositRevenue {
         const configPda = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(this.worker_collection);
 
         // USDC treasury PDA
-        const treasuryPda = await TreasuryAuthority.finWorkerStakeTreasuryPDA(this.worker_collection);
+        const treasuryPda = await TreasuryAuthority.findWorkerStakeTreasuryPDA(this.worker_collection);
 
         // ATA for USDC treasury
         const usdcTreasuryAta = await findAssociatedTokenPda({

@@ -68,7 +68,7 @@ export class DepositEmissions {
         const configPda = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(this.worker_collection);
 
         // BMB treasury PDA
-        const treasuryPda = await TreasuryAuthority.finWorkerStakeTreasuryPDA(this.worker_collection);
+        const treasuryPda = await TreasuryAuthority.findWorkerStakeTreasuryPDA(this.worker_collection);
 
         // ATA for BMB treasury
         const bmbTreasuryAta = await findAssociatedTokenPda({
