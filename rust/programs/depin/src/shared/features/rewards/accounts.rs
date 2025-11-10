@@ -19,7 +19,6 @@ impl GlobalRewards {
         Pubkey::find_program_address(&[GLOBAL_SEED, GLOBAL_REWARDS_SEED], program_id)
     }
 
-    // TODO: review
     pub fn get_checker_reward(period: u16, bmb_state: &BMBState) -> u64 {        
         let month_period = depin_core::utils::bmb::get_month_from_period(period);
         let emissions = get_node_emissions(month_period);
