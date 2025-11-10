@@ -3,6 +3,7 @@ use crate::instructions::{
     admin::process_activate_checker_licenses,
     admin::process_init_network,
     admin::process_set_bmb_state,
+    admin::process_set_treasury_config,
     treasury::unlock::process_unlock,
     worker::{process_activate_worker, process_submit_worker_proof, process_update_worker_uri},
 };
@@ -44,6 +45,9 @@ pub fn process<'a>(
         },
         DepinInstruction::SetBMBState => {
             process_set_bmb_state(program_id, accounts, data)?;
+        },
+        DepinInstruction::SetTreasuryConfig => {
+            process_set_treasury_config(program_id, accounts, data)?;
         }
     }
     Ok(())

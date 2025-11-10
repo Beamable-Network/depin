@@ -1,4 +1,4 @@
-use depin_core::utils::tokens::initialize_ata_if_needed;
+use depin_core::utils::{tokens::initialize_ata_if_needed, validation::{validate_ata_account, validate_pda_account}};
 use solana_program::{
     account_info::AccountInfo,
     entrypoint::ProgramResult,
@@ -6,8 +6,6 @@ use solana_program::{
     pubkey::Pubkey,
 };
 use spl_token::instruction::transfer_checked;
-
-use super::validation::{validate_pda_account, validate_ata_account};
 
 /// Transfers tokens from a treasury PDA to a user account
 ///

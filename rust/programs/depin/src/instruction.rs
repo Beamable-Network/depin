@@ -10,6 +10,7 @@ pub enum DepinInstruction {
     PayoutCheckerRewards = 8,
     UpdateWorkerUri = 9,
     SetBMBState = 10,
+    SetTreasuryConfig = 11,
 }
 
 impl DepinInstruction {
@@ -28,6 +29,7 @@ impl DepinInstruction {
             8 => Self::PayoutCheckerRewards,
             9 => Self::UpdateWorkerUri,
             10 => Self::SetBMBState,
+            11 => Self::SetTreasuryConfig,
             _ => return Err(ProgramError::InvalidInstructionData),
         })
     }

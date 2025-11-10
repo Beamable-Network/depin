@@ -1,6 +1,6 @@
 use depin_core::utils::{
     account::{read_account_data, write_account_data},
-    program_data::validate_upgrade_authority,
+    program_data::validate_upgrade_authority, validation::validate_pda_account,
 };
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -12,7 +12,6 @@ use solana_program::{
 use crate::{
     state::worker_stake_config::WorkerStakeConfig,
     types::WorkerStakeAccountType,
-    utils::{validate_pda_account},
 };
 
 pub fn process_update_min_stake_requirement<'a>(

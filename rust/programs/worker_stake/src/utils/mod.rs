@@ -4,13 +4,11 @@ use solana_program::{account_info::AccountInfo, msg, program_error::ProgramError
 // Sub-modules
 pub mod points;
 pub mod treasury;
-pub mod validation;
 pub mod weighting;
 
 // Re-export commonly used items
 pub use points::calculate_points;
 pub use treasury::transfer_from_treasury;
-pub use validation::{require_signer, validate_ata_account, validate_mint, validate_pda_account};
 pub use weighting::{
     apply_addon_point_weight, apply_base_stake_weight, calculate_time_weighted,
     compute_month_weight_totals, MonthWeightTotals,
