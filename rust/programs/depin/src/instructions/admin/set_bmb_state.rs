@@ -1,4 +1,16 @@
+use crate::shared::{
+    constants::seeds::{GLOBAL_SEED, STATE_SEED},
+    features::global::accounts::BMBState,
+};
 use borsh::{BorshDeserialize, BorshSerialize};
+use depin_core::{
+    types::account::DepinAccountType,
+    utils::{
+        account::{read_account_data, write_account_data},
+        bmb::{get_current_month_period},
+        program_data::validate_upgrade_authority,
+    },
+};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
@@ -6,23 +18,13 @@ use solana_program::{
     program_error::ProgramError,
     pubkey::Pubkey,
 };
-use crate::shared::{
-    constants::seeds::{GLOBAL_SEED, STATE_SEED},
-    features::global::accounts::BMBState,
-};
-use depin_core::{
-    types::account::DepinAccountType,
-    utils::{
-        account::{read_account_data, write_account_data},
-        program_data::validate_upgrade_authority
-    }
-};
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct SetBMBStateInput {
     pub checkers_desired: Option<u32>,
     pub checkers_activated: Option<u32>,
     pub workers_activated: Option<u32>,
+    pub remaining_checker_emissions: Option<u64>,
 }
 
 pub fn process_set_bmb_state<'info>(
@@ -42,17 +44,11 @@ pub fn process_set_bmb_state<'info>(
     let input = SetBMBStateInput::try_from_slice(instruction_data)?;
 
     // Validate upgrade authority
-    validate_upgrade_authority(
-        program_id,
-        program_data_account,
-        upgrade_authority_account
-    )?;
+    validate_upgrade_authority(program_id, program_data_account, upgrade_authority_account)?;
 
     // Validate the PDA
-    let (bmb_state_pda, _bump_seed) = Pubkey::find_program_address(
-        &[GLOBAL_SEED, STATE_SEED],
-        program_id,
-    );
+    let (bmb_state_pda, _bump_seed) =
+        Pubkey::find_program_address(&[GLOBAL_SEED, STATE_SEED], program_id);
 
     if *bmb_state_account.key != bmb_state_pda {
         msg!("Error: BMBState account does not match expected PDA");
@@ -75,20 +71,44 @@ pub fn process_set_bmb_state<'info>(
     let mut updated = false;
 
     if let Some(checkers_desired) = input.checkers_desired {
-        msg!("Updating checkers_desired: {} -> {}", bmb_state.checkers_desired, checkers_desired);
+        msg!(
+            "Updating checkers_desired: {} -> {}",
+            bmb_state.checkers_desired,
+            checkers_desired
+        );
         bmb_state.checkers_desired = checkers_desired;
         updated = true;
     }
 
     if let Some(checkers_activated) = input.checkers_activated {
-        msg!("Updating checkers_activated: {} -> {}", bmb_state.checkers_activated, checkers_activated);
+        msg!(
+            "Updating checkers_activated: {} -> {}",
+            bmb_state.checkers_activated,
+            checkers_activated
+        );
         bmb_state.checkers_activated = checkers_activated;
         updated = true;
     }
 
     if let Some(workers_activated) = input.workers_activated {
-        msg!("Updating workers_activated: {} -> {}", bmb_state.workers_activated, workers_activated);
+        msg!(
+            "Updating workers_activated: {} -> {}",
+            bmb_state.workers_activated,
+            workers_activated
+        );
         bmb_state.workers_activated = workers_activated;
+        updated = true;
+    }
+
+    if let Some(remaining_checker_emissions) = input.remaining_checker_emissions {
+        msg!(
+            "Updating remaining_checker_emissions: {} -> {}",
+            bmb_state.remaining_checker_emissions,
+            remaining_checker_emissions
+        );
+        bmb_state.remaining_checker_emissions = remaining_checker_emissions;
+        let current_month = get_current_month_period();
+        bmb_state.remaining_checker_emissions_sync_month = current_month;
         updated = true;
     }
 

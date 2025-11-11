@@ -26,6 +26,11 @@ pub fn get_current_period() -> u16 {
 }
 
 #[inline(always)]
+pub fn get_current_month_period() -> u16 {
+    get_month_from_period(get_current_period())
+}
+
+#[inline(always)]
 pub fn timestamp_to_period(timestamp: i64) -> u16 {
     if timestamp < PERIOD_ZERO {
         return 0;
@@ -85,7 +90,7 @@ pub fn validate_worker_tree(
     Ok(())
 }
 
-/// Returns the number of days in a given month period (28-31)
+/// Returns the number of days in a given month period
 ///
 /// # Arguments
 /// * `month_period` - Months since June 2025 (0 = June 2025, 1 = July 2025, etc.)

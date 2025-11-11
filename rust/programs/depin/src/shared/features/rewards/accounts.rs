@@ -1,8 +1,8 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{pubkey::Pubkey, program_error::ProgramError};
 
-use crate::shared::constants::seeds::{GLOBAL_REWARDS_SEED, GLOBAL_SEED};
-use depin_core::constants::DISC_SIZE;
+use crate::{shared::{constants::seeds::{GLOBAL_REWARDS_SEED, GLOBAL_SEED}, features::{global::accounts::BMBState, rewards::emission_schedule::get_node_emissions}}};
+use depin_core::{constants::{DISC_SIZE}, utils::bmb::days_in_month};
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct GlobalRewards {
@@ -19,43 +19,63 @@ impl GlobalRewards {
         Pubkey::find_program_address(&[GLOBAL_SEED, GLOBAL_REWARDS_SEED], program_id)
     }
 
-    pub fn get_checker_reward(period: u16) -> u16 {
-        let month = depin_core::utils::bmb::get_month_from_period(period);
-
-        match month {
-            // Year 1 (2025-2026) - Months 0-11
-            0 => 1000,   // Jun 2025: 1000
-            1 => 950,    // Jul 2025: 950
-            2 => 900,    // Aug 2025: 900
-            3 => 850,    // Sep 2025: 850
-            4 => 800,    // Oct 2025: 800
-            5 => 750,    // Nov 2025: 750
-            6 => 700,    // Dec 2025: 700
-            7 => 650,    // Jan 2026: 650
-            8 => 600,    // Feb 2026: 600
-            9 => 550,    // Mar 2026: 550
-            10 => 500,   // Apr 2026: 500
-            11 => 450,   // May 2026: 450
-
-            // Year 2 (2026-2027) - Months 12-23
-            12..=17 => 400,   // Jun-Nov 2026: 400
-            18..=23 => 350,   // Dec 2026-May 2027: 350
-
-            // Year 3 (2027-2028) - Months 24-35
-            24..=29 => 300,   // Jun-Nov 2027: 300
-            30..=35 => 250,   // Dec 2027-May 2028: 250
-
-            // Year 4 (2028-2029) - Months 36-47
-            36..=41 => 200,   // Jun-Nov 2028: 200
-            42..=47 => 175,   // Dec 2028-May 2029: 175
-
-            // Year 5 (2029-2030) - Months 48-59
-            48..=53 => 150,   // Jun-Nov 2029: 150
-            54..=59 => 125,   // Dec 2029-May 2030: 125
-
-            // Year 6+ (2030+) - Months 60+
-            _ => 100,         // Jun 2030+: 100
+    pub fn get_checker_reward(period: u16, bmb_state: &BMBState) -> Result<u64, ProgramError> {
+        // Early return: Not seeking checkers = no rewards
+        if bmb_state.checkers_desired == 0 {
+            return Ok(0);
         }
+
+        let month_period = depin_core::utils::bmb::get_month_from_period(period);
+        let emissions = get_node_emissions(month_period);
+        let days_in_month = days_in_month(month_period);
+
+        let remaining_emissions = if bmb_state.remaining_checker_emissions_sync_month == month_period {
+            bmb_state.remaining_checker_emissions
+        } else {
+            0
+        };
+
+        let total_checker_emissions = emissions.checkers
+            .checked_add(remaining_emissions)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+
+        // Early return if no emissions this month
+        if total_checker_emissions == 0 {
+            return Ok(0);
+        }
+
+        // Calculate max checker activities with overflow checks
+        // checker_activities_max = workers_activated * 512 * days_in_month
+        let checker_activities_max = (bmb_state.workers_activated as u64)
+            .checked_mul(512)
+            .and_then(|v| v.checked_mul(days_in_month as u64))
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+
+        // Calculate active checker ratio (capped at 1.0)
+        let ratio_numerator = if bmb_state.checkers_activated > bmb_state.checkers_desired {
+            bmb_state.checkers_desired as u64
+        } else {
+            bmb_state.checkers_activated as u64
+        };
+        let ratio_denominator = bmb_state.checkers_desired as u64;
+
+        // Pure integer arithmetic using u128 to prevent overflow
+        // Formula: (ratio_numerator * total_emissions) / (ratio_denominator * max_activities)
+        let numerator = (ratio_numerator as u128)
+            .checked_mul(total_checker_emissions as u128)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+
+        let denominator = (ratio_denominator as u128)
+            .checked_mul(checker_activities_max as u128)
+            .ok_or(ProgramError::ArithmeticOverflow)?;
+
+        // Division in u128 space (denominator cannot be 0 due to earlier checks)
+        // Round to nearest (half-up)
+        let activity_reward_u128 = (numerator + denominator / 2) / denominator;
+        let activity_reward = u64::try_from(activity_reward_u128)
+            .map_err(|_| ProgramError::ArithmeticOverflow)?;
+
+        Ok(activity_reward)
     }
 
     const fn pending_offset() -> usize {
@@ -153,5 +173,130 @@ impl GlobalRewards {
         Self::subtract_pending_rewards(account_data, old_balance);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shared::features::global::accounts::BMBState;
+    use crate::shared::types::ring_buffer::RingBuffer;
+
+    fn create_bmb_state(
+        checkers_activated: u32,
+        checkers_desired: u32,
+        workers_activated: u32,
+        remaining_emissions: u64,
+        sync_month: u16,
+    ) -> BMBState {
+        BMBState {
+            period_checkers_buffer: RingBuffer::new(),
+            checkers_desired,
+            checkers_activated,
+            workers_activated,
+            remaining_checker_emissions: remaining_emissions,
+            remaining_checker_emissions_sync_month: sync_month,
+        }
+    }
+
+    #[test]
+    fn test_month_5_reward_calculation() {
+        // Month 5 (Nov 2025): First month with 20M scheduled emissions
+        // - Checkers: 500 active / 1000 desired (0.5 ratio)
+        // - Workers: 100 nodes
+        // - Days: 30 (November has 30 days)
+        // - Max activities: 100 * 512 * 30 = 1,536,000
+        // Period 153 = November 1, 2025 (days: 153-182 = Nov 1-30)
+
+        let period = 153; // November 1, 2025 (month 5)
+        let bmb_state = create_bmb_state(
+            500,  // checkers_activated
+            1000, // checkers_desired
+            100,  // workers_activated (100 nodes)
+            0,    // remaining_checker_emissions
+            5,    // sync_month
+        );
+
+        let reward = GlobalRewards::get_checker_reward(period, &bmb_state).unwrap();
+
+        // Formula: (ratio_numerator * total_emissions) / (ratio_denominator * max_activities)
+        // total_emissions = 20_000_000 * 10^9 (in smallest units)
+        // = (500 * 20_000_000_000_000_000) / (1000 * 1_536_000)
+        // = 10_000_000_000_000_000 / 1_536_000_000
+        // = 6_510_416_666.67 → rounds to 6_510_416_667 (6.51 BMB)
+
+        assert_eq!(reward, 6_510_416_667, "Month 5: Expected 6.51 BMB per activity (matches es.csv)");
+    }
+
+    #[test]
+    fn test_month_6_reward_calculation() {
+        // Month 6 (Dec 2025): Regular month with 1.5M scheduled emissions
+        // - Checkers: 1000 active / 1500 desired (0.6667 ratio)
+        // - Workers: 100 nodes
+        // - Days: 31 (December has 31 days)
+        // - Max activities: 100 * 512 * 31 = 1,587,200
+        // Period 183 = December 1, 2025 (days: 183-213 = Dec 1-31)
+
+        let period = 183; // December 1, 2025 (month 6)
+        const BMB_MULTIPLIER: u64 = 1_000_000_000; // 10^9
+        let bmb_state = create_bmb_state(
+            1000, // checkers_activated
+            1500, // checkers_desired
+            100,  // workers_activated
+            10_000_000 * BMB_MULTIPLIER, // remaining_checker_emissions from month 5 (in smallest units)
+            6,    // sync_month
+        );
+
+        let reward = GlobalRewards::get_checker_reward(period, &bmb_state).unwrap();
+
+        // Formula: (ratio_numerator * total_emissions) / (ratio_denominator * max_activities)
+        // total_emissions = (1_500_000 + 10_000_000) * 10^9 = 11_500_000 * 10^9 (in smallest units)
+        // = (1000 * 11_500_000_000_000_000) / (1500 * 1_587_200)
+        // = 11_500_000_000_000_000_000 / 2_380_800_000
+        // With half-up rounding: 4_830_309_140 (≈4.83 BMB)
+
+        assert_eq!(reward, 4_830_309_140, "Month 6: Expected ≈4.83 BMB per activity (matches es.csv)");
+    }
+
+    #[test]
+    fn test_zero_emissions() {
+        // Test early months (0-4) with no emissions
+        let period = 30; // Period in month 1
+        let bmb_state = create_bmb_state(100, 1000, 100, 0, 1);
+
+        let reward = GlobalRewards::get_checker_reward(period, &bmb_state).unwrap();
+        assert_eq!(reward, 0, "Should return 0 for months with no emissions");
+    }
+
+    #[test]
+    fn test_zero_desired_checkers() {
+        // Test when no checkers are desired
+        let period = 153; // November 1, 2025 (month 5)
+        let bmb_state = create_bmb_state(500, 0, 100, 0, 5);
+
+        let reward = GlobalRewards::get_checker_reward(period, &bmb_state).unwrap();
+        assert_eq!(reward, 0, "Should return 0 when no checkers desired");
+    }
+
+    #[test]
+    fn test_checkers_activated_exceeds_desired() {
+        // Test ratio capping when activated > desired
+        let period = 153; // November 1, 2025 (month 5)
+        let bmb_state = create_bmb_state(
+            1500, // checkers_activated (exceeds desired)
+            1000, // checkers_desired
+            100,  // workers_activated
+            0,
+            5,
+        );
+
+        let reward = GlobalRewards::get_checker_reward(period, &bmb_state).unwrap();
+
+        // Ratio should be capped at 1.0 (1000/1000, not 1500/1000)
+        // = (1000 * 20_000_000_000_000_000) / (1000 * 1_536_000)
+        // = 20_000_000_000_000_000 / 1_536_000_000
+        // = 13_020_833_333.33 → rounds to 13_020_833_333 (13.02 BMB)
+
+        assert_eq!(reward, 13_020_833_333, "Ratio should be capped at 1.0, giving 13.02 BMB per activity");
     }
 }

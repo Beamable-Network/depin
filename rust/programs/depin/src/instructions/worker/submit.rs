@@ -225,8 +225,9 @@ fn update_checker_rewards(
     }
 
     let mut global_rewards_data = global_rewards_account.try_borrow_mut_data()?;
-    let period_reward_tokens = GlobalRewards::get_checker_reward(period);
-    
+    let period_reward_tokens = GlobalRewards::get_checker_reward(period, &bmb_state)?;
+    msg!("Period {} reward: {}", period, period_reward_tokens);
+
     // Iterate through the bitmap and increment rewards for selected checkers
     for (array_index, &checker_bits) in checkers.iter().enumerate() {
         if checker_bits == 0 {
@@ -243,7 +244,7 @@ fn update_checker_rewards(
 
             let checker_index = numbers[bit_index] as usize;
 
-            GlobalRewards::add_checker_balance(&mut global_rewards_data, checker_index, period_reward_tokens as u64)?;
+            GlobalRewards::add_checker_balance(&mut global_rewards_data, checker_index, period_reward_tokens)?;
 
             // Clear the processed bit
             bits &= bits - 1;
