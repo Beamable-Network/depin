@@ -100,7 +100,7 @@ async function validateStakeTransaction(transaction: Transaction, worker: Worker
     }
 
     // Validate minimum stake amount (100 BMB)
-    if (params.amount <= bmbToBaseUnits(100)) {
+    if (params.amount < bmbToBaseUnits(100)) {
         return {
             error: 'invalid_stake_amount',
             message: `Minimum stake amount is 100 BMB, found ${baseUnitsToBmb(params.amount)}`,
