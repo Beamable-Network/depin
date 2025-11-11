@@ -144,14 +144,6 @@ export function validateCheckerIP(proof: SignedPayload<typeof ProofPayloadSchema
             'The request source IP is private, cannot verify checker IP'
         );
     }
-
-    if (proof.payload.checker.ip !== requestSourceIp) {
-        return createErrorResponse(
-            'checker_ip_mismatch',
-            'The checker IP in the proof does not match the request source IP'
-        );
-    }
-
     return null;
 }
 

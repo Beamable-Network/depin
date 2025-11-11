@@ -6,7 +6,7 @@ import { withRetry } from './retry.js';
 import { AsyncCache } from './async-cache.js';
 
 const logger = getLogger('NetworkUtility');
-const resolve4 = promisify(dns.resolve4);
+const lookup = promisify(dns.lookup);
 
 const ipCache = new AsyncCache<string, string>({
   max: 10,
@@ -19,44 +19,60 @@ export interface FetchExternalIpOptions {
   logContext?: Record<string, any>;
 }
 
+// List of reliable external IP resolution services (in order of preference)
+const IP_SERVICES = [
+  'https://checkip.amazonaws.com',
+  'https://api.ipify.org',
+  'https://a.ident.me/',
+];
+
 /**
- * Fetches the external IP address from checkip.amazonaws.com
+ * Fetches the external IP address from multiple reliable services with automatic fallback
  * @param options Configuration options
- * @returns Promise that resolves to the external IP address or null if it fails
+ * @returns Promise that resolves to the external IP address or null if all services fail
  */
 export async function fetchExternalIp(options: FetchExternalIpOptions = {}): Promise<string | null> {
-  const { agent, timeoutMs = 10_000, logContext = {} } = options;
-  
+  const { agent, timeoutMs = 5_000, logContext = {} } = options;
+
   return ipCache.get('externalIp', async () => {
-    logger.debug(logContext, 'Fetching external IP from checkip.amazonaws.com');
-    
-    try {
-      const ip = await withRetry(async ({ attempt }) => {
-        const res = await request('https://checkip.amazonaws.com', {
-          method: 'GET',
-          dispatcher: agent,
-          headersTimeout: timeoutMs,
-          bodyTimeout: timeoutMs,
+    const errors: Array<{ service: string; error: string }> = [];
+
+    // Try each service in order until one succeeds
+    for (const serviceUrl of IP_SERVICES) {
+      try {
+        const ip = await withRetry(async ({ attempt }) => {
+          const res = await request(serviceUrl, {
+            method: 'GET',
+            dispatcher: agent,
+            headersTimeout: timeoutMs,
+            bodyTimeout: timeoutMs,
+          });
+
+          if (res.statusCode !== 200) {
+            const error = new Error(`HTTP ${res.statusCode}`);
+            logger.warn({ ...logContext, service: serviceUrl, statusCode: res.statusCode, attempt }, 'Failed to fetch external IP');
+            throw error;
+          }
+
+          const ip = (await res.body.text()).trim();
+          return ip;
+        }, {
+          maxRetries: 2,
+          baseDelayMs: 100,
+          exponentialBackoff: false
         });
 
-        if (res.statusCode !== 200) {
-          const error = new Error(`HTTP ${res.statusCode}`);
-          logger.warn({ ...logContext, statusCode: res.statusCode, attempt }, 'Failed to fetch external IP');
-          throw error;
-        }
-
-        const ip = (await res.body.text()).trim();
         return ip;
-      }, {
-        maxRetries: 5,
-        baseDelayMs: 1000,
-        exponentialBackoff: true
-      });
-      return ip;
-    } catch (err) {
-      logger.warn({ ...logContext, err: err instanceof Error ? err.message : String(err) }, 'Error fetching external IP after all retries');
-      throw err;
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        errors.push({ service: serviceUrl, error: errorMsg });
+        logger.warn({ ...logContext, service: serviceUrl, err: errorMsg }, 'Service failed, trying next service');
+      }
     }
+
+    // All services failed
+    logger.error({ ...logContext, errors }, 'All IP services failed');
+    throw new Error(`Failed to fetch external IP from all services: ${errors.map(e => `${e.service} (${e.error})`).join(', ')}`);
   });
 }
 
@@ -65,25 +81,26 @@ export interface ResolveHostnameOptions {
 }
 
 /**
- * Resolves a hostname to an IP address using DNS
+ * Resolves a hostname to an IP address using OS-level DNS resolution
+ * Uses dns.lookup() which respects system configuration and returns IPv4 or IPv6
+ * based on OS preferences. This is more similar to how standard applications resolve hostnames.
  * @param hostname The hostname to resolve
  * @param options Configuration options
- * @returns Promise that resolves to the first IP address or null if it fails
+ * @returns Promise that resolves to the IP address or null if it fails
  */
 export async function resolveHostnameToIp(hostname: string, options: ResolveHostnameOptions = {}): Promise<string | null> {
   const { logContext = {} } = options;
 
   try {
     const ip = await withRetry(async ({ attempt }) => {
-      const addresses = await resolve4(hostname);
+      const result = await lookup(hostname);
 
-      if (!addresses || addresses.length === 0) {
-        const error = new Error('No IP addresses found');
+      if (!result || !result.address) {
+        const error = new Error(`No IP address found for hostname ${hostname}`);
         logger.warn({ ...logContext, hostname, attempt }, 'Failed to resolve hostname');
         throw error;
       }
-
-      return addresses[0];
+      return result.address;
     }, {
       maxRetries: 5,
       baseDelayMs: 1000,
