@@ -188,8 +188,7 @@ pub fn calculate_vested_amount(
     let num = (total_locked as u128) * (elapsed as u128);
     let den = dur as u128;
 
-    // Round to nearest (half-up): add den/2 before integer division
-    let vested = (num + den / 2) / den;
+    let vested = num / den;
 
     // Defensive clamp back to total_locked
     vested.min(total_locked as u128) as u64

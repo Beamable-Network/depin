@@ -208,7 +208,7 @@ describe('Unlock locked tokens', async () => {
         );
     });
 
-    it('should properly round vested amounts', async () => {
+    it('should strip decimals when calculating vested amounts', async () => {
         const lockedAmount = 10_000n;
         // Create locked tokens at period 100, then unlock immediately at period 100
         lite.goToPeriod(100);
@@ -240,10 +240,10 @@ describe('Unlock locked tokens', async () => {
         expect(unlockResult.logs).toBeDefined();
 
         // Verify owner received 8/90 of amount (linear vesting: 8 days elapsed out of 90)
-        // vested_amount = (10000 * 8 + 45) / 90 = 889 (rounded)
+        // vested_amount = (10000 * 8) / 90 = 888.88
         const finalOwnerBalance = await lite.getTokenBalance(BMB_MINT, tokenOwner.address);
         const receivedAmount = finalOwnerBalance - initialOwnerBalance;
-        const expectedAmount = 889n; // (10000 * 8 + 45) / 90 = 889
+        const expectedAmount = 888n; // (10000 * 8) / 90 = 888.88
         expect(receivedAmount).toBe(expectedAmount);
 
         // Verify all unlock results

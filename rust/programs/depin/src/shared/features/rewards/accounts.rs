@@ -70,8 +70,7 @@ impl GlobalRewards {
             .ok_or(ProgramError::ArithmeticOverflow)?;
 
         // Division in u128 space (denominator cannot be 0 due to earlier checks)
-        // Round to nearest (half-up)
-        let activity_reward_u128 = (numerator + denominator / 2) / denominator;
+        let activity_reward_u128 = numerator / denominator;
         let activity_reward = u64::try_from(activity_reward_u128)
             .map_err(|_| ProgramError::ArithmeticOverflow)?;
 
@@ -223,9 +222,9 @@ mod tests {
         // total_emissions = 20_000_000 * 10^9 (in smallest units)
         // = (500 * 20_000_000_000_000_000) / (1000 * 1_536_000)
         // = 10_000_000_000_000_000 / 1_536_000_000
-        // = 6_510_416_666.67 → rounds to 6_510_416_667 (6.51 BMB)
+        // = 6_510_416_666.67 (6.51 BMB)
 
-        assert_eq!(reward, 6_510_416_667, "Month 5: Expected 6.51 BMB per activity (matches es.csv)");
+        assert_eq!(reward, 6_510_416_666, "Month 5: Expected 6.51 BMB per activity (matches es.csv)");
     }
 
     #[test]
@@ -253,9 +252,9 @@ mod tests {
         // total_emissions = (1_500_000 + 10_000_000) * 10^9 = 11_500_000 * 10^9 (in smallest units)
         // = (1000 * 11_500_000_000_000_000) / (1500 * 1_587_200)
         // = 11_500_000_000_000_000_000 / 2_380_800_000
-        // With half-up rounding: 4_830_309_140 (≈4.83 BMB)
+        // 4_830_309_139 (≈4.83 BMB)
 
-        assert_eq!(reward, 4_830_309_140, "Month 6: Expected ≈4.83 BMB per activity (matches es.csv)");
+        assert_eq!(reward, 4_830_309_139, "Month 6: Expected ≈4.83 BMB per activity (matches es.csv)");
     }
 
     #[test]
@@ -295,7 +294,7 @@ mod tests {
         // Ratio should be capped at 1.0 (1000/1000, not 1500/1000)
         // = (1000 * 20_000_000_000_000_000) / (1000 * 1_536_000)
         // = 20_000_000_000_000_000 / 1_536_000_000
-        // = 13_020_833_333.33 → rounds to 13_020_833_333 (13.02 BMB)
+        // = 13_020_833_333.33 (13.02 BMB)
 
         assert_eq!(reward, 13_020_833_333, "Ratio should be capped at 1.0, giving 13.02 BMB per activity");
     }
