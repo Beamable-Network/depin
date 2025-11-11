@@ -8,6 +8,7 @@ import {
     MonthlyPoolConfig,
     SetMonthlyPool,
     Stake,
+    TreasuryAuthority,
     USDC_MINT,
     UserStakePositionAccount,
     WORKER_STAKE_PROGRAM,
@@ -207,11 +208,19 @@ describe('User Claim Rewards Instructions', async () => {
 
         it('should successfully claim base BMB emissions', async () => {
             const { user } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
+            
+            const [workerStakeTreasuryPda] = await TreasuryAuthority.findWorkerStakeTreasuryPDA(workerCollection);            
+            let stakeTreasuryBalance = await lite.getTokenBalance(BMB_MINT, workerStakeTreasuryPda);
+            expect(stakeTreasuryBalance).toBe(0n);
 
             // Deposit emissions (1000 BMB)
             const emissionAmount = bmbToBaseUnits(1000);
             await lite.mintToken(BMB_MINT, revenueSource.address, emissionAmount, tokenAuthorities.bmbMintAuthority);
             await depositEmissions(emissionAmount, 5);
+            
+            stakeTreasuryBalance = await lite.getTokenBalance(BMB_MINT, workerStakeTreasuryPda);
+            
+            expect(stakeTreasuryBalance).toBe(emissionAmount * 15n / 100n); // 15% of 1000 BMB
 
             // Advance to month 6 (after month 5 ends) to allow claiming
             lite.goToMonthPeriod(6);
