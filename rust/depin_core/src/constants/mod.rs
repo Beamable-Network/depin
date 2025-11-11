@@ -7,7 +7,7 @@ pub const BMB_MULTIPLIER: u64 = 10_u64.pow(BMB_DECIMALS as u32);
 pub const USDC_MINT: Pubkey = solana_program::pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 pub const BMB_MINT: Pubkey = solana_program::pubkey!("BMBtwz6LFDJVJd2aZvL5F64fdvWP3RPn4NP5q9Xe15UD");
 
-pub const CHECKER_TREE: Pubkey = solana_program::pubkey!("BMBcEkev9ZEMdqYUjNirrsB4E8uuVfcno7haTcLnwkXo");
+pub const CHECKER_TREE: Pubkey = solana_program::pubkey!("3eHEnELWr4fdVEhq4QKyyjAJ9N9cc197ZNjceb84QarW");
 pub const WORKER_TREE: Pubkey = solana_program::pubkey!("BMBw28bkTSFicoKZGoYNJzWnSyUjDRcxr7Qoc5mCuxf5");
 
 pub const MPL_ACCOUNT_COMPRESSION_PROGRAM: Pubkey = solana_program::pubkey!("mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW");
