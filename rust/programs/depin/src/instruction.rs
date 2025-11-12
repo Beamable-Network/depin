@@ -11,6 +11,7 @@ pub enum DepinInstruction {
     UpdateWorkerUri = 9,
     SetBMBState = 10,
     SetTreasuryConfig = 11,
+    ViewCheckerReward = 12,
 }
 
 impl DepinInstruction {
@@ -30,6 +31,7 @@ impl DepinInstruction {
             9 => Self::UpdateWorkerUri,
             10 => Self::SetBMBState,
             11 => Self::SetTreasuryConfig,
+            12 => Self::ViewCheckerReward,
             _ => return Err(ProgramError::InvalidInstructionData),
         })
     }

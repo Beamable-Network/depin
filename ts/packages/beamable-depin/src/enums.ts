@@ -9,6 +9,7 @@ export enum DepinInstruction {
     UpdateWorkerUri = 9,
     SetBMBState = 10,
     SetTreasuryConfig = 11,
+    ViewCheckerReward = 12,
 }
 
 export enum DepinAccountType {

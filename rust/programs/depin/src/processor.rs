@@ -5,6 +5,7 @@ use crate::instructions::{
     admin::process_set_bmb_state,
     admin::process_set_treasury_config,
     treasury::unlock::process_unlock,
+    view::process_view_checker_reward,
     worker::{process_activate_worker, process_submit_worker_proof, process_update_worker_uri},
 };
 use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey};
@@ -48,6 +49,9 @@ pub fn process<'a>(
         },
         DepinInstruction::SetTreasuryConfig => {
             process_set_treasury_config(program_id, accounts, data)?;
+        },
+        DepinInstruction::ViewCheckerReward => {
+            process_view_checker_reward(program_id, accounts, data)?;
         }
     }
     Ok(())

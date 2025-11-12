@@ -27,6 +27,7 @@ export { assetToCNftContext } from './utils/bubblegum.js';
 export { SetBMBState } from './features/admin/set-bmb-state.js';
 export { SetTreasuryConfig } from './features/admin/set-treasury-config.js';
 
+export * from './features/rewards/view-checker-reward.js';
 export * from './features/worker/worker-metadata-account.js';
 export * from './features/checker/checker-metadata-account.js';
 export * from './features/worker/worker-proof-account.js';
@@ -35,6 +36,7 @@ export * from './features/treasury/unlock.js';
 
 export * from './utils/brand.js';
 export * from './utils/proof.js';
+export * from './utils/client.js';
 export * from './signatures/index.js';
 
 // Worker Stake feature
