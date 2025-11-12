@@ -12,7 +12,7 @@ export * from './utils/tokens.js';
 
 export { SubmitWorkerProof } from './features/worker/submit-worker-proof.js';
 export { InitNetwork } from './features/admin/init-network.js';
-export { GlobalRewardsAccount } from './features/global/global-rewards-account.js';
+export { GlobalRewardsAccount } from './features/rewards/global-rewards-account.js';
 export { TreasuryAuthority } from './features/treasury/treasury-authority.js';
 export { DepinTreasuryStateAccount as TreasuryStateAccount } from './features/treasury/depin-treasury-state-account.js';
 export { DepinTreasuryConfigAccount as TreasuryConfigAccount } from './features/treasury/depin-treasury-config-account.js';

@@ -11,7 +11,7 @@ import { BMB_MINT, DEPIN_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM, SYSTEM_PROGRA
 import { DepinInstruction } from "../../enums.js";
 import { assetToCNftContext, CNftContext, CNftContextCodec } from "../../utils/bubblegum.js";
 import { getCurrentPeriod } from "../../utils/bmb.js";
-import { GlobalRewardsAccount } from "../global/global-rewards-account.js";
+import { GlobalRewardsAccount } from "../rewards/global-rewards-account.js";
 import { LockedTokensAccount } from "../treasury/locked-tokens-account.js";
 import { TreasuryAuthority } from "../treasury/treasury-authority.js";
 import { DepinTreasuryConfigAccount } from "../treasury/depin-treasury-config-account.js";

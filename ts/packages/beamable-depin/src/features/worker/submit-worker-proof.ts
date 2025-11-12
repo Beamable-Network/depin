@@ -15,7 +15,7 @@ import { AssetWithProof } from "@metaplex-foundation/mpl-bubblegum";
 import { DEPIN_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM, SYSTEM_PROGRAM_ADDRESS } from "../../constants.js";
 import { DepinInstruction } from "../../enums.js";
 import { assetToCNftContext, CNftContext, CNftContextCodec } from "../../utils/bubblegum.js";
-import { GlobalRewardsAccount } from "../global/global-rewards-account.js";
+import { GlobalRewardsAccount } from "../rewards/global-rewards-account.js";
 import { findWorkerProofPDA } from "./worker-proof-account.js";
 import { BMBStateAccount } from "../global/bmb-state-account.js";
 import { findWorkerLicenseMetadataPDA } from "./worker-license-metadata-account.js";
