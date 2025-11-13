@@ -4,7 +4,7 @@ use crate::{
     utils::{find_treasury_pda, initialize_pool_with_inheritance, MAX_BASIS_POINTS},
 };
 use depin_core::{
-    constants::USDC_MINT,
+    constants::{USDC_DECIMALS, USDC_MINT},
     utils::{
         account::{read_account_data, write_account_data},
         bmb::{get_current_period, get_month_from_period},
@@ -21,8 +21,6 @@ use solana_program::{
     pubkey::Pubkey,
 };
 use spl_token::instruction::transfer_checked;
-
-const USDC_DECIMALS: u8 = 6;
 
 pub fn process_deposit_revenue<'a>(
     program_id: &Pubkey,

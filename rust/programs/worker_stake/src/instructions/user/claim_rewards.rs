@@ -6,7 +6,7 @@ use crate::{
     },
 };
 use depin_core::{
-    constants::{BMB_MINT, USDC_MINT},
+    constants::{BMB_MINT, USDC_DECIMALS, USDC_MINT},
     utils::{
         account::{read_account_data, write_account_data},
         bmb::{
@@ -24,7 +24,6 @@ use solana_program::{
 };
 
 const USER_POSITION_SEED: &[u8] = b"user_position";
-const USDC_DECIMALS: u8 = 6;
 
 pub fn process_claim_rewards<'a>(
     program_id: &Pubkey,
