@@ -166,7 +166,7 @@ class HealthCheckSession {
 
   private readonly metrics = new HealthCheckMetrics();
   private get logContext() {
-    return { worker: this.target.discovery.worker.address, period: this.target.period };
+    return { worker: this.target.discovery.worker.address, period: this.target.period, license: this.checker.license.address };
   }
 
   constructor(
