@@ -149,7 +149,7 @@ export class CheckerService {
     // Prepare health check manager and controller for this period
     const healthManager = new HealthCheckManager(this.checker);
     const healthAc = new AbortController();
-    setMaxListeners(10000, healthAc.signal);
+    setMaxListeners(100_000, healthAc.signal);
     const periodEndAt = getPeriodEndMs(period);
 
     try {
@@ -197,6 +197,7 @@ export class CheckerService {
 
   private async resolveWorkers(eligibleWorkers: ProgramAccount<WorkerMetadataAccount>[], period: number, onResolved: (entry: ResolvedWorkerDiscovery) => void): Promise<void> {
     const discoveryAc = new AbortController();
+    setMaxListeners(100_000, discoveryAc.signal);
 
     const remainingTimeMs = getRemainingTimeInPeriodMs(period);
 
