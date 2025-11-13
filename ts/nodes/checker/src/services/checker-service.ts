@@ -1,5 +1,6 @@
 import { BMBStateAccount, getCurrentPeriod, getPeriodEndMs, getRemainingTimeInPeriodMs, ProgramAccount, runBrand, WorkerMetadataAccount } from '@beamable-network/depin';
 import { promiseStateAsync } from 'p-state';
+import { setMaxListeners } from 'events';
 import { CheckerNode } from '../checker.js';
 import { getLogger } from '../logger.js';
 import { AsyncCache } from '../utils/async-cache.js';
@@ -148,6 +149,7 @@ export class CheckerService {
     // Prepare health check manager and controller for this period
     const healthManager = new HealthCheckManager(this.checker);
     const healthAc = new AbortController();
+    setMaxListeners(10000, healthAc.signal);
     const periodEndAt = getPeriodEndMs(period);
 
     try {
