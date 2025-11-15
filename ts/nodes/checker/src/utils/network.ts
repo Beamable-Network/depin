@@ -78,6 +78,7 @@ export async function fetchExternalIp(options: FetchExternalIpOptions = {}): Pro
 
 export interface ResolveHostnameOptions {
   logContext?: Record<string, any>;
+  timeoutMs?: number;
 }
 
 /**
@@ -89,11 +90,17 @@ export interface ResolveHostnameOptions {
  * @returns Promise that resolves to the IP address or null if it fails
  */
 export async function resolveHostnameToIp(hostname: string, options: ResolveHostnameOptions = {}): Promise<string | null> {
-  const { logContext = {} } = options;
+  const { logContext = {}, timeoutMs = 5000 } = options;
 
   try {
     const ip = await withRetry(async ({ attempt }) => {
-      const result = await lookup(hostname);
+      // Wrap DNS lookup with timeout to prevent indefinite hangs
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('DNS lookup timeout')), timeoutMs)
+      );
+
+      const lookupPromise = lookup(hostname);
+      const result = await Promise.race([lookupPromise, timeoutPromise]);
 
       if (!result || !result.address) {
         const error = new Error(`No IP address found for hostname ${hostname}`);
@@ -102,8 +109,8 @@ export async function resolveHostnameToIp(hostname: string, options: ResolveHost
       }
       return result.address;
     }, {
-      maxRetries: 5,
-      baseDelayMs: 1000,
+      maxRetries: 3,
+      baseDelayMs: 500,
       exponentialBackoff: true
     });
     return ip;

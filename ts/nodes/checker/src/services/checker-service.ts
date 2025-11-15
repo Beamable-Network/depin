@@ -22,7 +22,7 @@ export class CheckerService {
   private static readonly PERIOD_SKIP_THRESHOLD_MS = 60 * 60 * 1000; // 1h - threshold for skipping periods
   private static readonly BUFFER_SLEEP_MS = 10_000; // 10 seconds - buffer time for various sleep operations
   private static readonly ERROR_RETRY_DELAY_MS = 60_000; // 1 minute
-  private static readonly HEALTH_ABORT_THRESHOLD_MS = 10 * 60 * 1000; // abort health checks 10 minutes before period end
+  private static readonly HEALTH_ABORT_THRESHOLD_MS = 20 * 60 * 1000; // abort health checks 20 minutes before period end
 
   private isRunning = false;
   private currentPeriod = 0;

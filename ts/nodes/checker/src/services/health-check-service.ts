@@ -1,4 +1,4 @@
-import { ProgramAccount, SignedPayload, WorkerDiscoveryDocument, WorkerHealthCheckRequestPayloadSchema, WorkerMetadataAccount, ProofPayloadSchema, sleep, WorkerResponseError } from '@beamable-network/depin';
+import { ProgramAccount, SignedPayload, WorkerDiscoveryDocument, WorkerHealthCheckRequestPayloadSchema, WorkerMetadataAccount, ProofPayloadSchema, sleep, WorkerResponseError, getCurrentPeriod } from '@beamable-network/depin';
 import pLimit from 'p-limit';
 import { Agent, request } from 'undici';
 import { CheckerNode } from '../checker.js';
@@ -376,6 +376,19 @@ class HealthCheckSession {
 
     this.target.discovery = freshWorkerDoc;
 
+    // Validate we're still in the correct period to avoid timestamp mismatch
+    const currentPeriod = getCurrentPeriod();
+    if (currentPeriod !== this.target.period) {
+      logger.error({
+        ...this.logContext,
+        missedPeriod: this.target.period,
+        currentPeriod,
+        workerLicense: this.target.workerAccount.data.license,
+        workerAddress: this.target.discovery.worker.address
+      }, `Missed submitting proof for period ${this.target.period} and worker ${this.target.discovery.worker.address} - period has already ended`);
+      return;
+    }
+
     logger.debug({
       ...this.logContext,
       ...metricsSnapshot,
@@ -451,7 +464,8 @@ class HealthCheckSession {
               ...this.logContext,
               statusCode: res.statusCode,
               response: responseText,
-              attempt
+              attempt,
+              err: error
             }, 'Failed to submit proof to worker');
             // Throw to trigger retry
             throw error;
@@ -460,7 +474,14 @@ class HealthCheckSession {
       }, {
         maxRetries: 5,
         baseDelayMs: 2000,
-        exponentialBackoff: false
+        exponentialBackoff: false,
+        shouldRetry: (err) => {
+          // Only retry 5xx errors and network errors, not 4xx validation failures
+          if (err instanceof WorkerResponseError) {
+            return err.statusCode >= 500;
+          }
+          return true; // Retry network errors
+        }
       }).catch(err => {
         logger.warn({
           ...this.logContext,
