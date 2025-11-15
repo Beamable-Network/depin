@@ -82,7 +82,7 @@ export async function proofRoutes(fastify: FastifyInstance, { worker }: { worker
             await validateCheckerLicense(worker, proof.payload.checker.license, proof.payload.checker.address);
 
         if (validationError) {
-            log.warn({ err: validationError.error }, 'Proof validation failed');
+            log.warn({ err: validationError }, 'Proof validation failed');
             return reply.code(400).send(validationError);
         }
 
