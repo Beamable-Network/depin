@@ -9,7 +9,8 @@ import {
     UserStakePositionAccount,
     WORKER_STAKE_PROGRAM,
     BMB_MINT,
-    Unstake
+    Unstake,
+    getMonthStartTimestamp
 } from '@beamable-network/depin';
 import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -292,6 +293,71 @@ describe('User Stake Instructions', async () => {
                     .addInstruction(await stake.getInstruction())
                     .sendTransaction({ payer: user });
             }).rejects.toThrow();
+        });
+
+        it('should calculate stake weight correctly for first day vs last day of month', async () => {
+            // Test that staking on day 1 gives weight of 29 days (only number of full days counted)
+            // and staking on last day gives zero weight
+            const user1 = await lite.generateKeyPair();
+            const user2 = await lite.generateKeyPair();
+            await lite.airdrop(user1, 2);
+            await lite.airdrop(user2, 2);
+
+            const stakeAmount = bmbToBaseUnits(1000);
+            await lite.mintToken(BMB_MINT, user1.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
+            await lite.mintToken(BMB_MINT, user2.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
+
+            // User 1 stakes at the very start of month
+            const monthStart = getMonthStartTimestamp(5);
+            lite.setTime(monthStart + 3600n);
+
+            const stake1 = new Stake({
+                user: user1.address,
+                worker: worker.address,
+                worker_license: workerLicense,
+                worker_collection: workerCollection,
+                amount: stakeAmount,
+                checker_count: 0,
+                current_month_period: 5,
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await stake1.getInstruction())
+                .sign(user1)
+                .sendTransaction({ payer: worker });
+
+            // User 2 stakes at the start of the last day (29 days from start)
+            const lastDayStart = monthStart + BigInt(29 * 86400) + 3600n;
+            lite.setTime(lastDayStart);
+
+            const stake2 = new Stake({
+                user: user2.address,
+                worker: worker.address,
+                worker_license: workerLicense,
+                worker_collection: workerCollection,
+                amount: stakeAmount,
+                checker_count: 0,
+                current_month_period: 5,
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await stake2.getInstruction())
+                .sign(user2)
+                .sendTransaction({ payer: worker });
+
+            // Verify pool weighted totals
+            const [poolPda] = await MonthlyPoolAccount.findMonthlyPoolPDA(workerCollection, 5);
+            const poolData = lite.getAccountData(poolPda);
+            const pool = MonthlyPoolAccount.deserializeFrom(poolData!);
+
+            // User 1: 1000 BMB × 29 days = 29,000 stake-days
+            // User 2: 1000 BMB × 0 days = 0 stake-days
+            // Total: 29,000 stake-days
+            const expectedUser1Weight = stakeAmount * 29n;
+            const expectedUser2Weight = stakeAmount * 0n;
+            const expectedTotalWeight = expectedUser1Weight + expectedUser2Weight;
+
+            expect(pool.base_pool.total_weighted).toBe(expectedTotalWeight);
         });
     });
 
