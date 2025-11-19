@@ -169,6 +169,10 @@ class HealthCheckSession {
         address: this.target.workerAccount.data.delegatedTo,
         license: this.target.workerAccount.data.license
       },
+      checker: {
+        license: this.checker.license.address,
+        index: this.checker.license.index
+      },
       period: this.target.period
     };
   }

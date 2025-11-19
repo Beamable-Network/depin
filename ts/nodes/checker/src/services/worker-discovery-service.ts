@@ -40,11 +40,20 @@ export class WorkerDiscoveryService {
       connections: 64,
     });
   }
+  
+  get logContext() {
+    return {
+      checker: {
+        license: this.checker.license.address,
+        index: this.checker.license.index
+      }
+    };
+  }
 
   async fetchActiveWorkerAccounts(): Promise<Array<ProgramAccount<WorkerMetadataAccount>>> {
     const period = getCurrentPeriod();
     return activeWorkersCache.get(`activeWorkers-${period}`, () => {
-      logger.debug({ period }, 'Fetching active worker accounts from RPC');
+      logger.debug({ ...this.logContext, period }, 'Fetching active worker accounts from RPC');
       return this.fetchActiveWorkerAccountsFromRpc();
     });
   }
@@ -107,6 +116,7 @@ export class WorkerDiscoveryService {
 
             if (doc?.worker.address !== workerAccount.data.delegatedTo) {
               logger.debug({
+                ...this.logContext,
                 uri,
                 worker: {
                   address: workerAccount.data.delegatedTo,
@@ -117,6 +127,7 @@ export class WorkerDiscoveryService {
             }
             else if (doc?.worker.license !== workerAccount.data.license) {
               logger.debug({
+                ...this.logContext,
                 uri,
                 worker: {
                   address: workerAccount.data.delegatedTo,
@@ -137,7 +148,7 @@ export class WorkerDiscoveryService {
       );
 
       if (pending.size > 0) {
-        logger.trace({ remaining: pending.size, period }, 'Discovery unresolved; retrying later');
+        logger.trace({ ...this.logContext, remaining: pending.size, period }, 'Discovery unresolved; retrying later');
         await sleep(WorkerDiscoveryService.RETRY_INTERVAL_MS, signal);
       }
     }
@@ -155,7 +166,7 @@ export class WorkerDiscoveryService {
       });
 
       if (res.statusCode !== 200) {
-        logger.trace({ status: res.statusCode, uri, period }, 'Discovery fetch failed');
+        logger.trace({ ...this.logContext, status: res.statusCode, uri, period }, 'Discovery fetch failed');
         return null;
       }
 
@@ -167,7 +178,7 @@ export class WorkerDiscoveryService {
       if (signal?.aborted || (err as Error)?.name === 'AbortError') {
         throw err;
       }
-      logger.trace({ err, uri, period }, 'Discovery request error');
+      logger.trace({ ...this.logContext, err, uri, period }, 'Discovery request error');
       return null;
     }
   }

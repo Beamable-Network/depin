@@ -33,9 +33,18 @@ export class CheckerService {
     this.discoveryService = new WorkerDiscoveryService(this.checker);
   }
 
+  get logContext() {
+    return {
+      checker: {
+        license: this.checker.license.address,
+        index: this.checker.license.index
+      }
+    };
+  }
+  
   private async getCheckerCount(period: number): Promise<number> {
     return bmbStateCheckerCountCache.get(`period-${period}`, async () => {
-      logger.debug({ period }, 'Fetching BMB state from RPC');
+      logger.debug({ ...this.logContext, period }, 'Fetching BMB state from RPC');
       const bmbState = await BMBStateAccount.readFromState(async (address) => {
         const accountDataBytes = await this.checker.getRpcClient().getAccount(address);
         if (!accountDataBytes) return null;
@@ -54,12 +63,12 @@ export class CheckerService {
 
   start(): void {
     if (this.isRunning) {
-      logger.warn('CheckerService is already running');
+      logger.warn({ ...this.logContext }, 'CheckerService is already running');
       return;
     }
 
     this.isRunning = true;
-    logger.info('Starting CheckerService');
+    logger.info({ ...this.logContext }, 'Starting CheckerService');
 
     this.runLoop();
   }  
@@ -75,9 +84,9 @@ export class CheckerService {
         const remainingMs = getRemainingTimeInPeriodMs(period);
 
         if (remainingMs < CheckerService.PERIOD_SKIP_THRESHOLD_MS) {
-          logger.warn({ period, remainingMs }, 'Skipping period tasks due to insufficient remaining time');
+          logger.warn({ ...this.logContext, period, remainingMs }, 'Skipping period tasks due to insufficient remaining time');
           const sleepTime = remainingMs + CheckerService.BUFFER_SLEEP_MS;
-          logger.info({ sleepTime }, 'Sleeping until next period');
+          logger.info({ ...this.logContext, sleepTime }, 'Sleeping until next period');
           await this.sleep(sleepTime);
           continue;
         }
@@ -85,27 +94,27 @@ export class CheckerService {
         if (remainingMs > CheckerService.PERIOD_END_THRESHOLD_MS) { // If more than 23h50m left in the period
           // Sleep for a random time between MIN_DELAY_MS minute and MAX_DELAY_MS
           const randomSleepTimeMs = CheckerService.MIN_DELAY_MS + Math.floor(Math.random() * (CheckerService.MAX_DELAY_MS - CheckerService.MIN_DELAY_MS));
-          logger.info({ period, randomSleepTimeMs }, 'Sleeping for a while');
+          logger.info({ ...this.logContext, period, randomSleepTimeMs }, 'Sleeping for a while');
           await this.sleep(randomSleepTimeMs);
         }
         while (true) {
           try {
             await this.runPeriodTasks(period);
-            logger.info({ period }, 'Completed checker tasks for period');
+            logger.info({ ...this.logContext, period }, 'Completed checker tasks for period');
             break;
           }
           catch (err) {
             if (period !== getCurrentPeriod()) {
-              logger.fatal({ err, period }, 'Period changed, exiting retry loop');
+              logger.fatal({ ...this.logContext, err, period }, 'Period changed, exiting retry loop');
               break;
             }
             else {
               if (err instanceof Error && err.name === 'AbortError') {
-                logger.warn({ err, period }, 'Operation aborted, exiting retry loop');
+                logger.warn({ ...this.logContext, err, period }, 'Operation aborted, exiting retry loop');
                 break;
               }
               else {
-                logger.error({ err, period, retryMs: CheckerService.ERROR_RETRY_DELAY_MS }, 'Period tasks failed, will retry');
+                logger.error({ ...this.logContext, err, period, retryMs: CheckerService.ERROR_RETRY_DELAY_MS }, 'Period tasks failed, will retry');
                 await this.sleep(CheckerService.ERROR_RETRY_DELAY_MS);
               }
             }
@@ -116,25 +125,25 @@ export class CheckerService {
       if (getRemainingTimeInPeriodMs(this.currentPeriod) > CheckerService.BUFFER_SLEEP_MS && this.currentPeriod === getCurrentPeriod()) {
         const remainingTime = getRemainingTimeInPeriodMs(this.currentPeriod);
         const sleepTime = remainingTime + CheckerService.BUFFER_SLEEP_MS; // 10 seconds buffer
-        logger.info({ sleepTime }, 'Sleeping until next period');
+        logger.info({ ...this.logContext, sleepTime }, 'Sleeping until next period');
         await this.sleep(sleepTime);
       }
       else {
-        logger.info('Sleeping for 10 seconds before rechecking period');
+        logger.info({ ...this.logContext }, 'Sleeping for 10 seconds before rechecking period');
         await this.sleep(CheckerService.BUFFER_SLEEP_MS); // Check again in 10 seconds
       }
     }
   }
 
   private async runPeriodTasks(period: number): Promise<void> {
-    logger.info({ period }, 'Running checker tasks');
+    logger.info({ ...this.logContext, period }, 'Running checker tasks');
 
     const checkerCount = await this.getCheckerCount(period);
 
     const myLicenseIndex = this.checker.license.index;
 
     const activeWorkerAccounts = await this.discoveryService.fetchActiveWorkerAccounts();
-    logger.info({ period, activeWorkers: activeWorkerAccounts.length }, 'Fetched active worker accounts');
+    logger.info({ ...this.logContext, period, activeWorkers: activeWorkerAccounts.length }, 'Fetched active worker accounts');
 
     let eligibleWorkers = activeWorkerAccounts;
     if (!this.checker.skipBrand()) {
@@ -142,7 +151,7 @@ export class CheckerService {
     }
 
     if (eligibleWorkers.length === 0) {
-      logger.warn({ period }, 'No eligible workers found for this period');
+      logger.warn({ ...this.logContext, period }, 'No eligible workers found for this period');
       return;
     }
 
@@ -155,6 +164,7 @@ export class CheckerService {
     try {
       await this.resolveWorkers(eligibleWorkers, period, (entry) => {
         logger.info({
+          ...this.logContext,
           period,
           worker: {
             address: entry.workerAccount.data.delegatedTo,
@@ -177,9 +187,9 @@ export class CheckerService {
       });
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') {
-        logger.warn({ period }, 'Discovery aborted; continuing with any resolved workers');
+        logger.warn({ ...this.logContext, period }, 'Discovery aborted; continuing with any resolved workers');
       } else {
-        logger.warn({ err, period }, 'Discovery errored; continuing with any resolved workers');
+        logger.warn({ ...this.logContext, err, period }, 'Discovery errored; continuing with any resolved workers');
       }
     }
 
@@ -188,7 +198,7 @@ export class CheckerService {
     const healthTimer = setTimeout(async () => {
       const state = await promiseStateAsync(healthPromise);
       if (state === 'pending') {
-        logger.fatal({ period }, 'Health checks taking too long, aborting remaining checks');
+        logger.fatal({ ...this.logContext, period }, 'Health checks taking too long, aborting remaining checks');
         healthAc.abort('Aborting health checks, period ending soon');
       }
     }, Math.max(0, getRemainingTimeInPeriodMs(period) - CheckerService.HEALTH_ABORT_THRESHOLD_MS));
@@ -218,7 +228,7 @@ export class CheckerService {
     const timer = setTimeout(async () => {
       const state = await promiseStateAsync(resolvePromise);
       if (state === 'pending') {
-        logger.debug({ period }, 'Worker resolution taking too long, aborting');
+        logger.debug({ ...this.logContext, period }, 'Worker resolution taking too long, aborting');
         discoveryAc.abort('Aborting worker resolution due to period ending soon');
       }
     }, Math.max(0, remainingTimeMs - CheckerService.PERIOD_SKIP_THRESHOLD_MS)); // Abort worker resolution if less than PERIOD_SKIP_THRESHOLD_MS remains in the period
@@ -238,7 +248,7 @@ export class CheckerService {
   }
 
   stop(): void {
-    logger.info('Stopping CheckerService');
+    logger.info({ ...this.logContext }, 'Stopping CheckerService');
     this.isRunning = false;
   }
 
