@@ -106,10 +106,24 @@ export class WorkerDiscoveryService {
             const doc = await this.tryFetchDiscoveryUri(uri, period, signal);
 
             if (doc?.worker.address !== workerAccount.data.delegatedTo) {
-              logger.trace({ uri, delegatedTo: workerAccount.data.delegatedTo, period }, 'Discovery document has invalid worker address; ignoring');
+              logger.debug({
+                uri,
+                worker: {
+                  address: workerAccount.data.delegatedTo,
+                  license: workerAccount.data.license
+                },
+                period
+              }, 'Discovery document has invalid worker address; ignoring');
             }
             else if (doc?.worker.license !== workerAccount.data.license) {
-              logger.trace({ uri, license: workerAccount.data.license, period }, 'Discovery document has invalid worker license; ignoring');
+              logger.debug({
+                uri,
+                worker: {
+                  address: workerAccount.data.delegatedTo,
+                  license: workerAccount.data.license
+                },
+                period
+              }, 'Discovery document has invalid worker license; ignoring');
             }
             else if (doc) {
               try {
