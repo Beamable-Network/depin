@@ -170,7 +170,8 @@ export class CheckerService {
             address: entry.workerAccount.data.delegatedTo,
             license: entry.workerAccount.data.license
           },
-          discoveryUri: entry.workerAccount.data.discoveryUri
+          discoveryUri: entry.workerAccount.data.discoveryUri,
+          timeDiffSec: entry.timeDiffSeconds
         }, 'Worker resolved');
         // Start health check session for this worker
         healthManager.startSession(

@@ -18,6 +18,7 @@ const activeWorkersCache = new AsyncCache<string, Array<ProgramAccount<WorkerMet
 export interface ResolvedWorkerDiscovery {
   workerAccount: ProgramAccount<WorkerMetadataAccount>;
   discovery: WorkerDiscoveryDocument;
+  timeDiffSeconds: number;
 }
 
 function getTracer() {
@@ -112,9 +113,13 @@ export class WorkerDiscoveryService {
           limit(async () => {
             signal?.throwIfAborted();
             const uri = (workerAccount.data.discoveryUri ?? '').trim();
-            const doc = await this.tryFetchDiscoveryUri(uri, period, signal);
+            const result = await this.tryFetchDiscoveryUri(uri, period, signal);
 
-            if (doc?.worker.address !== workerAccount.data.delegatedTo) {
+            if (!result) return;
+
+            const { discovery: doc, timeDiffSeconds } = result;
+
+            if (doc.worker.address !== workerAccount.data.delegatedTo) {
               logger.debug({
                 ...this.logContext,
                 uri,
@@ -125,7 +130,7 @@ export class WorkerDiscoveryService {
                 period
               }, 'Discovery document has invalid worker address; ignoring');
             }
-            else if (doc?.worker.license !== workerAccount.data.license) {
+            else if (doc.worker.license !== workerAccount.data.license) {
               logger.debug({
                 ...this.logContext,
                 uri,
@@ -136,9 +141,9 @@ export class WorkerDiscoveryService {
                 period
               }, 'Discovery document has invalid worker license; ignoring');
             }
-            else if (doc) {
+            else {
               try {
-                onResolved({ workerAccount, discovery: doc });
+                onResolved({ workerAccount, discovery: doc, timeDiffSeconds });
               } finally {
                 pending.delete(workerAccount);
               }
@@ -154,9 +159,10 @@ export class WorkerDiscoveryService {
     }
   }
 
-  public async tryFetchDiscoveryUri(uri: string, period: number, signal?: AbortSignal): Promise<WorkerDiscoveryDocument | null> {
+  public async tryFetchDiscoveryUri(uri: string, period: number, signal?: AbortSignal): Promise<{ discovery: WorkerDiscoveryDocument; timeDiffSeconds: number } | null> {
     if (!uri?.length) return null;
     try {
+      const checkerTime = Date.now();
       const res = await request(uri, {
         method: 'GET',
         dispatcher: this.agent,
@@ -172,7 +178,18 @@ export class WorkerDiscoveryService {
 
       const json = await res.body.json();
       const discovery = json as WorkerDiscoveryDocument;
-      return discovery;
+
+      // Parse Date header to calculate time difference
+      let timeDiffSeconds = 0;
+      const dateHeader = res.headers['date'];
+      if (dateHeader) {
+        const workerTime = new Date(dateHeader as string).getTime();
+        if (!isNaN(workerTime)) {
+          timeDiffSeconds = (checkerTime - workerTime) / 1000;
+        }
+      }
+
+      return { discovery, timeDiffSeconds };
     } catch (err) {
       // Propagate cancellation (when signaled or when undici throws AbortError)
       if (signal?.aborted || (err as Error)?.name === 'AbortError') {

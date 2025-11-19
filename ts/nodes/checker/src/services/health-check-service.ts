@@ -384,7 +384,14 @@ class HealthCheckSession {
       return;
     }
 
-    this.target.discovery = freshWorkerDoc;
+    this.target.discovery = freshWorkerDoc.discovery;
+
+    if (Math.abs(freshWorkerDoc.timeDiffSeconds) >= 50) {
+      logger.warn({
+        ...this.logContext,
+        timeDiffSeconds: freshWorkerDoc.timeDiffSeconds
+      }, 'Large time difference between checker and worker; submission may be rejected');
+    }
 
     // Validate we're still in the correct period to avoid timestamp mismatch
     const currentPeriod = getCurrentPeriod();
