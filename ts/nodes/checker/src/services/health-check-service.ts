@@ -398,34 +398,34 @@ class HealthCheckSession {
     }, 'Building signed proof from health check metrics');
 
     try {
-      // Construct signed proof
-      const signedProof = await SignedPayload.create<typeof ProofPayloadSchema>(
-        {
-          checker: {
-            index: this.checker.license.index,
-            license: this.checker.license.address,
-            address: this.checker.getAddress(),
-            version: this.checker.getVersion(),
-            ip: checkerIp,
-          },
-          worker: {
-            license: this.target.workerAccount.data.license,
-            address: this.target.discovery.worker.address,
-            version: this.target.discovery.worker.version,
-            ip: workerIp
-          },
-          period: this.target.period,
-          timestamp: Math.floor(Date.now()),
-          metrics: {
-            latency: Math.round(metricsSnapshot.avgLatencyMs),
-            uptime: Math.round(metricsSnapshot.uptimePercent * 100) / 100, // Round to 2 decimals
-          },
-        },
-        this.checker.getSigner()
-      );
-
       // Send proof to worker with retry logic
       await withRetry(async ({ attempt }) => {
+        // Construct signed proof
+        const signedProof = await SignedPayload.create<typeof ProofPayloadSchema>(
+          {
+            checker: {
+              index: this.checker.license.index,
+              license: this.checker.license.address,
+              address: this.checker.getAddress(),
+              version: this.checker.getVersion(),
+              ip: checkerIp,
+            },
+            worker: {
+              license: this.target.workerAccount.data.license,
+              address: this.target.discovery.worker.address,
+              version: this.target.discovery.worker.version,
+              ip: workerIp
+            },
+            period: this.target.period,
+            timestamp: Math.floor(Date.now()),
+            metrics: {
+              latency: Math.round(metricsSnapshot.avgLatencyMs),
+              uptime: Math.round(metricsSnapshot.uptimePercent * 100) / 100, // Round to 2 decimals
+            },
+          },
+          this.checker.getSigner()
+        );
+
         const res = await request(proofEndpoint, {
           method: 'POST',
           headers: {
