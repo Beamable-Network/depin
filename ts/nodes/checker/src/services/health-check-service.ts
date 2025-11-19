@@ -91,22 +91,20 @@ export class HealthCheckManager {
       ...defaultSessionOptions(options.periodEndAt!),
       ...options,
     };
+    const session = new HealthCheckSession(target, this.agent, this.limit, fullOptions, this.checker);
     logger.debug({
-      worker: target.discovery.worker.address,
-      license: target.workerAccount.data.license,
-      period: target.period,
+      ...session.logContext,
       periodEndAt: new Date(fullOptions.periodEndAt).toISOString(),
       minIntervalMs: fullOptions.minIntervalMs,
       maxIntervalMs: fullOptions.maxIntervalMs
     }, 'Starting health check session');
-    const session = new HealthCheckSession(target, this.agent, this.limit, fullOptions, this.checker);
     const promise = session.run()
       .catch(err => {
         if (err instanceof DOMException && err.name === 'AbortError') {
-          logger.info({ worker: target.discovery.worker.address, period: target.period }, 'Health check session aborted');
+          logger.info({ ...session.logContext }, 'Health check session aborted');
           return;
         }
-        logger.warn({ err, worker: target.discovery.worker.address, period: target.period }, 'Health check session ended with error');
+        logger.warn({ err, ...session.logContext }, 'Health check session ended with error');
       })
       .finally(() => this.sessions.delete(promise));
     this.sessions.add(promise);
@@ -165,8 +163,14 @@ class HealthCheckSession {
   private static readonly DEFAULT_MAX_INTERVAL_MS = 30 * 60_000; // 30 minutes
 
   private readonly metrics = new HealthCheckMetrics();
-  private get logContext() {
-    return { worker: this.target.discovery.worker.address, period: this.target.period, license: this.checker.license.address };
+  get logContext() {
+    return {
+      worker: {
+        address: this.target.workerAccount.data.delegatedTo,
+        license: this.target.workerAccount.data.license
+      },
+      period: this.target.period
+    };
   }
 
   constructor(
@@ -382,10 +386,8 @@ class HealthCheckSession {
       logger.error({
         ...this.logContext,
         missedPeriod: this.target.period,
-        currentPeriod,
-        workerLicense: this.target.workerAccount.data.license,
-        workerAddress: this.target.discovery.worker.address
-      }, `Missed submitting proof for period ${this.target.period} and worker ${this.target.discovery.worker.address} - period has already ended`);
+        currentPeriod
+      }, `Missed submitting proof for period ${this.target.period} - period has already ended`);
       return;
     }
 
