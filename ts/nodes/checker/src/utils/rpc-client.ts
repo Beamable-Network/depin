@@ -194,7 +194,11 @@ class TransactionService {
                         maxRetries: 5,
                         baseDelayMs: 500,
                         exponentialBackoff: true,
-                        shouldRetry: (error) => isRateLimitError(error, 'sendAndConfirmTransaction')
+                        shouldRetry: (error) => isRateLimitError(error, 'sendAndConfirmTransaction'),
+                        operationName: 'Send and confirm transaction',
+                        logContext: {
+                            txSignature: signature
+                        }
                     }
                 );
 
@@ -273,7 +277,11 @@ class ProgramAccountsService {
                             maxRetries: 5,
                             baseDelayMs: 500,
                             exponentialBackoff: true,
-                            shouldRetry: (error) => isRateLimitError(error, 'getProgramAccountsV2')
+                            shouldRetry: (error) => isRateLimitError(error, 'getProgramAccountsV2'),
+                            operationName: 'Get program accounts V2',
+                            logContext: {
+                                programAddress
+                            }
                         }
                     );
 
@@ -335,7 +343,11 @@ class AssetService {
                 maxRetries: 5,
                 baseDelayMs: 500,
                 exponentialBackoff: true,
-                shouldRetry: (error) => isRateLimitError(error, 'getAssetWithProof')
+                shouldRetry: (error) => isRateLimitError(error, 'getAssetWithProof'),
+                operationName: 'Get asset with proof',
+                logContext: {
+                    assetId
+                }
             }
         );
     }
@@ -347,7 +359,11 @@ class AssetService {
                 maxRetries: 5,
                 baseDelayMs: 500,
                 exponentialBackoff: true,
-                shouldRetry: (error) => isRateLimitError(error, 'getAccount')
+                shouldRetry: (error) => isRateLimitError(error, 'getAccount'),
+                operationName: 'Get account',
+                logContext: {
+                    accountAddress: address
+                }
             }
         );
     }

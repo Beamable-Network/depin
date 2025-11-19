@@ -369,7 +369,9 @@ class HealthCheckSession {
       {
         maxRetries: 5,
         baseDelayMs: 1000,
-        exponentialBackoff: true
+        exponentialBackoff: true,
+        operationName: 'Refresh discovery document',
+        logContext: this.logContext
       }
     );
 
@@ -386,7 +388,6 @@ class HealthCheckSession {
       logger.error({
         ...this.logContext,
         missedPeriod: this.target.period,
-        currentPeriod
       }, `Missed submitting proof for period ${this.target.period} - period has already ended`);
       return;
     }
@@ -477,6 +478,8 @@ class HealthCheckSession {
         maxRetries: 5,
         baseDelayMs: 2000,
         exponentialBackoff: false,
+        operationName: 'Submit proof to worker',
+        logContext: this.logContext,
         shouldRetry: (err) => {
           // Only retry 5xx errors and network errors, not 4xx validation failures
           if (err instanceof WorkerResponseError) {

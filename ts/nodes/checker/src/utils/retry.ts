@@ -8,6 +8,8 @@ export interface RetryOptions {
     baseDelayMs?: number;
     exponentialBackoff?: boolean;
     shouldRetry?: (error: any) => boolean;
+    operationName: string;
+    logContext?: Record<string, any>;
 }
 
 export interface RetryContext {
@@ -21,6 +23,8 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
     baseDelayMs: 2000, // 2 seconds (as requested by user)
     exponentialBackoff: false,
     shouldRetry: () => true,
+    operationName: "Operation",
+    logContext: {},
 };
 
 /**
@@ -31,7 +35,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
  */
 export async function withRetry<T>(
     fn: (context: RetryContext) => Promise<T>,
-    options: RetryOptions = {}
+    options: RetryOptions
 ): Promise<T> {
     const config = { ...DEFAULT_OPTIONS, ...options };
 
@@ -49,8 +53,12 @@ export async function withRetry<T>(
 
             // Only log success if it took multiple attempts
             if (attempt > 1) {
-                logger.info({ attempt, maxRetries: config.maxRetries },
-                    `Operation succeeded on attempt ${attempt}/${config.maxRetries}`);
+                logger.info({
+                    ...config.logContext,
+                    attempt,
+                    maxRetries: config.maxRetries,
+                    operation: config.operationName
+                }, `${config.operationName} succeeded on attempt ${attempt}/${config.maxRetries}`);
             }
 
             return result;
@@ -63,12 +71,20 @@ export async function withRetry<T>(
                 throw err;
             }
 
-            logger.warn({ err, attempt, maxRetries: config.maxRetries },
-                `Operation failed (attempt ${attempt}/${config.maxRetries})`);
+            logger.warn({
+                ...config.logContext,
+                err,
+                attempt,
+                maxRetries: config.maxRetries,
+                operation: config.operationName
+            }, `${config.operationName} failed (attempt ${attempt}/${config.maxRetries})`);
 
             if (isLastAttempt) {
-                logger.warn({ maxRetries: config.maxRetries },
-                    `Operation failed after ${config.maxRetries} attempts`);
+                logger.warn({
+                    ...config.logContext,
+                    maxRetries: config.maxRetries,
+                    operation: config.operationName
+                }, `${config.operationName} failed after ${config.maxRetries} attempts`);
                 throw err;
             }
 
@@ -77,8 +93,14 @@ export async function withRetry<T>(
                 ? config.baseDelayMs * Math.pow(2, attempt - 1)
                 : config.baseDelayMs;
 
-            logger.debug({ attempt, delayMs, nextAttempt: attempt + 1, maxRetries: config.maxRetries },
-                `Retrying in ${delayMs}ms (attempt ${attempt + 1}/${config.maxRetries})`);
+            logger.debug({
+                ...config.logContext,
+                attempt,
+                delayMs,
+                nextAttempt: attempt + 1,
+                maxRetries: config.maxRetries,
+                operation: config.operationName
+            }, `Retrying ${config.operationName} in ${delayMs}ms (attempt ${attempt + 1}/${config.maxRetries})`);
 
             await sleep(delayMs);
         }

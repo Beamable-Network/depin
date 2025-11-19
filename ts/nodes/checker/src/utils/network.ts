@@ -59,7 +59,9 @@ export async function fetchExternalIp(options: FetchExternalIpOptions = {}): Pro
         }, {
           maxRetries: 2,
           baseDelayMs: 100,
-          exponentialBackoff: false
+          exponentialBackoff: false,
+          operationName: `Fetch external IP from ${serviceUrl}`,
+          logContext
         });
 
         return ip;
@@ -111,7 +113,9 @@ export async function resolveHostnameToIp(hostname: string, options: ResolveHost
     }, {
       maxRetries: 3,
       baseDelayMs: 500,
-      exponentialBackoff: true
+      exponentialBackoff: true,
+      operationName: `Resolve hostname ${hostname}`,
+      logContext
     });
     return ip;
   } catch (err) {
