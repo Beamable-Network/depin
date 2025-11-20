@@ -91,11 +91,11 @@ describe('Worker Instructions', async () => {
             expect(pool.base_emission_percentage).toBe(1500);
             expect(pool.initialized).toBe(false);
 
-            // Verify created_pools was updated
+            // Verify active_pools was updated
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
             const configData = lite.getAccountData(configPda);
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
-            expect(config.created_pools).toContain(5);
+            expect(config.active_pools).toContain(5);
         });
 
         it('should create multiple pools in one transaction', async () => {
@@ -143,13 +143,13 @@ describe('Worker Instructions', async () => {
                 expect(pool.base_emission_percentage).toBe(poolConfig.base_emission_percentage);
             }
 
-            // Verify created_pools array
+            // Verify active_pools array
             const [configPda] = await WorkerStakeConfigAccount.findWorkerStakeConfigPDA(workerCollection);
             const configData = lite.getAccountData(configPda);
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
-            expect(config.created_pools).toContain(5);
-            expect(config.created_pools).toContain(6);
-            expect(config.created_pools).toContain(7);
+            expect(config.active_pools).toContain(5);
+            expect(config.active_pools).toContain(6);
+            expect(config.active_pools).toContain(7);
         });
 
         it('should fail when base_revenue_percentage exceeds 100%', async () => {
@@ -782,8 +782,8 @@ describe('Worker Instructions', async () => {
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
 
             expect(config.total_staked).toBe(stakeAmount);
-            expect(config.created_pools).toContain(5);
-            expect(config.created_pools).toContain(6);
+            expect(config.active_pools).toContain(5);
+            expect(config.active_pools).toContain(6);
         });
     });
 });

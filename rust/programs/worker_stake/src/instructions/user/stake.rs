@@ -171,7 +171,7 @@ pub fn process_stake<'a>(
     drop(config_data);
 
     // Validate pool exists for current month
-    if !config.created_pools.contains(&current_month_period) {
+    if !config.active_pools.contains(&current_month_period) {
         msg!(
             "Error: No pool exists for current month {}",
             current_month_period

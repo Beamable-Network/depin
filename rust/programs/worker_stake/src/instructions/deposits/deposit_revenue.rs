@@ -92,7 +92,7 @@ pub fn process_deposit_revenue<'a>(
     }
 
     // Check if current month has pool
-    let has_pool = config.created_pools.contains(&current_month_period);
+    let has_pool = config.active_pools.contains(&current_month_period);
 
     if has_pool {
         // Get monthly pool account

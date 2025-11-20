@@ -24,7 +24,7 @@ export class WorkerStakeConfigAccount {
     min_stake_requirement: bigint;
     total_staked: bigint;
     last_active_pool_month: number;
-    created_pools: number[];
+    active_pools: number[];
 
     constructor(fields: {
         worker_collection: Address;
@@ -32,14 +32,14 @@ export class WorkerStakeConfigAccount {
         min_stake_requirement: bigint;
         total_staked: bigint;
         last_active_pool_month: number;
-        created_pools: number[];
+        active_pools: number[];
     }) {
         this.worker_collection = fields.worker_collection;
         this.worker_wallet = fields.worker_wallet;
         this.min_stake_requirement = fields.min_stake_requirement;
         this.total_staked = fields.total_staked;
         this.last_active_pool_month = fields.last_active_pool_month;
-        this.created_pools = fields.created_pools;
+        this.active_pools = fields.active_pools;
     }
 
     public static calculateAccountSize(poolCount: number): bigint {
@@ -50,7 +50,7 @@ export class WorkerStakeConfigAccount {
             8 + // min_stake_requirement (u64)
             8 + // total_staked (u64)
             2 + // last_active_pool_month (u16)
-            4 + (poolCount * 2) // created_pools (Vec<u16> with length prefix)
+            4 + (poolCount * 2) // active_pools (Vec<u16> with length prefix)
         );
     }
 
@@ -60,7 +60,7 @@ export class WorkerStakeConfigAccount {
         ["min_stake_requirement", getU64Codec({ endian: Endian.Little })],
         ["total_staked", getU64Codec({ endian: Endian.Little })],
         ["last_active_pool_month", getU16Codec({ endian: Endian.Little })],
-        ["created_pools", getArrayCodec(getU16Codec({ endian: Endian.Little }))]
+        ["active_pools", getArrayCodec(getU16Codec({ endian: Endian.Little }))]
     ]);
 
     public static deserializeFrom(accountData: ArrayLike<number>): WorkerStakeConfigAccount;

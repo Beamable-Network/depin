@@ -148,7 +148,7 @@ describe('Past Month Claiming', async () => {
         lite.goToMonthPeriod(6);
 
         // 4. Create a new monthly pool for month 6
-        // This will compact created_pools and remove past months
+        // This will compact active_pools and remove past months
         const month6Pools: MonthlyPoolConfig[] = [{
             month_period: 6,
             base_revenue_percentage: 2000,
@@ -164,7 +164,7 @@ describe('Past Month Claiming', async () => {
             })).getInstruction())
             .sendTransaction({ payer: collectionCreator });
 
-        // 5. Claim rewards for month 5 - should succeed even though month 5 was removed from created_pools
+        // 5. Claim rewards for month 5 - should succeed even though month 5 was removed from active_pools
         const claimRewards = new ClaimRewards({
             user: user.address,
             worker_collection: workerCollection,
