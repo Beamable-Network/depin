@@ -563,8 +563,11 @@ describe('Worker Instructions', async () => {
             expect(balance).toBe(unstakeAmount);
         });
 
-        it('should fail when unstaking below minimum requirement', async () => {
-            const unstakeAmount = bmbToBaseUnits(150); // Would leave 50, below min of 100
+        it('should be able to unstake full staked amount', async () => {
+            let balance = await lite.getTokenBalance(BMB_MINT, collectionCreator.address);
+            expect(balance).toBe(0n);
+
+            const unstakeAmount = bmbToBaseUnits(200);
 
             const workerUnstake = new WorkerUnstake({
                 collection_authority: collectionCreator.address,
@@ -572,11 +575,12 @@ describe('Worker Instructions', async () => {
                 amount: unstakeAmount,
             });
 
-            await expect(async () => {
-                lite.buildTransaction()
-                    .addInstruction(await workerUnstake.getInstruction())
-                    .sendTransaction({ payer: collectionCreator });
-            }).rejects.toThrow("below min_stake_requirement");
+            lite.buildTransaction()
+                .addInstruction(await workerUnstake.getInstruction())
+                .sendTransaction({ payer: collectionCreator });
+
+            balance = await lite.getTokenBalance(BMB_MINT, collectionCreator.address);
+            expect(balance).toBe(unstakeAmount);
         });
 
         it('should fail when unstaking zero amount', async () => {
