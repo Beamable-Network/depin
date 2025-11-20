@@ -725,5 +725,46 @@ describe('User Claim Rewards Instructions', async () => {
             expect(usdcBalance).toBe(0n);
             expect(bmbBalance).toBe(0n);
         });
+
+        it('should enforce first-time claimers start from earliest month', async () => {
+            // Month 5 already exists from beforeEach, create months 6 and 7
+            const pools: MonthlyPoolConfig[] = [
+                { month_period: 6, base_revenue_percentage: 2000, addon_revenue_percentage: 1000, base_emission_percentage: 1500 },
+                { month_period: 7, base_revenue_percentage: 2000, addon_revenue_percentage: 1000, base_emission_percentage: 1500 }
+            ];
+
+            await lite.buildTransaction()
+                .addInstruction(await (new SetMonthlyPool({
+                    collection_authority: collectionCreator.address,
+                    worker_collection: workerCollection,
+                    pools,
+                })).getInstruction())
+                .sendTransaction({ payer: collectionCreator });
+
+            // User stakes in month 5
+            const { user } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
+
+            // Deposit revenue for all months
+            const revenueAmount = usdcToBaseUnits(1000);
+            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount * 3n, tokenAuthorities.usdcMintAuthority);
+
+            await depositRevenue(revenueAmount, 5);
+            lite.goToMonthPeriod(6);
+            await depositRevenue(revenueAmount, 6, 5);
+            lite.goToMonthPeriod(7);
+            await depositRevenue(revenueAmount, 7, 6);
+            lite.goToMonthPeriod(8);
+
+            // Try to claim month 7 first (skipping 5 and 6) - should fail
+            await expect(async () => {
+                await lite.buildTransaction()
+                    .addInstruction(await (new ClaimRewards({
+                        user: user.address,
+                        worker_collection: workerCollection,
+                        month_period: 7,
+                    })).getInstruction())
+                    .sendTransaction({ payer: user });
+            }).rejects.toThrow("First claim must be for earliest month");
+        });
     });
 });

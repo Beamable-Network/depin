@@ -103,12 +103,28 @@ pub fn process_claim_rewards<'a>(
         read_account_data(&position_data, WorkerStakeAccountType::UserStakePosition)?;
     drop(position_data);
 
+    if user_position.stake_entries.is_empty() {
+        msg!("Error: No stake entries found for user");
+        return Err(ProgramError::InvalidAccountData);
+    }
+
     // Validate sequential claiming
     if user_position.last_claimed_month_period > 0 {
         if month_period != user_position.last_claimed_month_period + 1 {
             msg!(
                 "Error: Must claim months in order (last_claimed: {}, attempting: {})",
                 user_position.last_claimed_month_period,
+                month_period
+            );
+            return Err(ProgramError::InvalidArgument);
+        }
+    } else {
+        // First-time claimer - must start from earliest month with stake
+        let earliest_month = user_position.stake_entries[0].month_period;        
+        if month_period != earliest_month {
+            msg!(
+                "Error: First claim must be for earliest month with stake (earliest: {}, attempting: {})",
+                earliest_month,
                 month_period
             );
             return Err(ProgramError::InvalidArgument);
