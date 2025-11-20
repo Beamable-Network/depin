@@ -82,12 +82,6 @@ pub fn process_claim_rewards<'a>(
         "WorkerStakeConfig",
     )?;
 
-    // Load config
-    let config_data = worker_stake_config_account.try_borrow_data()?;
-    let config: WorkerStakeConfig =
-        read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
-    drop(config_data);
-
     // Validate UserStakePosition PDA
     let (user_position_pda, _user_bump) = Pubkey::find_program_address(
         &[
@@ -140,8 +134,12 @@ pub fn process_claim_rewards<'a>(
         return Err(ProgramError::InvalidArgument);
     }
 
+    // Validate MonthlyPool PDA    
+    let (pool_pda, _pool_bump) = MonthlyPool::find_pda(program_id, worker_collection_account.key, month_period);
+    validate_pda_account(monthly_pool_account, &pool_pda, "MonthlyPool")?;
+
     // Check if pool exists - if not, skip with 0 rewards
-    if !config.created_pools.contains(&month_period) {
+    if monthly_pool_account.data_is_empty() {
         user_position.last_claimed_month_period = month_period;
         let mut position_data = user_position_account.try_borrow_mut_data()?;
         write_account_data(
@@ -157,11 +155,7 @@ pub fn process_claim_rewards<'a>(
         return Ok(());
     }
 
-    // Pool exists - validate and load it
-    let (pool_pda, _pool_bump) =
-        MonthlyPool::find_pda(program_id, worker_collection_account.key, month_period);
-    validate_pda_account(monthly_pool_account, &pool_pda, "MonthlyPool")?;
-
+    // Pool exists - load it
     let pool_data = monthly_pool_account.try_borrow_data()?;
     let monthly_pool: MonthlyPool =
         read_account_data(&pool_data, WorkerStakeAccountType::MonthlyPool)?;
