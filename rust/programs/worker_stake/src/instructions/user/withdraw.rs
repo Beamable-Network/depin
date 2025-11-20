@@ -91,7 +91,7 @@ pub fn process_withdraw<'a>(
     drop(position_data);
 
     // Validate requirements
-    let has_active_pool = config.created_pools.contains(&current_month_period);
+    let has_active_pool = config.active_pools.contains(&current_month_period);
 
     // Check if user can withdraw (must have opted out and waited)
     // Always require unstake first to properly update last active pool's opted_out accounting

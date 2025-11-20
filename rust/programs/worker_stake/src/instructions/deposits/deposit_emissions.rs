@@ -101,7 +101,7 @@ pub fn process_deposit_emissions<'a>(
     }
 
     // Check if pool exists for this month
-    let has_pool = config.created_pools.contains(&month_period);
+    let has_pool = config.active_pools.contains(&month_period);
 
     if has_pool {
         // Get monthly pool account

@@ -54,7 +54,7 @@ describe('Worker Stake Config Initialization', async () => {
         expect(workerStakeConfig.min_stake_requirement).toBe(bmbToBaseUnits(100)); // 100 BMB
         expect(workerStakeConfig.total_staked).toBe(0n);
         expect(workerStakeConfig.last_active_pool_month).toBe(0);
-        expect(workerStakeConfig.created_pools).toEqual([]);
+        expect(workerStakeConfig.active_pools).toEqual([]);
     });
 
     it('should fail to initialize when not called by upgrade authority', async () => {

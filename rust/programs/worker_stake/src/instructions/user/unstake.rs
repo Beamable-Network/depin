@@ -74,7 +74,7 @@ pub fn process_unstake<'a>(
     }
 
     // Check if has active pool
-    let has_active_pool = config.created_pools.contains(&current_month_period);
+    let has_active_pool = config.active_pools.contains(&current_month_period);
 
     if has_active_pool {
         // Must have a last active pool if there's an active pool

@@ -87,7 +87,6 @@ pub fn process_worker_unstake<'a>(
     let mut config: WorkerStakeConfig = read_account_data(&data, WorkerStakeAccountType::WorkerStakeConfig)?;
     drop(data);
 
-    // Validate that after unstake, total_staked >= min_stake_requirement
     let new_total_staked = config.total_staked
         .checked_sub(amount)
         .ok_or(ProgramError::InsufficientFunds)?;

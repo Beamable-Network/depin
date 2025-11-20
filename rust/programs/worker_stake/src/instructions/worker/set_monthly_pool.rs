@@ -77,8 +77,8 @@ pub fn process_set_monthly_pool<'a>(
     let mut config: WorkerStakeConfig = read_account_data(&data, WorkerStakeAccountType::WorkerStakeConfig)?;
     drop(data);
 
-    // Compact created_pools: remove past months
-    config.created_pools.retain(|&m| m >= current_month_period);
+    // Compact active_pools: remove past months
+    config.active_pools.retain(|&m| m >= current_month_period);
 
     // Validate all pool configs
     for pool_config in &pools {
@@ -205,23 +205,23 @@ pub fn process_set_monthly_pool<'a>(
             let mut pool_data = monthly_pool_account.try_borrow_mut_data()?;
             write_account_data(&mut pool_data, WorkerStakeAccountType::MonthlyPool, &pool)?;
 
-            // Add to created_pools if not already present
-            if !config.created_pools.contains(&pool_config.month_period) {
-                if config.created_pools.len() >= WorkerStakeConfig::MAX_POOLS {
+            // Add to active_pools if not already present
+            if !config.active_pools.contains(&pool_config.month_period) {
+                if config.active_pools.len() >= WorkerStakeConfig::MAX_POOLS {
                     msg!("Error: Maximum {} pools can be tracked", WorkerStakeConfig::MAX_POOLS);
                     return Err(ProgramError::InvalidArgument);
                 }
-                config.created_pools.push(pool_config.month_period);
+                config.active_pools.push(pool_config.month_period);
             }
 
             msg!("Created pool for month {}", pool_config.month_period);
         }
     }
 
-    // Sort created_pools for efficient lookups
-    config.created_pools.sort_unstable();
+    // Sort active_pools for efficient lookups
+    config.active_pools.sort_unstable();
 
-    let required_size = WorkerStakeConfig::required_size(config.created_pools.len());
+    let required_size = WorkerStakeConfig::required_size(config.active_pools.len());
     reallocate_account_if_needed(
         collection_authority_account,
         worker_stake_config_account,
