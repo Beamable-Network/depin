@@ -92,15 +92,6 @@ pub fn process_worker_unstake<'a>(
         .checked_sub(amount)
         .ok_or(ProgramError::InsufficientFunds)?;
 
-    if new_total_staked < config.min_stake_requirement {
-        msg!(
-            "Error: After unstake, total_staked ({}) would be below min_stake_requirement ({})",
-            new_total_staked,
-            config.min_stake_requirement
-        );
-        return Err(ProgramError::InsufficientFunds);
-    }
-
     // Validate amount <= worker_stake_vault.amount (will be checked by token program, but explicit check helps)
     let vault_data = worker_stake_vault_ata.try_borrow_data()?;
     let vault_account = spl_token::state::Account::unpack(&vault_data)?;
