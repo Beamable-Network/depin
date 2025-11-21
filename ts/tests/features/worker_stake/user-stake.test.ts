@@ -222,6 +222,37 @@ describe('User Stake Instructions', async () => {
             expect(pool.addon_pool.total).toBe(2n); // Limited by stake
         });
 
+        it('should not deduct SOL from user when staking (worker pays rent)', async () => {
+            const user = await lite.generateKeyPair();
+            await lite.airdrop(user, 2);
+
+            const stakeAmount = bmbToBaseUnits(5000);
+            await lite.mintToken(BMB_MINT, user.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
+
+            // Record user's SOL balance before staking
+            const userAccountBefore = lite.getAccount(user.address);
+            const userLamportsBefore = userAccountBefore!.lamports;
+
+            const stake = new Stake({
+                user: user.address,
+                worker: worker.address,
+                worker_license: workerLicense,
+                worker_collection: workerCollection,
+                amount: stakeAmount,
+                checker_count: 0,
+                current_month_period: 5,
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await stake.getInstruction())
+                .sign(user)
+                .sendTransaction({ payer: worker });
+
+            // Verify user's SOL balance is unchanged
+            const userAccountAfter = lite.getAccount(user.address);
+            expect(userAccountAfter!.lamports).toBe(userLamportsBefore);
+        });
+
         it('should fail when staking zero amount', async () => {
             const user = await lite.generateKeyPair();
             await lite.airdrop(user, 2);
