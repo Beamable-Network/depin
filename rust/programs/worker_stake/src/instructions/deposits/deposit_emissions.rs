@@ -98,7 +98,6 @@ pub fn process_deposit_emissions<'a>(
     // Load config
     let config_data = worker_stake_config_account.try_borrow_data()?;
     let mut config: WorkerStakeConfig = read_account_data(&config_data, WorkerStakeAccountType::WorkerStakeConfig)?;
-    let worker_wallet = config.worker_wallet; // Extract for later use
     drop(config_data);
 
     if *worker_wallet_account.key != config.worker_wallet {
