@@ -60,6 +60,12 @@ pub fn process_deposit_revenue<'a>(
     // Collect remaining accounts (pool accounts only)
     let pool_accounts: Vec<&AccountInfo> = account_info_iter.collect();
 
+    // Validate total_revenue > 0
+    if total_revenue == 0 {
+        msg!("Error: Total revenue cannot be zero");
+        return Err(ProgramError::InvalidArgument);
+    }
+
     // Validate revenue authority signature
     require_signer(revenue_authority, "Revenue authority")?;
 
