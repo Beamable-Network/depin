@@ -131,6 +131,27 @@ pub fn process_worker_unstake<'a>(
         &[signer_seeds],
     )?;
 
+    if vault_account.amount == amount {
+        msg!("Worker stake vault is now empty, closing the ATA");
+        let close_ix = spl_token::instruction::close_account(
+            token_program.key,
+            worker_stake_vault_ata.key,
+            collection_authority_account.key,
+            worker_stake_vault_pda.key,
+            &[],
+        )?;
+        invoke_signed(
+            &close_ix,
+            &[
+                worker_stake_vault_ata.clone(),
+                collection_authority_account.clone(),
+                worker_stake_vault_pda.clone(),
+                token_program.clone(),
+            ],
+            &[signer_seeds],
+        )?;
+    }
+
     // Update config
     config.total_staked = new_total_staked;
 

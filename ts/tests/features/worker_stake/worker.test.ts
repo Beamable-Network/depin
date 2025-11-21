@@ -12,6 +12,7 @@ import {
     WorkerStakeVault,
     WorkerUnstake
 } from '@beamable-network/depin';
+import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
@@ -633,6 +634,42 @@ describe('Worker Instructions', async () => {
             const config = WorkerStakeConfigAccount.deserializeFrom(configData!);
 
             expect(config.total_staked).toBe(bmbToBaseUnits(100));
+        });
+
+        it('should close vault ATA and refund rent when fully unstaked', async () => {
+            const stakeVault = await WorkerStakeVault.findWorkerStakeVaultPda(workerCollection);
+            const [vaultAta] = await findAssociatedTokenPda({
+                owner: stakeVault[0],
+                mint: BMB_MINT,
+                tokenProgram: TOKEN_PROGRAM_ADDRESS,
+            });
+
+            // Verify vault ATA exists before unstake
+            const vaultAtaBefore = lite.getAccount(vaultAta);
+            expect(vaultAtaBefore).not.toBeNull();
+
+            // Get authority balance before unstake
+            const authorityBefore = lite.getAccount(collectionCreator.address);
+            const authorityLamportsBefore = authorityBefore!.lamports;
+
+            // Unstake full amount (200 BMB from beforeEach)
+            const workerUnstake = new WorkerUnstake({
+                collection_authority: collectionCreator.address,
+                worker_collection: workerCollection,
+                amount: bmbToBaseUnits(200),
+            });
+
+            lite.buildTransaction()
+                .addInstruction(await workerUnstake.getInstruction())
+                .sendTransaction({ payer: collectionCreator });
+
+            // Verify vault ATA is closed
+            const vaultAtaAfter = lite.getAccount(vaultAta);
+            expect(vaultAtaAfter).toBeNull();
+
+            // Verify rent was refunded to authority
+            const authorityAfter = lite.getAccount(collectionCreator.address);
+            expect(authorityAfter!.lamports).toBeGreaterThan(authorityLamportsBefore);
         });
 
         it('should handle multiple unstake operations', async () => {
