@@ -36,12 +36,6 @@ pub fn process_update_min_stake_requirement<'a>(
         upgrade_authority_account
     )?;
 
-    // Validate new_min_stake_requirement > 0
-    if new_min_stake_requirement == 0 {
-        msg!("Error: new_min_stake_requirement must be greater than 0");
-        return Err(ProgramError::InvalidArgument);
-    }
-
     // Validate WorkerStakeConfig PDA
     let (config_pda, _bump) = WorkerStakeConfig::find_pda(program_id, &worker_collection);
     validate_pda_account(worker_stake_config_account, &config_pda, "WorkerStakeConfig")?;
