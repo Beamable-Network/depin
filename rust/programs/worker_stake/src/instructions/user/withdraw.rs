@@ -110,11 +110,7 @@ pub fn process_withdraw<'a>(
     }
 
     // Check all rewards claimed (find last claimable month)
-    let last_claimable_month = if user_position.opted_out_at_month_period > 0 {
-        user_position.opted_out_at_month_period.saturating_sub(1)  // Can only claim up to month before opted out
-    } else {
-        current_month_period.saturating_sub(1)  // Can claim up to previous month (not current)
-    };
+    let last_claimable_month = user_position.opted_out_at_month_period.saturating_sub(1); // Can only claim up to month before opted out
 
     if last_claimable_month > 0 && user_position.last_claimed_month_period < last_claimable_month {
         msg!(
