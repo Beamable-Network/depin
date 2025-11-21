@@ -65,6 +65,12 @@ pub fn process_deposit_emissions<'a>(
     // Remaining accounts (optional pool account)
     let remaining_accounts: Vec<&AccountInfo> = account_info_iter.collect();
 
+    // Validate amount > 0
+    if amount == 0 {
+        msg!("Error: Deposit amount cannot be zero");
+        return Err(ProgramError::InvalidArgument);
+    }
+
     // Validate Depositor signature
     require_signer(depositor_wallet, "Depositor wallet")?;
 
