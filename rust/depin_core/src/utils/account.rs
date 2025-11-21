@@ -99,8 +99,12 @@ pub fn reallocate_account_if_needed<'a>(
             let excess_rent = current_rent - required_rent;
             msg!("Refunding {} lamports for decreased size", excess_rent);
             
-            **target_account.try_borrow_mut_lamports()? -= excess_rent;
-            **payer.try_borrow_mut_lamports()? += excess_rent;
+            **target_account.try_borrow_mut_lamports()? = target_account.lamports()
+                .checked_sub(excess_rent)
+                .ok_or(ProgramError::InsufficientFunds)?;
+            **payer.try_borrow_mut_lamports()? = payer.lamports()
+                .checked_add(excess_rent)
+                .ok_or(ProgramError::ArithmeticOverflow)?;
         }
     }
     
