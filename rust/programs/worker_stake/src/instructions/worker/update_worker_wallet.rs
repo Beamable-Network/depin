@@ -1,9 +1,11 @@
-use depin_core::utils::account::{read_account_data, write_account_data};
+use depin_core::utils::{
+    account::{read_account_data, write_account_data},
+    validation::validate_pda_account,
+};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
     msg,
-    program_error::ProgramError,
     pubkey::Pubkey,
 };
 use crate::{
@@ -32,10 +34,7 @@ pub fn process_update_worker_wallet<'a>(
 
     // Validate WorkerStakeConfig PDA
     let (config_pda, _bump) = WorkerStakeConfig::find_pda(program_id, worker_collection_account.key);
-    if *worker_stake_config_account.key != config_pda {
-        msg!("Error: WorkerStakeConfig account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(worker_stake_config_account, &config_pda, "WorkerStakeConfig")?;
 
     // Load WorkerStakeConfig
     let data = worker_stake_config_account.try_borrow_data()?;

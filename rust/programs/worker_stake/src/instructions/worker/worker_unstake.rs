@@ -1,6 +1,9 @@
 use depin_core::{
     constants::BMB_MINT,
-    utils::account::{read_account_data, write_account_data},
+    utils::{
+        account::{read_account_data, write_account_data},
+        validation::{validate_pda_account, validate_ata_account, validate_mint},
+    },
 };
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -54,33 +57,17 @@ pub fn process_worker_unstake<'a>(
 
     // Validate WorkerStakeConfig PDA
     let (config_pda, _bump) = WorkerStakeConfig::find_pda(program_id, worker_collection_account.key);
-    if *worker_stake_config_account.key != config_pda {
-        msg!("Error: WorkerStakeConfig account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(worker_stake_config_account, &config_pda, "WorkerStakeConfig")?;
 
     // Validate BMB mint
-    if *bmb_mint_account.key != BMB_MINT {
-        msg!("Error: Invalid BMB mint");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_mint(bmb_mint_account, &BMB_MINT, "BMB")?;
 
     // Validate worker stake vault PDA
     let (expected_vault_pda, vault_bump) = find_worker_stake_vault_pda(program_id, worker_collection_account.key);
-    if *worker_stake_vault_pda.key != expected_vault_pda {
-        msg!("Error: Worker stake vault PDA does not match expected address");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(worker_stake_vault_pda, &expected_vault_pda, "Worker stake vault")?;
 
     // Validate worker stake vault ATA matches derived address
-    let expected_vault_ata = spl_associated_token_account::get_associated_token_address(
-        worker_stake_vault_pda.key,
-        bmb_mint_account.key,
-    );
-    if *worker_stake_vault_ata.key != expected_vault_ata {
-        msg!("Error: Worker stake vault ATA does not match expected address");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_ata_account(worker_stake_vault_ata, worker_stake_vault_pda.key, bmb_mint_account.key, "Worker stake vault")?;
 
     // Load config
     let data = worker_stake_config_account.try_borrow_data()?;
