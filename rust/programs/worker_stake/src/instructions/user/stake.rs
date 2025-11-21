@@ -420,7 +420,6 @@ pub fn process_stake<'a>(
         WorkerStakeAccountType::UserStakePosition,
         &user_position,
     )?;
-    drop(position_data);
 
     let mut pool_data = monthly_pool_account.try_borrow_mut_data()?;
     write_account_data(
@@ -428,7 +427,6 @@ pub fn process_stake<'a>(
         WorkerStakeAccountType::MonthlyPool,
         &monthly_pool,
     )?;
-    drop(pool_data);
 
     let mut config_data = worker_stake_config_account.try_borrow_mut_data()?;
     write_account_data(
