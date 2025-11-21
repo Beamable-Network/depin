@@ -1,4 +1,5 @@
 use depin_core::constants::BMB_MULTIPLIER;
+use depin_core::utils::validation::validate_pda_account;
 use solana_program::{account_info::AccountInfo, msg, program_error::ProgramError, pubkey::Pubkey};
 
 // Sub-modules
@@ -166,14 +167,7 @@ pub fn initialize_pool_with_inheritance<'a>(
         // Validate previous pool PDA
         let (expected_prev_pda, _bump) =
             MonthlyPool::find_pda(program_id, worker_collection, config.last_active_pool_month);
-
-        if *prev_pool_acc.key != expected_prev_pda {
-            msg!(
-                "Error: Previous pool account does not match expected PDA for month {}",
-                config.last_active_pool_month
-            );
-            return Err(ProgramError::InvalidArgument);
-        }
+        validate_pda_account(prev_pool_acc, &expected_prev_pda, "Previous MonthlyPool")?;
 
         // Load previous pool
         let prev_pool_data = prev_pool_acc.try_borrow_data()?;

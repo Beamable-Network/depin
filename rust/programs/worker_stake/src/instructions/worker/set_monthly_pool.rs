@@ -1,6 +1,7 @@
 use depin_core::utils::{
     account::{read_account_data, reallocate_account_if_needed, write_account_data},
     bmb::{get_month_from_period, get_current_period, get_month_start_timestamp, SECONDS_PER_DAY},
+    validation::validate_pda_account,
 };
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -63,10 +64,7 @@ pub fn process_set_monthly_pool<'a>(
 
     // Validate WorkerStakeConfig PDA
     let (config_pda, _bump) = WorkerStakeConfig::find_pda(program_id, worker_collection_account.key);
-    if *worker_stake_config_account.key != config_pda {
-        msg!("Error: WorkerStakeConfig account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(worker_stake_config_account, &config_pda, "WorkerStakeConfig")?;
 
     // Get current month for validation and compacting
     let current_period = get_current_period();
@@ -124,10 +122,7 @@ pub fn process_set_monthly_pool<'a>(
 
         // Validate MonthlyPool PDA
         let (pool_pda, pool_bump) = MonthlyPool::find_pda(program_id, worker_collection_account.key, pool_config.month_period);
-        if *monthly_pool_account.key != pool_pda {
-            msg!("Error: MonthlyPool account does not match expected PDA for month {}", pool_config.month_period);
-            return Err(ProgramError::InvalidArgument);
-        }
+        validate_pda_account(monthly_pool_account, &pool_pda, "MonthlyPool")?;
 
         let pool_exists = !monthly_pool_account.data_is_empty();
 
