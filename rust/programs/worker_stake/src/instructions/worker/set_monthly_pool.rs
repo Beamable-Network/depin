@@ -1,6 +1,6 @@
 use depin_core::utils::{
     account::{read_account_data, reallocate_account_if_needed, write_account_data},
-    bmb::{get_month_from_period, get_current_period, get_month_start_timestamp}
+    bmb::{get_month_from_period, get_current_period, get_month_start_timestamp, SECONDS_PER_DAY},
 };
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -22,7 +22,8 @@ use crate::{
 };
 
 const MAX_POOLS_PER_TX: usize = 12;
-const TIME_LOCK_SECONDS: i64 = 10 * 86400; // 10 days
+const TIME_LOCK_DAYS: i64 = 10;
+const TIME_LOCK_SECONDS: i64 = TIME_LOCK_DAYS * SECONDS_PER_DAY;
 
 pub fn process_set_monthly_pool<'a>(
     program_id: &Pubkey,

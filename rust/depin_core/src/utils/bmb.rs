@@ -5,18 +5,44 @@ use solana_program::{msg, program_error::ProgramError};
 #[cfg(not(feature = "test"))]
 use crate::constants::{CHECKER_TREE, WORKER_TREE};
 
-const PERIOD_ZERO: i64 = 1748736000; // 2025-06-01 00:00:00 UTC
+/// Seconds in a day
+pub const SECONDS_PER_DAY: i64 = 86_400;
+
+/// Unix timestamp for period zero: 2025-06-01 00:00:00 UTC
+const PERIOD_ZERO: i64 = 1_748_736_000;
+
+// Calendar algorithm constants (Howard Hinnant's civil calendar algorithm)
+/// Days from Unix epoch (1970-01-01) to 2025-06-01
+const DAYS_1970_TO_PERIOD_ZERO: i64 = 20_240;
+/// Offset to convert Unix days to proleptic Gregorian calendar days
+const CIVIL_EPOCH_OFFSET: i64 = 719_468;
+/// Days in a 400-year Gregorian cycle (97 leap years)
+const DAYS_IN_400_YEARS: i64 = 146_097;
+/// Days in a 100-year period (24 leap years)
+const DAYS_IN_100_YEARS: i64 = 36_524;
+/// Days in a 4-year period (1 leap year)
+const DAYS_IN_4_YEARS: i64 = 1_460;
+/// Years in a Gregorian cycle
+const YEARS_IN_CYCLE: i64 = 400;
+/// Multiplier for month-day calculation: (5 × day_of_year + 2) / 153
+const MONTH_DAY_DIVISOR: i64 = 153;
+/// Base year for period calculations
+const BASE_YEAR: i64 = 2025;
+/// Base month offset (June = month 6, 0-indexed = 5)
+const BASE_MONTH_OFFSET: i64 = 5;
+/// Months in a year
+const MONTHS_PER_YEAR: i64 = 12;
 
 #[inline(always)]
 pub fn get_current_period() -> u16 {
-    let clock = Clock::get().expect("Clock sysvar not found.");    
-    let now = clock.unix_timestamp;    
+    let clock = Clock::get().expect("Clock sysvar not found.");
+    let now = clock.unix_timestamp;
     if now < PERIOD_ZERO {
         return 0;
     }
     
     let seconds_since_start = now - PERIOD_ZERO;
-    let days_since_start = seconds_since_start / 86400;
+    let days_since_start = seconds_since_start / SECONDS_PER_DAY;
 
     if days_since_start > u16::MAX as i64 {
         panic!("Period exceeds u16::MAX");
@@ -37,7 +63,7 @@ pub fn timestamp_to_period(timestamp: i64) -> u16 {
     }
     
     let seconds_since_start = timestamp - PERIOD_ZERO;
-    let days_since_start = seconds_since_start / 86400;
+    let days_since_start = seconds_since_start / SECONDS_PER_DAY;
 
     if days_since_start > u16::MAX as i64 {
         panic!("Period exceeds u16::MAX");
@@ -47,24 +73,29 @@ pub fn timestamp_to_period(timestamp: i64) -> u16 {
 }
 
 pub fn get_month_from_period(period: u16) -> u16 {
-    const DAYS_1970_TO_2025_06_01: i64 = 20_240;
-
     // Convert "period" (days since 2025-06-01) into days since 1970-01-01
-    let mut z: i64 = DAYS_1970_TO_2025_06_01 + period as i64;
+    let mut z: i64 = DAYS_1970_TO_PERIOD_ZERO + period as i64;
 
     // --- civil_from_days (proleptic Gregorian), all integer math ---
-    z += 719_468;
-    let era = if z >= 0 { z / 146_097 } else { (z - 146_096) / 146_097 };
-    let doe = z - era * 146_097; // [0, 146096]
-    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365; // [0, 399]
-    let mut y = yoe + era * 400; // year
+    z += CIVIL_EPOCH_OFFSET;
+    let era = if z >= 0 {
+        z / DAYS_IN_400_YEARS
+    } else {
+        (z - (DAYS_IN_400_YEARS - 1)) / DAYS_IN_400_YEARS
+    };
+    let doe = z - era * DAYS_IN_400_YEARS; // [0, 146096]
+    let yoe = (doe - doe / DAYS_IN_4_YEARS + doe / DAYS_IN_100_YEARS
+        - doe / (DAYS_IN_400_YEARS - 1)) / 365; // [0, 399]
+    let mut y = yoe + era * YEARS_IN_CYCLE; // year
     let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
-    let mp = (5 * doy + 2) / 153; // [0, 11]
+    let mp = (5 * doy + 2) / MONTH_DAY_DIVISOR; // [0, 11]
     let m = mp + if mp < 10 { 3 } else { -9 }; // month [1..=12]
-    if m <= 2 { y += 1; }
+    if m <= 2 {
+        y += 1;
+    }
 
     // Month index where 2025-06 => 0, 2025-07 => 1, ...
-    let month_index = (y - 2025) * 12 + (m as i64 - 6);
+    let month_index = (y - BASE_YEAR) * MONTHS_PER_YEAR + (m - (BASE_MONTH_OFFSET + 1));
     month_index as u16
 }
 
@@ -100,9 +131,9 @@ pub fn validate_worker_tree(
 #[inline]
 pub fn days_in_month(month_period: u16) -> u8 {
     let month_offset = month_period as i64;
-    let total_months = 5 + month_offset;
-    let year = 2025 + (total_months / 12);
-    let month = (total_months % 12) + 1;
+    let total_months = BASE_MONTH_OFFSET + month_offset;
+    let year = BASE_YEAR + (total_months / MONTHS_PER_YEAR);
+    let month = (total_months % MONTHS_PER_YEAR) + 1;
 
     match month {
         4 | 6 | 9 | 11 => 30,
@@ -126,20 +157,24 @@ pub fn get_month_start_timestamp(month_period: u16) -> i64 {
 
     // Convert month_period to calendar year and month
     let month_offset = month_period as i64;
-    let total_months = 5 + month_offset;
-    let year = 2025 + (total_months / 12);
-    let month = (total_months % 12) + 1;
+    let total_months = BASE_MONTH_OFFSET + month_offset;
+    let year = BASE_YEAR + (total_months / MONTHS_PER_YEAR);
+    let month = (total_months % MONTHS_PER_YEAR) + 1;
 
     // Civil calendar algorithm: days_from_civil(year, month, 1)
     let y = if month <= 2 { year - 1 } else { year };
-    let era = if y >= 0 { y / 400 } else { (y - 399) / 400 };
-    let yoe = (y - era * 400) as u32;
+    let era = if y >= 0 {
+        y / YEARS_IN_CYCLE
+    } else {
+        (y - (YEARS_IN_CYCLE - 1)) / YEARS_IN_CYCLE
+    };
+    let yoe = (y - era * YEARS_IN_CYCLE) as u32;
     let m_adj = if month > 2 { month - 3 } else { month + 9 } as u32;
-    let doy = (153 * m_adj + 2) / 5;
+    let doy = (MONTH_DAY_DIVISOR as u32 * m_adj + 2) / 5;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    let days_since_epoch = era * 146_097 + doe as i64 - 719_468;
+    let days_since_epoch = era * DAYS_IN_400_YEARS + doe as i64 - CIVIL_EPOCH_OFFSET;
 
-    days_since_epoch * 86400
+    days_since_epoch * SECONDS_PER_DAY
 }
 
 /// Returns Unix timestamp for the exclusive end of a month
@@ -153,7 +188,7 @@ pub fn get_month_start_timestamp(month_period: u16) -> i64 {
 #[inline]
 pub fn get_month_end_timestamp(month_period: u16) -> i64 {
     get_month_start_timestamp(month_period)
-        + (days_in_month(month_period) as i64 * 86400)
+        + (days_in_month(month_period) as i64 * SECONDS_PER_DAY)
 }
 
 /// Calculates the number of complete days between two timestamps
@@ -166,7 +201,7 @@ pub fn get_month_end_timestamp(month_period: u16) -> i64 {
 /// Number of complete days (floor division). Can be negative if end < start.
 #[inline(always)]
 pub fn days_between(start: i64, end: i64) -> i64 {
-    (end - start) / 86400
+    (end - start) / SECONDS_PER_DAY
 }
 
 /// Check if a year is a leap year
@@ -245,15 +280,15 @@ mod tests {
 
         // July 2025 = June + 30 days
         let july_start = get_month_start_timestamp(1);
-        assert_eq!(july_start, june_start + (30 * 86400));
+        assert_eq!(july_start, june_start + (30 * SECONDS_PER_DAY));
 
         // August 2025 = July + 31 days
         let aug_start = get_month_start_timestamp(2);
-        assert_eq!(aug_start, july_start + (31 * 86400));
+        assert_eq!(aug_start, july_start + (31 * SECONDS_PER_DAY));
 
         // September 2025 = August + 31 days
         let sep_start = get_month_start_timestamp(3);
-        assert_eq!(sep_start, aug_start + (31 * 86400));
+        assert_eq!(sep_start, aug_start + (31 * SECONDS_PER_DAY));
     }
 
     #[test]
@@ -263,11 +298,11 @@ mod tests {
 
         // January 2026 (month_period = 7) = December + 31 days
         let jan_2026 = get_month_start_timestamp(7);
-        assert_eq!(jan_2026, dec_2025 + (31 * 86400));
+        assert_eq!(jan_2026, dec_2025 + (31 * SECONDS_PER_DAY));
 
         // February 2026 (month_period = 8) = January + 31 days
         let feb_2026 = get_month_start_timestamp(8);
-        assert_eq!(feb_2026, jan_2026 + (31 * 86400));
+        assert_eq!(feb_2026, jan_2026 + (31 * SECONDS_PER_DAY));
     }
 
     #[test]
@@ -296,29 +331,29 @@ mod tests {
         // June has 30 days
         let june_start = get_month_start_timestamp(0);
         let june_end = get_month_end_timestamp(0);
-        assert_eq!(june_end - june_start, 30 * 86400);
+        assert_eq!(june_end - june_start, 30 * SECONDS_PER_DAY);
 
         // July has 31 days
         let july_start = get_month_start_timestamp(1);
         let july_end = get_month_end_timestamp(1);
-        assert_eq!(july_end - july_start, 31 * 86400);
+        assert_eq!(july_end - july_start, 31 * SECONDS_PER_DAY);
 
         // February 2026 has 28 days (not leap year)
         let feb_2026_start = get_month_start_timestamp(8);
         let feb_2026_end = get_month_end_timestamp(8);
-        assert_eq!(feb_2026_end - feb_2026_start, 28 * 86400);
+        assert_eq!(feb_2026_end - feb_2026_start, 28 * SECONDS_PER_DAY);
 
         // February 2028 has 29 days (leap year)
         let feb_2028_start = get_month_start_timestamp(32);
         let feb_2028_end = get_month_end_timestamp(32);
-        assert_eq!(feb_2028_end - feb_2028_start, 29 * 86400);
+        assert_eq!(feb_2028_end - feb_2028_start, 29 * SECONDS_PER_DAY);
     }
 
     #[test]
     fn test_days_between_full_days() {
-        let day1 = PERIOD_ZERO;           // June 1, 2025 00:00:00
-        let day2 = day1 + 86400;          // June 2, 2025 00:00:00
-        let day30 = day1 + (29 * 86400);  // June 30, 2025 00:00:00
+        let day1 = PERIOD_ZERO;                       // June 1, 2025 00:00:00
+        let day2 = day1 + SECONDS_PER_DAY;            // June 2, 2025 00:00:00
+        let day30 = day1 + (29 * SECONDS_PER_DAY);    // June 30, 2025 00:00:00
 
         assert_eq!(days_between(day1, day2), 1);
         assert_eq!(days_between(day1, day30), 29);
@@ -328,9 +363,9 @@ mod tests {
     #[test]
     fn test_days_between_partial_days() {
         let day1 = PERIOD_ZERO;
-        let day1_noon = day1 + 43200;    // 12 hours later
-        let day2 = day1 + 86400;
-        let day2_6pm = day2 + 64800;     // 18 hours into day 2
+        let day1_noon = day1 + (SECONDS_PER_DAY / 2);      // 12 hours later
+        let day2 = day1 + SECONDS_PER_DAY;
+        let day2_6pm = day2 + (SECONDS_PER_DAY * 3 / 4);   // 18 hours into day 2
 
         // Partial day floors to 0
         assert_eq!(days_between(day1, day1_noon), 0);
@@ -342,7 +377,7 @@ mod tests {
     #[test]
     fn test_days_between_negative() {
         let day1 = PERIOD_ZERO;
-        let day2 = day1 + 86400;
+        let day2 = day1 + SECONDS_PER_DAY;
 
         // If end < start, result is negative
         assert_eq!(days_between(day2, day1), -1);
@@ -352,7 +387,7 @@ mod tests {
     fn test_time_weighted_calculation_scenario() {
         // Simulate TDD stake scenario: staking on June 16, 2025
         let current_month = 0;  // June 2025
-        let stake_timestamp = PERIOD_ZERO + (15 * 86400);  // Day 16 (0-indexed = 15)
+        let stake_timestamp = PERIOD_ZERO + (15 * SECONDS_PER_DAY);  // Day 16 (0-indexed = 15)
 
         let month_end = get_month_end_timestamp(current_month);
         let days_remaining = days_between(stake_timestamp, month_end);
@@ -376,7 +411,7 @@ mod tests {
     fn test_time_weighted_edge_case_last_day() {
         // Stake on last day of month
         let current_month = 0;  // June 2025
-        let last_day = get_month_end_timestamp(current_month) - 86400;  // June 30 00:00:00
+        let last_day = get_month_end_timestamp(current_month) - SECONDS_PER_DAY;  // June 30 00:00:00
 
         let month_end = get_month_end_timestamp(current_month);
         let days_remaining = days_between(last_day, month_end);
