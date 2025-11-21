@@ -180,12 +180,6 @@ pub fn process_deposit_emissions<'a>(
             system_program,
         )?;
 
-        // Validate worker wallet account matches config
-        if *worker_wallet_account.key != worker_wallet {
-            msg!("Error: Worker wallet account does not match config");
-            return Err(ProgramError::InvalidArgument);
-        }
-
         // Initialize worker wallet BMB ATA if needed (lazy, idempotent)
         initialize_ata_if_needed(
             depositor_wallet,
@@ -269,12 +263,6 @@ pub fn process_deposit_emissions<'a>(
         );
     } else {
         // No pool - full amount to worker wallet
-
-        // Validate worker wallet account matches config
-        if *worker_wallet_account.key != worker_wallet {
-            msg!("Error: Worker wallet account does not match config");
-            return Err(ProgramError::InvalidArgument);
-        }
 
         // Initialize worker wallet BMB ATA if needed (lazy, idempotent)
         initialize_ata_if_needed(
