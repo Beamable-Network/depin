@@ -131,7 +131,7 @@ pub fn process_worker_unstake<'a>(
         &[signer_seeds],
     )?;
 
-    if vault_account.amount - amount == 0 {
+    if vault_account.amount == amount {
         msg!("Worker stake vault is now empty, closing the ATA");
         let close_ix = spl_token::instruction::close_account(
             token_program.key,
