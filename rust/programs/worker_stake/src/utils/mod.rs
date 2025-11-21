@@ -22,6 +22,14 @@ pub const TREASURY_SEED: &[u8] = b"treasury";
 /// Maximum basis points (100%)
 pub const MAX_BASIS_POINTS: u16 = 10_000;
 
+// Metaplex Core collection account layout constants
+/// Size of the discriminator/key field in collection account
+const COLLECTION_KEY_SIZE: usize = 1;
+/// Size of a Pubkey (update_authority field)
+const PUBKEY_SIZE: usize = 32;
+/// Minimum data length required to read update_authority (key + pubkey)
+const COLLECTION_MIN_DATA_LEN: usize = COLLECTION_KEY_SIZE + PUBKEY_SIZE;
+
 /// BMB tokens required per checker point (for addon pool eligibility)
 /// Points = min(checker_count, floor(staked_bmb / BMB_PER_POINT))
 /// This is 2500 BMB in base units
@@ -93,16 +101,17 @@ pub fn validate_collection_authority<'a>(
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    // Read update_authority directly from bytes (offset 1-33)
+    // Read update_authority directly from bytes
     // Collection layout: key (1 byte) + update_authority (32 bytes) + ...
     let data = worker_collection_account.try_borrow_data()?;
-    if data.len() < 33 {
+    if data.len() < COLLECTION_MIN_DATA_LEN {
         msg!("Error: Collection account data too short");
         return Err(ProgramError::InvalidAccountData);
     }
 
     let update_authority =
-        Pubkey::try_from(&data[1..33]).map_err(|_| ProgramError::InvalidAccountData)?;
+        Pubkey::try_from(&data[COLLECTION_KEY_SIZE..COLLECTION_MIN_DATA_LEN])
+            .map_err(|_| ProgramError::InvalidAccountData)?;
 
     if &update_authority != expected_authority.key {
         msg!("Error: Collection authority does not match signer");
