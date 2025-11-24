@@ -1,5 +1,5 @@
 import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
-import { Address, none, some } from 'gill';
+import { Address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { BMB_MINT, getCurrentPeriod, LockedTokensAccount, TreasuryAuthority, TreasuryStateAccount, Unlock } from '@beamable-network/depin';
@@ -40,7 +40,7 @@ describe('Unlock locked tokens', async () => {
         const lockPeriod = 99;
 
         // Mock locked tokens account with unlock period in the past
-        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, 100, lockPeriod, null);
+        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, 100, lockPeriod);
 
         // Set current period to be after unlock period to avoid penalty
         lite.goToPeriod(105);
@@ -77,6 +77,53 @@ describe('Unlock locked tokens', async () => {
         );
     });
 
+    it('should return rent to user when account is closed on unlock', async () => {
+        const lockedAmount = 10_000n;
+        lite.goToPeriod(100);
+        const lockPeriod = 99;
+
+        // Mock locked tokens account with unlock period in the past
+        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, 100, lockPeriod);
+
+        // Get the locked tokens PDA to check its rent
+        const lockedTokensPda = await LockedTokensAccount.findLockedTokensPDA(tokenOwner.address, lockPeriod, 100);
+        const lockedAccountBefore = lite.getAccount(lockedTokensPda[0]);
+        expect(lockedAccountBefore).not.toBeNull();
+        const rentAmount = lockedAccountBefore!.lamports;
+        expect(rentAmount).toBeGreaterThan(0n);
+
+        // Get initial SOL balance of owner
+        const ownerAccountBefore = lite.getAccount(tokenOwner.address);
+        const initialOwnerLamports = ownerAccountBefore?.lamports ?? 0;
+
+        // Set current period to be after unlock period to avoid penalty
+        lite.goToPeriod(105);
+
+        const unlock = new Unlock({
+            owner: tokenOwner.address,
+            lock_period: lockPeriod,
+            owner_bmb_token_account: tokenOwnerAtaAddress,
+            unlock_period_for_address: 100,
+        });
+
+        // Execute unlock transaction
+        await lite.buildTransaction()
+            .addInstruction(await unlock.getInstruction())
+            .sendTransaction({ payer: tokenOwner });
+
+        // Verify account is closed
+        const lockedAccountAfter = lite.getAccount(lockedTokensPda[0]);
+        expect(lockedAccountAfter).toBeNull();
+
+        // Verify rent was returned to owner (minus transaction fee)
+        const ownerAccountAfter = lite.getAccount(tokenOwner.address);
+        const finalOwnerLamports = ownerAccountAfter?.lamports ?? 0;
+
+        // Owner's lamports should increase by at least the rent amount (minus fees)
+        const lamportChange = finalOwnerLamports - initialOwnerLamports;
+        expect(lamportChange).toBeGreaterThan(0);
+    });
+
     it('should unlock tokens with penalty when unlocked early', async () => {
         const lockedAmount = 10_000n;
         lite.goToPeriod(100); // Set period to 100 for consistent test behavior
@@ -85,7 +132,7 @@ describe('Unlock locked tokens', async () => {
         const unlockPeriod = 100 + lockDuration; // Will unlock at period 190
 
         // Mock locked tokens account
-        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, unlockPeriod, lockPeriod, null);
+        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, unlockPeriod, lockPeriod);
 
         // Set current period to halfway through lock period (should have ~50% penalty)
         const currentPeriod = 100 + Math.floor(lockDuration / 2); // ~50% through lock period
@@ -139,7 +186,7 @@ describe('Unlock locked tokens', async () => {
         const unlockPeriod = 190; // 90 days from period 100
 
         // Mock locked tokens account
-        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, unlockPeriod, lockPeriod, null);
+        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, unlockPeriod, lockPeriod);
 
         // Stay at current period (same as lock period = immediate unlock = maximum penalty)
         const unlock = new Unlock({
@@ -164,7 +211,7 @@ describe('Unlock locked tokens', async () => {
         const unlockPeriod = 190; // 90 days from period 100
 
         // Mock locked tokens account
-        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, unlockPeriod, lockPeriod, null);
+        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, unlockPeriod, lockPeriod);
 
         // Stay at current period (same as lock period = immediate unlock = maximum penalty)
         const unlock = new Unlock({
@@ -216,7 +263,7 @@ describe('Unlock locked tokens', async () => {
         const unlockPeriod = 190; // 90 days from period 100
 
         // Mock locked tokens account
-        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, unlockPeriod, lockPeriod, null);
+        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, unlockPeriod, lockPeriod);
 
         // Stay at current period (same as lock period = immediate unlock = maximum penalty)
         const unlock = new Unlock({
@@ -277,36 +324,12 @@ describe('Unlock locked tokens', async () => {
         }).rejects.toThrow("Transaction failed");
     });
 
-    it('should fail when trying to unlock already unlocked tokens', async () => {
-        const lockedAmount = 5_000n;
-        const lockPeriod = lite.getPeriod() - 1;
-        const unlockTimestamp = lite.getTime();
-
-        // Mock locked tokens account that's already been unlocked
-        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, 200, lockPeriod, unlockTimestamp);
-
-        lite.goToPeriod(105);
-
-        const unlock = new Unlock({
-            owner: tokenOwner.address,
-            lock_period: lockPeriod,
-            owner_bmb_token_account: tokenOwnerAtaAddress,
-        });
-
-        // Should fail because tokens were already unlocked
-        await expect(async () => {
-            return lite.buildTransaction()
-                .addInstruction(await unlock.getInstruction())
-                .sendTransaction({ payer: tokenOwner });
-        }).rejects.toThrow("Transaction failed");
-    });
-
     it('should fail when someone else tries to unlock tokens', async () => {
         const lockedAmount = 8_000n;
         const lockPeriod = lite.getPeriod() - 1;
 
         // Mock locked tokens account owned by tokenOwner
-        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, 200, lockPeriod, null);
+        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, 200, lockPeriod);
 
         // Create unauthorized user
         const unauthorizedUser = await lite.generateKeyPair();
@@ -334,7 +357,7 @@ describe('Unlock locked tokens', async () => {
         const wrongPeriod = lite.getPeriod() - 5;
 
         // Mock locked tokens account with correct period
-        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, 200, correctPeriod, null);
+        await createMockedLockedTokensAccount(lite, tokenOwner.address, lockedAmount, 200, correctPeriod);
 
         lite.goToPeriod(105);
 
@@ -352,6 +375,65 @@ describe('Unlock locked tokens', async () => {
                 .sendTransaction({ payer: tokenOwner });
         }).rejects.toThrow("Transaction failed");
     });
+
+    it('should handle old format accounts with extra bytes (backwards compatibility)', async () => {
+        const lockedAmount = 10_000n;
+        lite.goToPeriod(100);
+        const lockPeriod = 99;
+        const unlockPeriod = 100;
+
+        const lockedTokensPda = await LockedTokensAccount.findLockedTokensPDA(tokenOwner.address, lockPeriod, unlockPeriod);
+
+        // Create account using new format, then extend with random bytes to simulate old larger account
+        const lockedTokensAccount = new LockedTokensAccount({
+            owner: tokenOwner.address,
+            totalLocked: lockedAmount,
+            lockPeriod,
+            unlockPeriod,
+        });
+        const newFormatData = LockedTokensAccount.serialize(lockedTokensAccount);
+
+        // Extend with 9 random bytes to simulate old 54-byte format (was 45 + 9 = 54)
+        const oldFormatData = new Uint8Array(54);
+        oldFormatData.set(newFormatData);
+        oldFormatData.set([0x00, 0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE], newFormatData.length);
+
+        // TEST 1: Verify SDK can deserialize old format data with trailing bytes
+        const deserializedAccount = LockedTokensAccount.deserializeFrom(oldFormatData);
+        expect(deserializedAccount.owner).toBe(tokenOwner.address);
+        expect(deserializedAccount.totalLocked).toBe(lockedAmount);
+        expect(deserializedAccount.lockPeriod).toBe(lockPeriod);
+        expect(deserializedAccount.unlockPeriod).toBe(unlockPeriod);
+
+        // TEST 2: Set old format account in ledger and verify program can unlock it
+        lite.setAccountData(lockedTokensPda[0], oldFormatData, 54);
+        await updateTreasuryStateLockedBalance(lite, lockedAmount);
+
+        lite.goToPeriod(105);
+
+        const unlock = new Unlock({
+            owner: tokenOwner.address,
+            lock_period: lockPeriod,
+            owner_bmb_token_account: tokenOwnerAtaAddress,
+            unlock_period_for_address: unlockPeriod,
+        });
+
+        const initialOwnerBalance = await lite.getTokenBalance(BMB_MINT, tokenOwner.address);
+
+        // Execute unlock - this should work with the old format account
+        const unlockResult = await lite.buildTransaction()
+            .addInstruction(await unlock.getInstruction())
+            .sendTransaction({ payer: tokenOwner });
+        expect(unlockResult.logs).toBeDefined();
+
+        // Verify unlock succeeded
+        const finalOwnerBalance = await lite.getTokenBalance(BMB_MINT, tokenOwner.address);
+        expect(finalOwnerBalance - initialOwnerBalance).toBe(lockedAmount);
+
+        // Verify account is closed
+        const accountAfter = lite.getAccount(lockedTokensPda[0]);
+        expect(accountAfter).toBeNull();
+    });
 });
 
 // Helper functions
@@ -361,7 +443,6 @@ async function createMockedLockedTokensAccount(
     totalLocked: bigint,
     unlockPeriod: number,
     lockPeriod: number,
-    unlockedAt: bigint | null
 ): Promise<void> {
     const lockedTokensPda = await LockedTokensAccount.findLockedTokensPDA(owner, lockPeriod, unlockPeriod);
 
@@ -371,7 +452,6 @@ async function createMockedLockedTokensAccount(
         totalLocked,
         lockPeriod,
         unlockPeriod,
-        unlockedAt: unlockedAt == null ? none() : some(unlockedAt)
     });
 
     // Serialize the account data
@@ -437,11 +517,11 @@ async function verifyUnlockResults(
     const finalTreasuryState = await getTreasuryState(lite);
     expect(initialTreasuryState.lockedBalance - finalTreasuryState.lockedBalance).toBe(lockedAmount);
 
-    // Verify locked tokens account is marked as unlocked
-    await verifyTokensMarkedAsUnlocked(lite, owner, lockPeriod, unlockPeriod);
+    // Verify locked tokens account is closed
+    await verifyAccountClosed(lite, owner, lockPeriod, unlockPeriod);
 }
 
-async function verifyTokensMarkedAsUnlocked(
+async function verifyAccountClosed(
     lite: LiteDepin,
     owner: Address,
     lockPeriod: number,
@@ -449,8 +529,6 @@ async function verifyTokensMarkedAsUnlocked(
 ): Promise<void> {
     const lockedTokensPda = await LockedTokensAccount.findLockedTokensPDA(owner, lockPeriod, unlockPeriod);
     const lockedTokensAccountData = lite.getAccountData(lockedTokensPda[0]);
-    expect(lockedTokensAccountData).not.toBeNull();
-
-    const lockedTokens = LockedTokensAccount.deserializeFrom(lockedTokensAccountData!);
-    expect(lockedTokens.unlockedAt).not.toBeNull();
+    // Account should be closed (null/empty data) after unlock
+    expect(lockedTokensAccountData).toBeNull();
 }

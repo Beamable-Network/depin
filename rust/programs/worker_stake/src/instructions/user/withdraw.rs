@@ -1,7 +1,7 @@
 use depin_core::{
     constants::{BMB_DECIMALS, BMB_MINT},
     utils::{
-        account::{read_account_data, write_account_data},
+        account::{read_account_data, write_account_data, close_account},
         bmb::{get_current_period, get_month_from_period}, validation::{require_signer, validate_ata_account, validate_mint, validate_pda_account},
     },
 };
@@ -168,15 +168,7 @@ pub fn process_withdraw<'a>(
     write_account_data(&mut config_data, WorkerStakeAccountType::WorkerStakeConfig, &config)?;
 
     // Close UserStakePosition account (rent returned to worker)
-    let dest_starting_lamports = worker_account.lamports();
-    **worker_account.lamports.borrow_mut() = dest_starting_lamports
-        .checked_add(user_position_account.lamports())
-        .ok_or(ProgramError::ArithmeticOverflow)?;
-    **user_position_account.lamports.borrow_mut() = 0;
-
-    // Zero out the account data
-    let mut position_data = user_position_account.try_borrow_mut_data()?;
-    position_data.fill(0);
+    close_account(user_position_account, worker_account)?;
 
     msg!("User withdrew {} BMB. Position closed, rent returned to worker.", user_position.staked_amount);
     Ok(())

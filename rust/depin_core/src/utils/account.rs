@@ -110,3 +110,31 @@ pub fn reallocate_account_if_needed<'a>(
     
     Ok(())
 }
+
+/// Closes an account by transferring all lamports to the recipient and zeroing the data.
+/// The Solana runtime will garbage collect the account at the end of the slot.
+///
+/// # Arguments
+/// * `account_to_close` - The account to close
+/// * `rent_recipient` - The account that will receive the rent lamports
+///
+/// # Returns
+/// The amount of lamports transferred to the recipient
+pub fn close_account<'a>(
+    account_to_close: &AccountInfo<'a>,
+    rent_recipient: &AccountInfo<'a>,
+) -> Result<u64, ProgramError> {
+    let rent_lamports = account_to_close.lamports();
+
+    // Transfer lamports to recipient
+    let dest_starting_lamports = rent_recipient.lamports();
+    **rent_recipient.lamports.borrow_mut() = dest_starting_lamports
+        .checked_add(rent_lamports)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    **account_to_close.lamports.borrow_mut() = 0;
+
+    // Zero out the account data
+    account_to_close.try_borrow_mut_data()?.fill(0);
+
+    Ok(rent_lamports)
+}

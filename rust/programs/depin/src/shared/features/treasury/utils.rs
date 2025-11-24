@@ -5,7 +5,6 @@ use solana_program::{
     program::invoke_signed,
     system_instruction,
     sysvar::{rent::Rent, Sysvar},
-    clock::Clock,
     msg,
 };
 use spl_token::{
@@ -22,7 +21,7 @@ use crate::shared::{
 use depin_core::{
     constants::BMB_MINT,
     utils::{
-        account::{read_account_data, write_account_data},
+        account::{read_account_data, write_account_data, close_account},
         bmb::get_current_period
     }
 };
@@ -136,12 +135,6 @@ pub fn grant_locked<'a>(
             return Err(ProgramError::InvalidAccountData);
         }
 
-        // Check if tokens were already unlocked (should not add to unlocked accounts)
-        if locked_tokens.unlocked_at.is_some() {
-            msg!("Error: Cannot add tokens to already unlocked account");
-            return Err(ProgramError::InvalidAccountData);
-        }
-
         // Ensure schedule matches the PDA we expect
         if locked_tokens.lock_period != current_period || locked_tokens.unlock_period != unlock_period {
             msg!("Error: LockedTokens schedule mismatch");
@@ -215,12 +208,6 @@ pub fn unlock<'a>(
         &locked_tokens_account.try_borrow_data()?,
         LockedTokens::account_type(),
     )?;
-
-    // Check if tokens were already unlocked
-    if locked_tokens.unlocked_at.is_some() {
-        msg!("Error: Tokens were already unlocked at timestamp {}", locked_tokens.unlocked_at.unwrap());
-        return Err(ProgramError::InvalidAccountData);
-    }
 
     // Check signer authorization
     if *signer_account.key != locked_tokens.owner {
@@ -316,16 +303,11 @@ pub fn unlock<'a>(
     let mut treasury_state_data = treasury_state_account.try_borrow_mut_data()?;
     write_account_data(&mut treasury_state_data, TreasuryState::account_type(), &treasury_state)?;
 
-    // Mark tokens as unlocked
-    let clock = Clock::get()?;
-    let mut updated_locked_tokens = locked_tokens;
-    updated_locked_tokens.unlocked_at = Some(clock.unix_timestamp);
-    let mut locked_tokens_data = locked_tokens_account.try_borrow_mut_data()?;
-    write_account_data(&mut locked_tokens_data, LockedTokens::account_type(), &updated_locked_tokens)?;
+    // Close the locked tokens account and return rent to the user
+    let rent_lamports = close_account(locked_tokens_account, signer_account)?;
 
-    // Note: Penalty amount stays in treasury, locked tokens account can be closed for rent recovery
-    msg!("Successfully unlocked {} BMB tokens (penalty: {} BMB retained in treasury)",
-        payout_amount, penalty_amount);
+    msg!("Successfully unlocked {} BMB tokens (penalty: {} BMB retained in treasury, {} lamports rent returned)",
+        payout_amount, penalty_amount, rent_lamports);
 
     Ok(())
 }

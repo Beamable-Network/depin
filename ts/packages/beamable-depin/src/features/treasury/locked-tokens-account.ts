@@ -6,19 +6,16 @@ import {
     getAddressCodec,
     getAddressEncoder,
     getBase58Codec,
-    getI64Codec,
-    getOptionCodec,
     GetProgramAccountsMemcmpFilter,
     getProgramDerivedAddress,
     getStructCodec,
     getU16Codec,
     getU64Codec,
-    Option,
     ProgramDerivedAddress
 } from "gill";
 import { DEPIN_PROGRAM, LOCK_SEED, TREASURY_SEED } from "../../constants.js";
 import { DepinAccountType } from "../../enums.js";
-import { addressToBase58EncodedBytes, getDepinAccountFilter, optionNoneToBase58EncodedBytes } from "../../utils/filters.js";
+import { addressToBase58EncodedBytes, getDepinAccountFilter } from "../../utils/filters.js";
 
 const addressEncoder = getAddressEncoder();
 
@@ -27,20 +24,17 @@ export class LockedTokensAccount {
     totalLocked: bigint;
     lockPeriod: number;
     unlockPeriod: number;
-    unlockedAt: Option<bigint>;
 
     constructor(fields: {
         owner: Address;
         totalLocked: bigint;
         lockPeriod: number;
         unlockPeriod: number;
-        unlockedAt: Option<bigint>;
     }) {
         this.owner = fields.owner;
         this.totalLocked = fields.totalLocked;
         this.lockPeriod = fields.lockPeriod;
         this.unlockPeriod = fields.unlockPeriod;
-        this.unlockedAt = fields.unlockedAt;
     }
 
     public static readonly DataCodecV1: Codec<LockedTokensAccount> = getStructCodec([
@@ -48,7 +42,6 @@ export class LockedTokensAccount {
         ["totalLocked", getU64Codec()],
         ["lockPeriod", getU16Codec()],
         ["unlockPeriod", getU16Codec()],
-        ["unlockedAt", getOptionCodec(getI64Codec())],
     ]);
 
     public static deserializeFrom(accountData: ArrayLike<number>): LockedTokensAccount;
@@ -81,8 +74,8 @@ export class LockedTokensAccount {
     }
 
     public static calculateAccountSize(): number {
-        // discriminator + owner + totalLocked + lockPeriod + unlockPeriod + Option<i64>
-        return 1 + 32 + 8 + 2 + 2 + 1 + 8; // 54 bytes total
+        // discriminator + owner + totalLocked + lockPeriod + unlockPeriod
+        return 1 + 32 + 8 + 2 + 2; // 45 bytes total
     }
 
     public static async findLockedTokensPDA(owner: Address, lockPeriod: number, unlockPeriod: number): Promise<ProgramDerivedAddress> {
@@ -112,13 +105,6 @@ export class LockedTokensAccount {
                         encoding: 'base58',
                     }
                 },
-                {
-                    memcmp: {
-                        offset: BigInt(1 + 32 + 8 + 2 + 2), // discriminator + owner + totalLocked + lockPeriod + unlockPeriod
-                        bytes: optionNoneToBase58EncodedBytes(), // Option<i64> None is single 0 byte
-                        encoding: 'base58',
-                    }
-                }
             ]
         );
 

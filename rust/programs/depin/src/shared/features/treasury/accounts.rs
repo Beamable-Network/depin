@@ -77,11 +77,10 @@ pub struct LockedTokens {
     pub total_locked: u64,
     pub lock_period: u16,    // Period when tokens were locked
     pub unlock_period: u16,  // Period when tokens can be unlocked without penalty
-    pub unlocked_at: Option<i64>, // Timestamp when tokens were unlocked (None if still locked)
 }
 
 impl LockedTokens {
-    pub const LEN: usize = 1 + 32 + 8 + 2 + 2 + 1 + 8; // discriminator + owner + total_locked + lock_period + unlock_period + Option<i64>
+    pub const LEN: usize = 1 + 32 + 8 + 2 + 2; // discriminator + owner + total_locked + lock_period + unlock_period
 
     pub fn find_pda(program_id: &Pubkey, owner: &Pubkey, lock_period: u16, unlock_period: u16) -> (Pubkey, u8) {
         Pubkey::find_program_address(
@@ -95,7 +94,7 @@ impl LockedTokens {
             program_id,
         )
     }
-    
+
     pub fn account_type() -> DepinAccountType {
         DepinAccountType::LockedTokens
     }
@@ -106,7 +105,6 @@ impl LockedTokens {
             total_locked: amount,
             lock_period,
             unlock_period,
-            unlocked_at: None,
         }
     }
 

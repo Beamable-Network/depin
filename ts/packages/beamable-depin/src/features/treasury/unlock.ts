@@ -4,7 +4,6 @@ import {
     Codec,
     getStructCodec,
     getU16Codec,
-    isNone,
     Rpc,
     SolanaRpcApi
 } from "gill";
@@ -68,7 +67,7 @@ export class Unlock {
                 const accounts = await LockedTokensAccount.getLockedTokens(async (programAddress, filters) => {
                     return await rpc.getProgramAccounts(programAddress, { filters }).send();
                 }, this.owner);
-                const match = accounts.find(a => a.data.lockPeriod === this.params.lock_period && isNone(a.data.unlockedAt));
+                const match = accounts.find(a => a.data.lockPeriod === this.params.lock_period);
                 if (match) unlockPeriod = match.data.unlockPeriod;
             } catch (err) {
                 // ignore, will error below if still undefined
