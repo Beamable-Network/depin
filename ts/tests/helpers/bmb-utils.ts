@@ -77,14 +77,14 @@ export async function initializeNetwork(
 export async function standardNetworkSetup(params: StandardNetworkSetupParams): Promise<void> {
     const { lite, signer } = params;
     await lite.airdrop(signer, 10);
-
-    await lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, signer.web3PublicKey);
-    await initializeNetwork({ lite, signer });
-
+    
     // Initialize BMB mint and depintreasury with some tokens
     await lite.createToken(BMB_MINT, signer);
     const [depinTreasury] = await TreasuryAuthority.findDepinTreasuryPDA();
     await lite.mintToken(BMB_MINT, depinTreasury, BigInt(10_000_000_000), signer);
+
+    await lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, signer.web3PublicKey);
+    await initializeNetwork({ lite, signer });
 
     await lite.createLicenseTree({ creator: signer });
 }

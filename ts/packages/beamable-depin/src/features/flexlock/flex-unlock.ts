@@ -81,7 +81,7 @@ export class FlexUnlock {
 
         let accounts = [
             { address: this.receiver, role: AccountRole.READONLY_SIGNER },
-            { address: this.sender, role: AccountRole.READONLY },
+            { address: this.sender, role: AccountRole.WRITABLE },
             { address: flexlockTokensPda[0], role: AccountRole.WRITABLE },
             { address: flexlockVaultAta[0], role: AccountRole.WRITABLE },
             { address: flexlockVaultAuthorityPda[0], role: AccountRole.READONLY },

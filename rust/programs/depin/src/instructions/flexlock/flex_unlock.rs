@@ -12,7 +12,7 @@ pub fn process_flex_unlock<'info>(
 ) -> ProgramResult {
     // Expected Accounts:
     // 0. [signer] Receiver account (must be the receiver of the locked tokens)
-    // 1. [readonly] Sender account (original sender of the locked tokens)
+    // 1. [writable] Sender account (original sender of the locked tokens)
     // 2. [writable] FlexlockTokens PDA account
     // 3. [writable] Flexlock vault ATA account
     // 4. [readonly] Flexlock vault authority PDA account
