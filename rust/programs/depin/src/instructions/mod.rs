@@ -4,3 +4,4 @@ pub mod admin;
 pub mod treasury;
 pub mod worker;
 pub mod view;
+pub mod flexlock;

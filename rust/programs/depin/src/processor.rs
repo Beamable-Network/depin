@@ -7,6 +7,7 @@ use crate::instructions::{
     treasury::unlock::process_unlock,
     view::process_view_checker_reward,
     worker::{process_activate_worker, process_submit_worker_proof, process_update_worker_uri},
+    flexlock::{flex_lock::process_flex_lock, flex_unlock::process_flex_unlock},
 };
 use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey};
 
@@ -52,6 +53,12 @@ pub fn process<'a>(
         },
         DepinInstruction::ViewCheckerReward => {
             process_view_checker_reward(program_id, accounts, data)?;
+        },
+        DepinInstruction::FlexLock => {
+            process_flex_lock(program_id, accounts, data)?;
+        },
+        DepinInstruction::FlexUnlock => {
+            process_flex_unlock(program_id, accounts, data)?;
         }
     }
     Ok(())

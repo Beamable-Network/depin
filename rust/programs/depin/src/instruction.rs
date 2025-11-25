@@ -12,6 +12,8 @@ pub enum DepinInstruction {
     SetBMBState = 10,
     SetTreasuryConfig = 11,
     ViewCheckerReward = 12,
+    FlexLock = 13,
+    FlexUnlock = 14,
 }
 
 impl DepinInstruction {
@@ -32,6 +34,8 @@ impl DepinInstruction {
             10 => Self::SetBMBState,
             11 => Self::SetTreasuryConfig,
             12 => Self::ViewCheckerReward,
+            13 => Self::FlexLock,
+            14 => Self::FlexUnlock,
             _ => return Err(ProgramError::InvalidInstructionData),
         })
     }
