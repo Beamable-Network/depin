@@ -11,6 +11,7 @@ pub enum DepinAccountType {
     TreasuryState = 8,
     LockedTokens = 9,
     TreasuryConfig = 10,
+    FlexlockTokens = 11,
 }
 
 impl Into<u8> for DepinAccountType {

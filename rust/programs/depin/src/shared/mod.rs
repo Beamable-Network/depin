@@ -32,4 +32,8 @@ pub mod features {
         pub mod accounts;
         pub mod utils;
     }
+    pub mod flexlock {
+        pub mod accounts;
+        pub mod utils;
+    }
 }

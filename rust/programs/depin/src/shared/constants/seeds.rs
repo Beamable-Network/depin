@@ -6,6 +6,7 @@ pub const METADATA_SEED: &[u8] = b"meta";
 pub const ESCROW_SEED: &[u8] = b"escrow";
 pub const TOKEN_SEED: &[u8] = b"token";
 pub const TREASURY_SEED: &[u8] = b"treasury";
+pub const VAULT_SEED: &[u8] = b"vault";
 pub const LOCK_SEED: &[u8] = b"lock";
 pub const CONFIG_SEED: &[u8] = b"config";
 
@@ -17,3 +18,5 @@ pub const WORKER_SEED: &[u8] = b"worker";
 pub const LICENSE_SEED: &[u8] = b"license";
 
 pub const CHECKER_SEED: &[u8] = b"checker";
+
+pub const FLEXLOCK_SEED: &[u8] = b"flexlock";

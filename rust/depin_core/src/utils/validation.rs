@@ -32,7 +32,7 @@ pub fn validate_pda_account<'a>(
 ///
 /// # Arguments
 /// * `ata_account` - The ATA account to validate
-/// * `owner_pda` - The PDA that owns the ATA
+/// * `owner` - The owner of the ATA
 /// * `mint` - The token mint
 /// * `token_name` - Human-readable token name for error messages
 ///
@@ -41,12 +41,12 @@ pub fn validate_pda_account<'a>(
 /// * `Err(ProgramError::InvalidArgument)` if validation fails
 pub fn validate_ata_account<'a>(
     ata_account: &AccountInfo<'a>,
-    owner_pda: &Pubkey,
+    owner: &Pubkey,
     mint: &Pubkey,
     token_name: &str,
 ) -> ProgramResult {
     let expected_ata = spl_associated_token_account::get_associated_token_address(
-        owner_pda,
+        owner,
         mint,
     );
     if *ata_account.key != expected_ata {

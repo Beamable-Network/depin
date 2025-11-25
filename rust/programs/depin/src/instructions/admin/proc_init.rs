@@ -1,11 +1,15 @@
 use crate::shared::constants::seeds::{GLOBAL_REWARDS_SEED, GLOBAL_SEED, TREASURY_SEED, STATE_SEED};
+use crate::shared::features::flexlock::accounts::FlexlockVaultAuthority;
 use crate::shared::features::rewards::accounts::GlobalRewards;
 use crate::shared::features::treasury::accounts::{TreasuryState, TreasuryConfig};
 use crate::shared::features::global::accounts::BMBState;
 use borsh::{BorshDeserialize, BorshSerialize};
+use depin_core::constants::BMB_MINT;
 use depin_core::types::account::DepinAccountType;
 use depin_core::utils::account::{write_account_data, reallocate_account_if_needed};
 use depin_core::utils::program_data::validate_upgrade_authority;
+use depin_core::utils::tokens::initialize_ata_if_needed;
+use depin_core::utils::validation::{validate_ata_account, validate_pda_account};
 use solana_program::program::invoke_signed;
 use solana_program::rent::Rent;
 use solana_program::{system_instruction};
@@ -34,7 +38,12 @@ pub fn process_init_network<'a>(
     // 3. [writable] TreasuryState PDA
     // 4. [writable] TreasuryConfig PDA
     // 5. [writable] BMBState PDA
-    // 6. [] System program account (for account creation)
+    // 6. [readonly] BMB mint account
+    // 7. [readonly] Flexlock vault account
+    // 8. [writable] Flexlock vault BMB ATA account
+    // 9. [readonly] Token program account
+    // 10. [readonly] Associated token program account
+    // 11. [] System program account (for account creation)
     let account_info_iter = &mut accounts.iter();
     let upgrade_authority_account = next_account_info(account_info_iter)?;
     let program_data_account = next_account_info(account_info_iter)?;
@@ -42,6 +51,11 @@ pub fn process_init_network<'a>(
     let treasury_state_account = next_account_info(account_info_iter)?;
     let treasury_config_account = next_account_info(account_info_iter)?;
     let bmb_state_account = next_account_info(account_info_iter)?;
+    let bmb_mint_account = next_account_info(account_info_iter)?;
+    let flexlock_vault_account = next_account_info(account_info_iter)?;
+    let flexlock_vault_ata_account = next_account_info(account_info_iter)?;
+    let token_program_account = next_account_info(account_info_iter)?;
+    let associated_token_program_account = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
     // Validate upgrade authority
@@ -55,6 +69,27 @@ pub fn process_init_network<'a>(
     init_treasury_state(program_id, upgrade_authority_account, treasury_state_account, system_program)?;
     init_treasury_config(program_id, upgrade_authority_account, treasury_config_account, system_program)?;
     init_bmb_state(program_id, upgrade_authority_account, bmb_state_account, system_program)?;
+    init_flexlock(program_id, upgrade_authority_account, flexlock_vault_account, flexlock_vault_ata_account, bmb_mint_account, token_program_account, associated_token_program_account, system_program)?;
+    Ok(())
+}
+
+fn init_flexlock<'a>(
+    program_id: &Pubkey,
+    payer_account: &AccountInfo<'a>,
+    flexlock_vault_account: &AccountInfo<'a>,
+    flexlock_vault_ata_account: &AccountInfo<'a>,
+    bmb_mint_account: &AccountInfo<'a>,
+    token_program_account: &AccountInfo<'a>,
+    associated_token_program_account: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>
+) -> ProgramResult {
+    let (vault_authority_pda, _) = FlexlockVaultAuthority::find_pda(program_id);
+
+    validate_pda_account(flexlock_vault_account, &vault_authority_pda, "Flexlock Vault")?;
+    validate_pda_account(bmb_mint_account, &BMB_MINT, "BMB Mint")?;
+    validate_ata_account(flexlock_vault_ata_account, &vault_authority_pda, &BMB_MINT, "Flexlock Vault ATA")?;
+
+    initialize_ata_if_needed(payer_account, flexlock_vault_account, bmb_mint_account, flexlock_vault_ata_account, token_program_account, associated_token_program_account, system_program)?;
     Ok(())
 }
 
