@@ -13,7 +13,7 @@ import {
 import { standardNetworkSetup } from '../../helpers/bmb-utils.js';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 
-describe('FlexLock and FlexUnlock', async () => {
+describe('Basic FlexLock and FlexUnlock', async () => {
     let lite: LiteDepin;
     let authority: LiteKeyPair;
     let sender: LiteKeyPair;
