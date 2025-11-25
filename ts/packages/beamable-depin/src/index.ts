@@ -26,6 +26,10 @@ export { LockedTokensAccount } from './features/treasury/locked-tokens-account.j
 export { assetToCNftContext } from './utils/bubblegum.js';
 export { SetBMBState } from './features/admin/set-bmb-state.js';
 export { SetTreasuryConfig } from './features/admin/set-treasury-config.js';
+export { FlexlockVaultAuthority } from './features/flexlock/flexlock-vault-authority.js';
+export { FlexlockTokensAccount } from './features/flexlock/flexlock-tokens-account.js';
+export { FlexLock } from './features/flexlock/flex-lock.js';
+export { FlexUnlock } from './features/flexlock/flex-unlock.js';
 
 export * from './features/rewards/view-checker-reward.js';
 export * from './features/worker/worker-metadata-account.js';
