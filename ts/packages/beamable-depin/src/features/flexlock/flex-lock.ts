@@ -31,14 +31,12 @@ export interface CreateFlexLockInput {
     receiver: Address;  // The receiver who will be able to unlock the tokens
     amount: bigint;  // Amount of BMB tokens to lock
     lock_duration_days: number;  // Duration in days (e.g., 365 for 12 months)
-    sender_bmb_token_account: Address; // Address of sender's BMB token account
     current_period: number;  // Current period for PDA derivation
 }
 
 export class FlexLock {
     readonly sender: Address;
     readonly params: FlexLockParams;
-    readonly sender_bmb_token_account: Address;
     readonly current_period: number;
 
     constructor(input: CreateFlexLockInput) {
@@ -49,7 +47,6 @@ export class FlexLock {
         };
 
         this.sender = input.sender;
-        this.sender_bmb_token_account = input.sender_bmb_token_account;
         this.current_period = input.current_period;
     }
 
@@ -75,9 +72,15 @@ export class FlexLock {
             unlock_period
         );
 
+        const sender_bmb_token_account = await findAssociatedTokenPda({
+            mint: BMB_MINT,
+            owner: this.sender,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+
         let accounts = [
             { address: this.sender, role: AccountRole.WRITABLE_SIGNER },
-            { address: this.sender_bmb_token_account, role: AccountRole.WRITABLE },
+            { address: sender_bmb_token_account[0], role: AccountRole.WRITABLE },
             { address: flexlockTokensPda[0], role: AccountRole.WRITABLE },
             { address: flexlockVaultAta[0], role: AccountRole.WRITABLE },
             { address: BMB_MINT, role: AccountRole.READONLY },

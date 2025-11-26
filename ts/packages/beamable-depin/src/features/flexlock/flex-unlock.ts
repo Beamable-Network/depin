@@ -12,8 +12,6 @@ import { FlexlockVault } from "./flexlock-vault.js";
 export interface CreateFlexUnlockInput {
     receiver: Address;
     sender: Address;
-    receiver_bmb_token_account: Address;
-    sender_bmb_token_account: Address;
     lock_period: number;
     rent_receiver: Address;
     unlock_period: number;
@@ -22,16 +20,12 @@ export interface CreateFlexUnlockInput {
 export class FlexUnlock {
     readonly receiver: Address;
     readonly sender: Address;
-    readonly receiver_bmb_token_account: Address;
-    readonly sender_bmb_token_account: Address;
     readonly lock_period: number;
     readonly rent_receiver: Address;
     readonly unlock_period: number;
     constructor(input: CreateFlexUnlockInput) {
         this.receiver = input.receiver;
         this.sender = input.sender;
-        this.receiver_bmb_token_account = input.receiver_bmb_token_account;
-        this.sender_bmb_token_account = input.sender_bmb_token_account;
         this.lock_period = input.lock_period;
         this.rent_receiver = input.rent_receiver;
         this.unlock_period = input.unlock_period;
@@ -57,14 +51,26 @@ export class FlexUnlock {
             this.unlock_period
         );
 
+        const receiver_bmb_token_account = await findAssociatedTokenPda({
+            mint: BMB_MINT,
+            owner: this.receiver,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+
+        const sender_bmb_token_account = await findAssociatedTokenPda({
+            mint: BMB_MINT,
+            owner: this.sender,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+
         let accounts = [
             { address: this.receiver, role: AccountRole.READONLY_SIGNER },
             { address: this.sender, role: AccountRole.WRITABLE },
             { address: flexlockTokensPda[0], role: AccountRole.WRITABLE },
             { address: flexlockVaultAta[0], role: AccountRole.WRITABLE },
             { address: flexlockVaultPda[0], role: AccountRole.READONLY },
-            { address: this.receiver_bmb_token_account, role: AccountRole.WRITABLE },
-            { address: this.sender_bmb_token_account, role: AccountRole.WRITABLE },
+            { address: receiver_bmb_token_account[0], role: AccountRole.WRITABLE },
+            { address: sender_bmb_token_account[0], role: AccountRole.WRITABLE },
             { address: this.rent_receiver, role: AccountRole.WRITABLE },
             { address: BMB_MINT, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
