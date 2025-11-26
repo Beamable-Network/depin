@@ -13,40 +13,40 @@ import {
 import { DEPIN_PROGRAM } from "../../constants.js";
 import { DepinInstruction } from "../../enums.js";
 import { getProgramDataAddress } from "../../index.js";
-import { DepinTreasuryConfigAccount } from "../treasury/depin-treasury-config-account.js";
+import { CheckerRewardsVault } from "../rewards/checker-rewards-vault.js";
 
-export interface SetTreasuryConfigParams {
-    checker_rewards_lock_days: Option<number>;
+export interface SetCheckerRewardsVaultParams {
+    lock_days: Option<number>;
 }
 
-export const SetTreasuryConfigParamsCodec: Codec<SetTreasuryConfigParams> = getStructCodec([
-    ["checker_rewards_lock_days", getOptionCodec(getU16Codec())],
+export const SetCheckerRewardsVaultParamsCodec: Codec<SetCheckerRewardsVaultParams> = getStructCodec([
+    ["lock_days", getOptionCodec(getU16Codec())],
 ]);
 
-export interface CreateSetTreasuryConfigInput {
+export interface CreateSetCheckerRewardsVaultInput {
     signer: Address;
-    checker_rewards_lock_days?: number;
+    lock_days?: number;
 }
 
-export class SetTreasuryConfig {
+export class SetCheckerRewardsVault {
     signer: Address;
-    readonly params: SetTreasuryConfigParams;
+    readonly params: SetCheckerRewardsVaultParams;
 
-    constructor(input: CreateSetTreasuryConfigInput) {
+    constructor(input: CreateSetCheckerRewardsVaultInput) {
         this.params = {
-            checker_rewards_lock_days: input.checker_rewards_lock_days ? some(input.checker_rewards_lock_days) : none(),
+            lock_days: input.lock_days ? some(input.lock_days) : none(),
         };
 
         this.signer = input.signer;
     }
 
     private serialize(): Uint8Array {
-        const inner = SetTreasuryConfigParamsCodec.encode(this.params);
-        return Uint8Array.of(DepinInstruction.SetTreasuryConfig, ...inner);
+        const inner = SetCheckerRewardsVaultParamsCodec.encode(this.params);
+        return Uint8Array.of(DepinInstruction.SetCheckerRewardsVault, ...inner);
     }
 
     public async getInstruction() {
-        const treasuryConfigPda = await DepinTreasuryConfigAccount.findTreasuryConfigPDA();
+        const checkerRewardsVaultPda = await CheckerRewardsVault.findPDA();
 
         // Calculate ProgramData PDA for upgrade authority verification
         const programDataAddress = await getProgramDataAddress(DEPIN_PROGRAM);
@@ -54,7 +54,7 @@ export class SetTreasuryConfig {
         let accounts = [
             { address: this.signer, role: AccountRole.WRITABLE_SIGNER },
             { address: programDataAddress, role: AccountRole.READONLY },
-            { address: treasuryConfigPda[0], role: AccountRole.WRITABLE },
+            { address: checkerRewardsVaultPda[0], role: AccountRole.WRITABLE },
         ];
 
         return {

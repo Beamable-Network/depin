@@ -20,6 +20,7 @@ pub fn process_flex_unlock<'info>(
     // 6. [writable] Sender's BMB token account (ATA) - where penalty will be returned
     // 7. [readonly] BMB mint account
     // 8. [readonly] Token program
+    // 9. [writable] Rent receiver account (receives rent when FlexlockTokens account is closed)
 
     let account_info_iter = &mut accounts.iter();
     let receiver_account = next_account_info(account_info_iter)?;
@@ -29,6 +30,7 @@ pub fn process_flex_unlock<'info>(
     let flexlock_vault_authority_account = next_account_info(account_info_iter)?;
     let receiver_ata_account = next_account_info(account_info_iter)?;
     let sender_ata_account = next_account_info(account_info_iter)?;
+    let rent_receiver_account = next_account_info(account_info_iter)?;
     let bmb_mint_account = next_account_info(account_info_iter)?;
     let token_program = next_account_info(account_info_iter)?;
 
@@ -43,6 +45,7 @@ pub fn process_flex_unlock<'info>(
         sender_ata_account,
         bmb_mint_account,
         token_program,
+        rent_receiver_account,
     )?;
 
     Ok(())

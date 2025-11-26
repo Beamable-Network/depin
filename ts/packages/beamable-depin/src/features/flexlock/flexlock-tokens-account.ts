@@ -25,6 +25,7 @@ export class FlexlockTokensAccount {
     amount: bigint;
     lockPeriod: number;
     unlockPeriod: number;
+    rentReceiver: Address;
 
     constructor(fields: {
         sender: Address;
@@ -32,12 +33,14 @@ export class FlexlockTokensAccount {
         amount: bigint;
         lockPeriod: number;
         unlockPeriod: number;
+        rentReceiver: Address;
     }) {
         this.sender = fields.sender;
         this.receiver = fields.receiver;
         this.amount = fields.amount;
         this.lockPeriod = fields.lockPeriod;
         this.unlockPeriod = fields.unlockPeriod;
+        this.rentReceiver = fields.rentReceiver;
     }
 
     public static readonly DataCodecV1: Codec<FlexlockTokensAccount> = getStructCodec([
@@ -46,6 +49,7 @@ export class FlexlockTokensAccount {
         ["amount", getU64Codec()],
         ["lockPeriod", getU16Codec()],
         ["unlockPeriod", getU16Codec()],
+        ["rentReceiver", getAddressCodec()],
     ]);
 
     public static deserializeFrom(accountData: ArrayLike<number>): FlexlockTokensAccount;
@@ -78,8 +82,8 @@ export class FlexlockTokensAccount {
     }
 
     public static calculateAccountSize(): number {
-        // discriminator + sender + receiver + amount + lockPeriod + unlockPeriod
-        return 1 + 32 + 32 + 8 + 2 + 2; // 77 bytes total
+        // discriminator + sender + receiver + amount + lockPeriod + unlockPeriod + rentReceiver
+        return 1 + 32 + 32 + 8 + 2 + 2 + 32; // 109 bytes total
     }
 
     public static async findFlexlockTokensPDA(

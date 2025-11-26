@@ -1,7 +1,6 @@
-use crate::shared::constants::seeds::{GLOBAL_REWARDS_SEED, GLOBAL_SEED, TREASURY_SEED, STATE_SEED};
-use crate::shared::features::flexlock::accounts::FlexlockVaultAuthority;
-use crate::shared::features::rewards::accounts::GlobalRewards;
-use crate::shared::features::treasury::accounts::{TreasuryState, TreasuryConfig};
+use crate::shared::constants::seeds::{CHECKER_SEED, REWARDS_SEED, GLOBAL_SEED, STATE_SEED, VAULT_SEED};
+use crate::shared::features::flexlock::accounts::FlexlockVault;
+use crate::shared::features::rewards::accounts::{CheckerRewardsVault, GlobalRewards};
 use crate::shared::features::global::accounts::BMBState;
 use borsh::{BorshDeserialize, BorshSerialize};
 use depin_core::constants::BMB_MINT;
@@ -35,21 +34,19 @@ pub fn process_init_network<'a>(
     // 0. [signer] Program upgrade authority
     // 1. [readonly] ProgramData account (contains upgrade authority)
     // 2. [writable] GlobalRewards PDA
-    // 3. [writable] TreasuryState PDA
-    // 4. [writable] TreasuryConfig PDA
-    // 5. [writable] BMBState PDA
-    // 6. [readonly] BMB mint account
-    // 7. [readonly] Flexlock vault account
-    // 8. [writable] Flexlock vault BMB ATA account
-    // 9. [readonly] Token program account
-    // 10. [readonly] Associated token program account
-    // 11. [] System program account (for account creation)
+    // 3. [writable] CheckerRewardsVault PDA
+    // 4. [writable] BMBState PDA
+    // 5. [readonly] BMB mint account
+    // 6. [readonly] Flexlock vault account
+    // 7. [writable] Flexlock vault BMB ATA account
+    // 8. [readonly] Token program account
+    // 9. [readonly] Associated token program account
+    // 10. [] System program account (for account creation)
     let account_info_iter = &mut accounts.iter();
     let upgrade_authority_account = next_account_info(account_info_iter)?;
     let program_data_account = next_account_info(account_info_iter)?;
     let global_rewards_account = next_account_info(account_info_iter)?;
-    let treasury_state_account = next_account_info(account_info_iter)?;
-    let treasury_config_account = next_account_info(account_info_iter)?;
+    let checker_rewards_vault_account = next_account_info(account_info_iter)?;
     let bmb_state_account = next_account_info(account_info_iter)?;
     let bmb_mint_account = next_account_info(account_info_iter)?;
     let flexlock_vault_account = next_account_info(account_info_iter)?;
@@ -66,8 +63,7 @@ pub fn process_init_network<'a>(
     )?;
 
     init_global_rewards(program_id, upgrade_authority_account, global_rewards_account, system_program)?;
-    init_treasury_state(program_id, upgrade_authority_account, treasury_state_account, system_program)?;
-    init_treasury_config(program_id, upgrade_authority_account, treasury_config_account, system_program)?;
+    init_checker_rewards_vault(program_id, upgrade_authority_account, checker_rewards_vault_account, system_program)?;
     init_bmb_state(program_id, upgrade_authority_account, bmb_state_account, system_program)?;
     init_flexlock(program_id, upgrade_authority_account, flexlock_vault_account, flexlock_vault_ata_account, bmb_mint_account, token_program_account, associated_token_program_account, system_program)?;
     Ok(())
@@ -83,7 +79,7 @@ fn init_flexlock<'a>(
     associated_token_program_account: &AccountInfo<'a>,
     system_program: &AccountInfo<'a>
 ) -> ProgramResult {
-    let (vault_authority_pda, _) = FlexlockVaultAuthority::find_pda(program_id);
+    let (vault_authority_pda, _) = FlexlockVault::find_pda(program_id);
 
     validate_pda_account(flexlock_vault_account, &vault_authority_pda, "Flexlock Vault")?;
     validate_pda_account(bmb_mint_account, &BMB_MINT, "BMB Mint")?;
@@ -134,7 +130,7 @@ fn init_global_rewards<'a>(
             ],
             &[&[
                 GLOBAL_SEED,
-                GLOBAL_REWARDS_SEED,
+                REWARDS_SEED,
                 &[bump_seed]
             ]],
         )?;
@@ -196,38 +192,34 @@ fn init_global_rewards<'a>(
     Ok(())
 }
 
-fn init_treasury_state<'a>(
+fn init_checker_rewards_vault<'a>(
     program_id: &Pubkey,
     payer_account: &AccountInfo<'a>,
-    treasury_state_account: &AccountInfo<'a>,
+    checker_rewards_vault_account: &AccountInfo<'a>,
     system_program: &AccountInfo<'a>
 ) -> ProgramResult {
-    let (pda, bump_seed) = TreasuryState::find_pda(program_id);
+    let (pda, bump_seed) = CheckerRewardsVault::find_pda(program_id);
+    validate_pda_account(checker_rewards_vault_account, &pda, "CheckerRewardsVault")?;
 
-    if *treasury_state_account.key != pda {
-        msg!("Error: TreasuryState account does not match expected PDA");
+    if !checker_rewards_vault_account.is_writable {
+        msg!("Error: CheckerRewardsVault account must be writable");
         return Err(ProgramError::InvalidArgument);
     }
 
-    if !treasury_state_account.is_writable {
-        msg!("Error: TreasuryState account must be writable");
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    // Check if treasury state already exists
-    if !treasury_state_account.data_is_empty() {
-        msg!("TreasuryState already exists");
+    // Check if vault already exists
+    if !checker_rewards_vault_account.data_is_empty() {
+        msg!("CheckerRewardsVault already exists");
         return Ok(());
     }
 
-    msg!("Creating TreasuryState PDA");
+    msg!("Creating CheckerRewardsVault PDA");
 
-    // Calculate space and rent for TreasuryState account
-    let space = TreasuryState::LEN;
+    // Calculate space and rent for CheckerRewardsVault account
+    let space = CheckerRewardsVault::LEN;
     let rent = Rent::get()?;
     let rent_lamports = rent.minimum_balance(space);
 
-    // Create the treasury state PDA account
+    // Create the checker rewards vault PDA account
     invoke_signed(
         &system_instruction::create_account(
             payer_account.key,
@@ -238,81 +230,21 @@ fn init_treasury_state<'a>(
         ),
         &[
             payer_account.clone(),
-            treasury_state_account.clone(),
+            checker_rewards_vault_account.clone(),
             system_program.clone(),
         ],
         &[&[
-            TREASURY_SEED,
-            STATE_SEED,
+            VAULT_SEED, REWARDS_SEED, CHECKER_SEED,
             &[bump_seed],
         ]],
     )?;
 
     // Initialize the account using write_account_data helper
-    let treasury_state = TreasuryState::new();
-    let mut data = treasury_state_account.try_borrow_mut_data()?;
-    write_account_data(&mut data, TreasuryState::account_type(), &treasury_state)?;
+    let vault = CheckerRewardsVault::new();
+    let mut data = checker_rewards_vault_account.try_borrow_mut_data()?;
+    write_account_data(&mut data, CheckerRewardsVault::account_type(), &vault)?;
 
-    msg!("TreasuryState created and initialized successfully");
-    Ok(())
-}
-
-fn init_treasury_config<'a>(
-    program_id: &Pubkey,
-    payer_account: &AccountInfo<'a>,
-    treasury_config_account: &AccountInfo<'a>,
-    system_program: &AccountInfo<'a>
-) -> ProgramResult {
-    let (pda, bump_seed) = TreasuryConfig::find_pda(program_id);
-
-    if *treasury_config_account.key != pda {
-        msg!("Error: TreasuryConfig account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    if !treasury_config_account.is_writable {
-        msg!("Error: TreasuryConfig account must be writable");
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    // Check if already exists
-    if !treasury_config_account.data_is_empty() {
-        msg!("TreasuryConfig already exists");
-        return Ok(());
-    }
-
-    msg!("Creating TreasuryConfig PDA");
-
-    let space = TreasuryConfig::LEN;
-    let rent = Rent::get()?;
-    let rent_lamports = rent.minimum_balance(space);
-
-    invoke_signed(
-        &system_instruction::create_account(
-            payer_account.key,
-            &pda,
-            rent_lamports,
-            space as u64,
-            program_id,
-        ),
-        &[
-            payer_account.clone(),
-            treasury_config_account.clone(),
-            system_program.clone(),
-        ],
-        &[&[
-            TREASURY_SEED,
-            crate::shared::constants::seeds::CONFIG_SEED,
-            &[bump_seed],
-        ]],
-    )?;
-
-    // Initialize with defaults
-    let config = TreasuryConfig::new();
-    let mut data = treasury_config_account.try_borrow_mut_data()?;
-    write_account_data(&mut data, TreasuryConfig::account_type(), &config)?;
-
-    msg!("TreasuryConfig created and initialized successfully");
+    msg!("CheckerRewardsVault created and initialized successfully");
     Ok(())
 }
 

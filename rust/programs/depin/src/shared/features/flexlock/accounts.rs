@@ -4,10 +4,10 @@ use solana_program::pubkey::Pubkey;
 use crate::shared::constants::seeds::{FLEXLOCK_SEED, LOCK_SEED, VAULT_SEED};
 use depin_core::types::account::DepinAccountType;
 
-pub struct FlexlockVaultAuthority;
+pub struct FlexlockVault;
 
-impl FlexlockVaultAuthority {
-    /// Find the PDA for the flexlock vault authority
+impl FlexlockVault {
+    /// Find the PDA for the flexlock vault
     pub fn find_pda(program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[VAULT_SEED, FLEXLOCK_SEED], program_id)
     }
@@ -20,10 +20,11 @@ pub struct FlexlockTokens {
     pub amount: u64,
     pub lock_period: u16,    // Period when tokens were locked
     pub unlock_period: u16,  // Period when tokens can be unlocked without penalty
+    pub rent_receiver: Pubkey, // Address that receives rent when the account is closed
 }
 
 impl FlexlockTokens {
-    pub const LEN: usize = 1 + 32 + 32 + 8 + 2 + 2; // discriminator + sender + receiver + total_locked + lock_period + unlock_period
+    pub const LEN: usize = 1 + 32 + 32 + 8 + 2 + 2 + 32; // discriminator + sender + receiver + total_locked + lock_period + unlock_period + rent_receiver
 
     pub fn find_pda(program_id: &Pubkey, sender: &Pubkey, receiver: &Pubkey, lock_period: u16, unlock_period: u16) -> (Pubkey, u8) {
         Pubkey::find_program_address(
@@ -43,13 +44,14 @@ impl FlexlockTokens {
         DepinAccountType::FlexlockTokens
     }
 
-    pub fn new(sender: Pubkey, receiver: Pubkey, amount: u64, lock_period: u16, unlock_period: u16) -> Self {
+    pub fn new(sender: Pubkey, receiver: Pubkey, amount: u64, lock_period: u16, unlock_period: u16, rent_receiver: Pubkey) -> Self {
         Self {
             sender,
-            receiver: receiver,
+            receiver,
             amount,
             lock_period,
             unlock_period,
+            rent_receiver,
         }
     }
 

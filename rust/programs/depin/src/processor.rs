@@ -1,13 +1,5 @@
 use crate::instructions::{
-    checker::{self, activate::process_activate_checker},
-    admin::process_activate_checker_licenses,
-    admin::process_init_network,
-    admin::process_set_bmb_state,
-    admin::process_set_treasury_config,
-    treasury::unlock::process_unlock,
-    view::process_view_checker_reward,
-    worker::{process_activate_worker, process_submit_worker_proof, process_update_worker_uri},
-    flexlock::{flex_lock::process_flex_lock, flex_unlock::process_flex_unlock},
+    admin::{process_activate_checker_licenses, process_init_network, process_set_bmb_state, process_set_checker_rewards_vault}, checker::{self, activate::process_activate_checker}, flexlock::{lock::process_flex_lock, unlock::process_flex_unlock}, view::process_view_checker_reward, worker::{process_activate_worker, process_submit_worker_proof, process_update_worker_uri}
 };
 use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey};
 
@@ -36,9 +28,6 @@ pub fn process<'a>(
         DepinInstruction::ActivateChecker => {
             process_activate_checker(program_id, accounts, data)?;
         },
-        DepinInstruction::Unlock => {
-            process_unlock(program_id, accounts, data)?;
-        },
         DepinInstruction::PayoutCheckerRewards => {
             checker::payout::process_payout_checker_rewards(program_id, accounts, data)?;
         },
@@ -48,8 +37,8 @@ pub fn process<'a>(
         DepinInstruction::SetBMBState => {
             process_set_bmb_state(program_id, accounts, data)?;
         },
-        DepinInstruction::SetTreasuryConfig => {
-            process_set_treasury_config(program_id, accounts, data)?;
+        DepinInstruction::SetCheckerRewardsVault => {
+            process_set_checker_rewards_vault(program_id, accounts, data)?;
         },
         DepinInstruction::ViewCheckerReward => {
             process_view_checker_reward(program_id, accounts, data)?;

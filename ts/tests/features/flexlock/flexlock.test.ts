@@ -6,7 +6,7 @@ import {
     BMB_MINT,
     FlexLock,
     FlexlockTokensAccount,
-    FlexlockVaultAuthority,
+    FlexlockVault,
     FlexUnlock,
     getCurrentPeriod,
     USDC_MINT
@@ -65,7 +65,7 @@ describe('FlexLock', async () => {
         await lite.mintToken(BMB_MINT, attacker.address, 0n, authority);
 
         // Create vault ATA
-        const vaultAuthorityPda = await FlexlockVaultAuthority.findFlexlockVaultPDA();
+        const vaultAuthorityPda = await FlexlockVault.findFlexlockVaultPDA();
         await lite.mintToken(BMB_MINT, vaultAuthorityPda[0], 0n, authority);
 
         lite.goToPeriod(getCurrentPeriod());
@@ -138,6 +138,7 @@ describe('FlexLock', async () => {
                 receiver_bmb_token_account: receiverAtaAddress,
                 sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
+                rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
             });
 
@@ -203,6 +204,7 @@ describe('FlexLock', async () => {
                 receiver_bmb_token_account: receiverAtaAddress,
                 sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
+                rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
             });
 
@@ -260,6 +262,7 @@ describe('FlexLock', async () => {
                 receiver_bmb_token_account: receiverAtaAddress,
                 sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
+                rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
             });
 
@@ -305,6 +308,7 @@ describe('FlexLock', async () => {
                 receiver_bmb_token_account: receiverAtaAddress,
                 sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
+                rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
             });
 
@@ -346,6 +350,7 @@ describe('FlexLock', async () => {
                 receiver_bmb_token_account: receiverAtaAddress,
                 sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
+                rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
             });
 
@@ -393,7 +398,7 @@ describe('FlexLock', async () => {
             });
             await lite.mintToken(USDC_MINT, sender.address, 100_000n * 1_000_000n, authority);
 
-            const vaultAuthorityPda = await FlexlockVaultAuthority.findFlexlockVaultPDA();
+            const vaultAuthorityPda = await FlexlockVault.findFlexlockVaultPDA();
             await lite.mintToken(USDC_MINT, vaultAuthorityPda[0], 0n, authority);
 
             lite.goToPeriod(100);
@@ -450,6 +455,7 @@ describe('FlexLock', async () => {
                 receiver_bmb_token_account: receiverAtaAddress,
                 sender_bmb_token_account: attackerAtaAddress, // Trying to steal penalty
                 lock_period: currentPeriod,
+                rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
             });
 
@@ -492,6 +498,7 @@ describe('FlexLock', async () => {
                 receiver_bmb_token_account: attackerAtaAddress, // Trying to steal tokens
                 sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
+                rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
             });
 
@@ -536,6 +543,7 @@ describe('FlexLock', async () => {
                 receiver_bmb_token_account: receiverAtaAddress,
                 sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
+                rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
             });
 
@@ -594,6 +602,7 @@ describe('FlexLock', async () => {
                 receiver_bmb_token_account: receiverAtaAddress,
                 sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod - 5, // Wrong period!
+                rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
             });
 
@@ -635,6 +644,7 @@ describe('FlexLock', async () => {
                 receiver_bmb_token_account: receiverAtaAddress,
                 sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
+                rent_receiver: sender.address,
                 unlock_period: unlockPeriod + 10, // Wrong period!
             });
 
@@ -693,6 +703,7 @@ describe('FlexLock', async () => {
                 receiver_bmb_token_account: receiverAtaAddress,
                 sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
+                rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
             });
 
@@ -711,6 +722,49 @@ describe('FlexLock', async () => {
 
             // Receiver should only pay transaction fee (SOL decreases)
             expect(receiverSolAfter).toBeLessThan(receiverSolBefore);
+        });
+
+        it('should fail when trying to change rent_receiver to attacker account', async () => {
+            const lockAmount = 5_000n * 1_000_000_000n;
+            const lockDurationDays = 30;
+
+            lite.goToPeriod(100);
+            const currentPeriod = lite.getPeriod();
+            const unlockPeriod = currentPeriod + lockDurationDays;
+
+            // Lock tokens (rent_receiver is set to sender by default)
+            const flexLock = new FlexLock({
+                sender: sender.address,
+                receiver: receiver.address,
+                amount: lockAmount,
+                lock_duration_days: lockDurationDays,
+                sender_bmb_token_account: senderAtaAddress,
+                current_period: currentPeriod,
+            });
+
+            await lite.buildTransaction()
+                .addInstruction(await flexLock.getInstruction())
+                .sendTransaction({ payer: sender });
+
+            lite.goToPeriod(currentPeriod + lockDurationDays + 5);
+
+            // Try to unlock with rent_receiver set to attacker (should fail)
+            const flexUnlock = new FlexUnlock({
+                receiver: receiver.address,
+                sender: sender.address,
+                receiver_bmb_token_account: receiverAtaAddress,
+                sender_bmb_token_account: senderAtaAddress,
+                lock_period: currentPeriod,
+                rent_receiver: attacker.address, // Trying to steal rent!
+                unlock_period: unlockPeriod,
+            });
+
+            // Should fail - provided rent_receiver doesn't match stored rent_receiver
+            await expect(async () => {
+                return lite.buildTransaction()
+                    .addInstruction(await flexUnlock.getInstruction())
+                    .sendTransaction({ payer: receiver });
+            }).rejects.toThrow(); // Should fail validation
         });
     });
 
@@ -784,6 +838,6 @@ describe('FlexLock', async () => {
 
 // Helper function
 async function getVaultBalance(lite: LiteDepin): Promise<bigint> {
-    const vaultAuthorityPda = await FlexlockVaultAuthority.findFlexlockVaultPDA();
+    const vaultAuthorityPda = await FlexlockVault.findFlexlockVaultPDA();
     return lite.getTokenBalance(BMB_MINT, vaultAuthorityPda[0]);
 }

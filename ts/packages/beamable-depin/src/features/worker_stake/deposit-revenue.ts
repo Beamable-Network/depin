@@ -16,9 +16,9 @@ import {
     WORKER_STAKE_PROGRAM
 } from "../../constants.js";
 import { WorkerStakeInstruction } from "../../enums.js";
-import { TreasuryAuthority } from "../treasury/treasury-authority.js";
 import { MonthlyPoolAccount } from "./monthly-pool-account.js";
 import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
+import { TreasuryAuthority } from "../treasury/treasury-authority.js";
 
 export interface DepositRevenueParams {
     worker_collection: Address;

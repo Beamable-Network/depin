@@ -12,7 +12,7 @@ import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/t
 import { BMB_MINT, DEPIN_PROGRAM, SYSTEM_PROGRAM_ADDRESS } from "../../constants.js";
 import { DepinInstruction } from "../../enums.js";
 import { FlexlockTokensAccount } from "./flexlock-tokens-account.js";
-import { FlexlockVaultAuthority } from "./flexlock-vault-authority.js";
+import { FlexlockVault } from "./flexlock-vault.js";
 
 export interface FlexLockParams {
     receiver: Address;
@@ -61,10 +61,10 @@ export class FlexLock {
     public async getInstruction() {
         const unlock_period = this.current_period + this.params.lock_duration_days;
 
-        const flexlockVaultAuthorityPda = await FlexlockVaultAuthority.findFlexlockVaultPDA();
+        const flexlockVaultPda = await FlexlockVault.findFlexlockVaultPDA();
         const flexlockVaultAta = await findAssociatedTokenPda({
             mint: BMB_MINT,
-            owner: flexlockVaultAuthorityPda[0],
+            owner: flexlockVaultPda[0],
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 

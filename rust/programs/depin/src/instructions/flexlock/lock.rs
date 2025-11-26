@@ -1,8 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
-    account_info::{next_account_info, AccountInfo},
-    entrypoint::ProgramResult,
-    pubkey::Pubkey,
+    account_info::{AccountInfo, next_account_info}, entrypoint::ProgramResult, pubkey::Pubkey
 };
 use crate::shared::features::flexlock::utils::lock as lock_tokens;
 
@@ -25,7 +23,7 @@ pub fn process_flex_lock<'info>(
     // 3. [writable] Flexlock vault ATA account (vault authority's associated token account)
     // 4. [readonly] BMB mint account
     // 5. [readonly] Token program
-    // 6. [readonly] System program
+    // 6. [readonly] System program    
 
     let account_info_iter = &mut accounts.iter();
     let sender_account = next_account_info(account_info_iter)?;
@@ -40,9 +38,11 @@ pub fn process_flex_lock<'info>(
 
     lock_tokens(
         program_id,
+        sender_account,
         &input.receiver,
         input.amount,
         input.lock_duration_days,
+        sender_account.key,
         sender_account,
         sender_ata_account,
         flexlock_tokens_account,
@@ -50,6 +50,7 @@ pub fn process_flex_lock<'info>(
         bmb_mint_account,
         token_program,
         system_program,
+        None, // sender_pda_seeds - None for regular wallet senders
     )?;
 
     Ok(())

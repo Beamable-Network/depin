@@ -11,7 +11,7 @@ use spl_token::instruction::transfer_checked;
 
 use crate::shared::{
     constants::seeds::{FLEXLOCK_SEED, LOCK_SEED, VAULT_SEED},
-    features::flexlock::accounts::{FlexlockTokens, FlexlockVaultAuthority},
+    features::flexlock::accounts::{FlexlockTokens, FlexlockVault},
 };
 use depin_core::{
     constants::BMB_MINT,
@@ -23,11 +23,17 @@ use depin_core::{
 };
 
 /// Sends tokens using flexlock to a specified receiver
+/// 
+/// Supports both regular wallet senders and PDA senders:
+/// - For wallet senders: pass None for sender_pda_seeds
+/// - For PDA senders: pass Some(&[seeds]) for sender_pda_seeds
 pub fn lock<'a>(
     program_id: &Pubkey,
+    payer_account: &AccountInfo<'a>, // Account that pays for account creation (must be signer)
     receiver: &Pubkey,
     amount: u64,
     lock_duration_days: u16, // Duration in days (e.g., 365 for 12 months)
+    rent_receiver: &Pubkey, // Address that will receive rent when the account is closed
     sender_account: &AccountInfo<'a>,
     sender_ata_account: &AccountInfo<'a>,
     flexlock_tokens_account: &AccountInfo<'a>,
@@ -35,10 +41,17 @@ pub fn lock<'a>(
     bmb_mint_account: &AccountInfo<'a>,
     token_program: &AccountInfo<'a>,
     system_program: &AccountInfo<'a>,
+    sender_pda_seeds: Option<&[&[u8]]>, // Seeds for PDA signing (None for regular wallet senders)
 ) -> Result<(), ProgramError> {
-    // Validate signer
-    if sender_account.is_signer == false {
-        msg!("Error: Sender account must be a signer");
+    // Validate signer - either sender is signer (wallet) or PDA seeds provided
+    if sender_pda_seeds.is_none() && !sender_account.is_signer {
+        msg!("Error: Sender account must be a signer when not using PDA");
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    // Validate payer is signer
+    if !payer_account.is_signer {
+        msg!("Error: Payer account must be a signer");
         return Err(ProgramError::MissingRequiredSignature);
     }
 
@@ -83,7 +96,7 @@ pub fn lock<'a>(
     )?;
 
     // Validate vault ATA account
-    let (vault_authority_pda, _) = FlexlockVaultAuthority::find_pda(program_id);
+    let (vault_authority_pda, _) = FlexlockVault::find_pda(program_id);
     validate_ata_account(
         flexlock_vault_ata_account,
         &vault_authority_pda,
@@ -117,17 +130,31 @@ pub fn lock<'a>(
         depin_core::constants::BMB_DECIMALS,
     )?;
 
-    // Invoke the transfer
-    invoke(
-        &transfer_ix,
-        &[
-            sender_ata_account.clone(),
-            bmb_mint_account.clone(),
-            flexlock_vault_ata_account.clone(),
-            sender_account.clone(),
-            token_program.clone(),
-        ],
-    )?;
+    // Invoke the transfer (use invoke_signed if sender is PDA)
+    if let Some(seeds) = sender_pda_seeds {
+        invoke_signed(
+            &transfer_ix,
+            &[
+                sender_ata_account.clone(),
+                bmb_mint_account.clone(),
+                flexlock_vault_ata_account.clone(),
+                sender_account.clone(),
+                token_program.clone(),
+            ],
+            &[seeds],
+        )?;
+    } else {
+        invoke(
+            &transfer_ix,
+            &[
+                sender_ata_account.clone(),
+                bmb_mint_account.clone(),
+                flexlock_vault_ata_account.clone(),
+                sender_account.clone(),
+                token_program.clone(),
+            ],
+        )?;
+    }    
 
     // Check if flexlock tokens account already exists (accumulation pattern)
     if flexlock_tokens_account.data_is_empty() {
@@ -138,14 +165,14 @@ pub fn lock<'a>(
 
         invoke_signed(
             &system_instruction::create_account(
-                sender_account.key,
+                payer_account.key,
                 &flexlock_tokens_pda,
                 rent_lamports,
                 space as u64,
                 program_id,
             ),
             &[
-                sender_account.clone(),
+                payer_account.clone(),
                 flexlock_tokens_account.clone(),
                 system_program.clone(),
             ],
@@ -169,6 +196,7 @@ pub fn lock<'a>(
             amount,
             current_period,
             unlock_period,
+            *rent_receiver,
         );
         let mut flexlock_data = flexlock_tokens_account.try_borrow_mut_data()?;
         write_account_data(
@@ -269,6 +297,7 @@ pub fn unlock<'a>(
     sender_ata_account: &AccountInfo<'a>,
     bmb_mint_account: &AccountInfo<'a>,
     token_program: &AccountInfo<'a>,
+    rent_receiver_account: &AccountInfo<'a>,
 ) -> Result<(), ProgramError> {
     // Validate flexlock tokens account exists
     if flexlock_tokens_account.data_is_empty() {
@@ -316,7 +345,7 @@ pub fn unlock<'a>(
     }
 
     // Validate vault authority account
-    let (vault_authority_pda, vault_authority_bump) = FlexlockVaultAuthority::find_pda(program_id);
+    let (vault_authority_pda, vault_authority_bump) = FlexlockVault::find_pda(program_id);
     validate_pda_account(flexlock_vault_authority_account, &vault_authority_pda, "Flexlock Vault Authority")?;    
 
     // Validate vault ATA account
@@ -415,14 +444,25 @@ pub fn unlock<'a>(
         )?;
     }
 
-    // Close the flexlock tokens account and return rent to sender
-    let rent_lamports = close_account(flexlock_tokens_account, sender_account)?;
+    // Close the flexlock tokens account and return rent to the specified rent_receiver
+    // Validate that the provided rent_receiver_account matches the one stored in FlexlockTokens
+    if *rent_receiver_account.key != flexlock_tokens.rent_receiver {
+        msg!(
+            "Error: Provided rent receiver {} does not match expected rent receiver {}",
+            rent_receiver_account.key,
+            flexlock_tokens.rent_receiver
+        );
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let rent_lamports = close_account(flexlock_tokens_account, rent_receiver_account)?;
 
     msg!(
-        "Successfully unlocked flexlock tokens: {} BMB to receiver, {} BMB penalty returned to sender, {} lamports rent returned to sender",
+        "Successfully unlocked flexlock tokens: {} BMB to receiver, {} BMB penalty returned to sender, {} lamports rent returned to {}",
         vested_amount,
         penalty_amount,
-        rent_lamports
+        rent_lamports,
+        flexlock_tokens.rent_receiver
     );
 
     Ok(())

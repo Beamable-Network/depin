@@ -10,7 +10,7 @@ pub const VAULT_SEED: &[u8] = b"vault";
 pub const LOCK_SEED: &[u8] = b"lock";
 pub const CONFIG_SEED: &[u8] = b"config";
 
-pub const GLOBAL_REWARDS_SEED: &[u8] = b"rewards";
+pub const REWARDS_SEED: &[u8] = b"rewards";
 
 pub const PROOF_SEED: &[u8] = b"proof";
 

@@ -1,8 +1,8 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::{pubkey::Pubkey, program_error::ProgramError};
+use solana_program::{account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey};
 
-use crate::{shared::{constants::seeds::{GLOBAL_REWARDS_SEED, GLOBAL_SEED}, features::{global::accounts::BMBState, rewards::emission_schedule::get_node_emissions}}};
-use depin_core::{constants::{DISC_SIZE}, utils::bmb::days_in_month};
+use crate::shared::{constants::seeds::{CHECKER_SEED, REWARDS_SEED, GLOBAL_SEED, VAULT_SEED}, features::{global::accounts::BMBState, rewards::emission_schedule::get_node_emissions}};
+use depin_core::{constants::DISC_SIZE, types::account::DepinAccountType, utils::{bmb::days_in_month, validation::validate_pda_account}};
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct GlobalRewards {
@@ -16,7 +16,7 @@ impl GlobalRewards {
     pub const LEN: usize = 1 + (GlobalRewards::ELEMENTS * 8) + 8 + 8;
 
     pub fn find_pda(program_id: &Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[GLOBAL_SEED, GLOBAL_REWARDS_SEED], program_id)
+        Pubkey::find_program_address(&[GLOBAL_SEED, REWARDS_SEED], program_id)
     }
 
     pub fn get_checker_reward(period: u16, bmb_state: &BMBState) -> Result<u64, ProgramError> {
@@ -172,6 +172,80 @@ impl GlobalRewards {
         Self::subtract_pending_rewards(account_data, old_balance);
 
         Ok(())
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct CheckerRewardsVault {
+    pub lock_days: u16,
+}
+
+impl CheckerRewardsVault {
+    pub const LEN: usize = 1 + 2;
+
+    pub fn new() -> Self {
+        Self {
+            lock_days: 90,
+        }
+    }
+
+    /// Find the PDA for the checker rewards vault
+    pub fn find_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[VAULT_SEED, REWARDS_SEED, CHECKER_SEED], program_id)
+    }
+
+    /// Send locked BMB tokens from the vault to a receiver via FlexLock
+    pub fn send_locked_tokens<'a>(
+        program_id: &Pubkey,
+        receiver: &Pubkey,
+        amount: u64,
+        lock_duration_days: u16,
+        payer_account: &'a AccountInfo<'a>,
+        vault_account: &'a AccountInfo<'a>,
+        vault_ata_account: &'a AccountInfo<'a>,
+        flexlock_tokens_account: &'a AccountInfo<'a>,
+        flexlock_vault_ata_account: &'a AccountInfo<'a>,
+        bmb_mint_account: &'a AccountInfo<'a>,
+        token_program: &'a AccountInfo<'a>,
+        system_program: &'a AccountInfo<'a>,
+    ) -> Result<(), ProgramError> {
+        use crate::shared::features::flexlock::utils::lock as lock_tokens;
+
+        // Validate vault PDA and get bump seed
+        let (vault_pda, vault_bump) = Self::find_pda(program_id);
+        validate_pda_account(vault_account, &vault_pda, "CheckerRewardsVault")?;
+
+        // Prepare PDA seeds for signing
+        let vault_seeds: &[&[u8]] = &[
+            VAULT_SEED,
+            REWARDS_SEED,
+            CHECKER_SEED,
+            &[vault_bump],
+        ];
+
+        // Call lock function directly with PDA sender
+        lock_tokens(
+            program_id,
+            payer_account,
+            receiver,
+            amount,
+            lock_duration_days,
+            payer_account.key, // rent_receiver - payer receives rent back when unlocked
+            vault_account,     // sender_account (PDA)
+            vault_ata_account, // sender_ata_account
+            flexlock_tokens_account,
+            flexlock_vault_ata_account,
+            bmb_mint_account,
+            token_program,
+            system_program,
+            Some(vault_seeds), // PDA seeds for signing
+        )?;
+
+        Ok(())
+    }
+
+    pub fn account_type() -> DepinAccountType {
+        DepinAccountType::CheckerRewardsVault
     }
 }
 

@@ -2,7 +2,7 @@ use borsh::BorshDeserialize;
 use mpl_bubblegum::{types::LeafSchema, utils::get_asset_id};
 use solana_program::{
     account_info::{next_account_info, AccountInfo}, 
-    entrypoint::ProgramResult, 
+    entrypoint::ProgramResult,
     msg, 
     program_error::ProgramError, 
     pubkey::Pubkey
@@ -10,15 +10,14 @@ use solana_program::{
 use crate::shared::{
     features::{
         checker::accounts::{CheckerLicenseMetadata, CheckerMetadata},
-        rewards::accounts::GlobalRewards,
-        treasury::{accounts::TreasuryConfig, utils::grant_locked}
+        rewards::accounts::{CheckerRewardsVault, GlobalRewards},
     },
 };
 use depin_core::utils::{
     account::read_account_data,
     bgum::verify_license,
     bmb::validate_checker_tree,
-    cnft_context::CnftContext,
+    cnft_context::CnftContext, validation::validate_pda_account,
 };
 use super::input;
 
@@ -43,7 +42,7 @@ pub fn process_payout_checker_rewards<'info>(
 
     // Reset balance and log success
     reset_checker_balance(accounts.global_rewards, checker_index, payout_amount)?;
-    msg!("Successfully paid out {} BMB as locked tokens to checker (12-month lock)", payout_amount);
+    msg!("Successfully paid out {} BMB as flexlock tokens to checker", payout_amount);
 
     Ok(())
 }
@@ -55,10 +54,12 @@ struct PayoutAccounts<'info> {
     checker_license_metadata: &'info AccountInfo<'info>,
     merkle_tree: &'info AccountInfo<'info>,
     system_program: &'info AccountInfo<'info>,
-    treasury_state: &'info AccountInfo<'info>,
-    treasury_ata: &'info AccountInfo<'info>,
-    treasury_config: &'info AccountInfo<'info>,
-    locked_tokens: &'info AccountInfo<'info>,
+    checker_rewards_vault: &'info AccountInfo<'info>,
+    checker_rewards_vault_ata: &'info AccountInfo<'info>,
+    flexlock_tokens: &'info AccountInfo<'info>,
+    flexlock_vault_ata: &'info AccountInfo<'info>,
+    bmb_mint: &'info AccountInfo<'info>,
+    token_program: &'info AccountInfo<'info>,
     proof_accounts: Vec<AccountInfo<'info>>,
 }
 
@@ -71,11 +72,13 @@ fn parse_accounts<'info>(accounts: &'info [AccountInfo<'info>]) -> Result<Payout
     // 4. [readonly] mpl_account_compression program
     // 5. [readonly] Merkle tree account
     // 6. [readonly] System program account (for account creation)
-    // 7. [writable] TreasuryState PDA account
-    // 8. [writable] Treasury ATA account (treasury authority's associated token account)
-    // 9. [readonly] TreasuryConfig PDA account
-    // 10. [writable] LockedTokens PDA account (will be created)
-    // N. [readonly] Proof accounts as remaining accounts
+    // 7. [writable] CheckerRewardsVault PDA account
+    // 8. [writable] CheckerRewardsVault ATA account
+    // 9. [writable] FlexlockTokens PDA account (will be created)
+    // 10. [writable] FlexlockVault ATA account
+    // 11. [readonly] BMB Mint account
+    // 12. [readonly] Token program
+    // N [readonly] Proof accounts as remaining accounts
 
     let mut account_info_iter = accounts.iter();
     let signer = next_account_info(&mut account_info_iter)?;
@@ -85,10 +88,12 @@ fn parse_accounts<'info>(accounts: &'info [AccountInfo<'info>]) -> Result<Payout
     let _mpl_account_compression_program = next_account_info(&mut account_info_iter)?;
     let merkle_tree = next_account_info(&mut account_info_iter)?;
     let system_program = next_account_info(&mut account_info_iter)?;
-    let treasury_state = next_account_info(&mut account_info_iter)?;
-    let treasury_ata = next_account_info(&mut account_info_iter)?;
-    let treasury_config = next_account_info(&mut account_info_iter)?;
-    let locked_tokens = next_account_info(&mut account_info_iter)?;
+    let checker_rewards_vault = next_account_info(&mut account_info_iter)?;
+    let checker_rewards_vault_ata = next_account_info(&mut account_info_iter)?;
+    let flexlock_tokens = next_account_info(&mut account_info_iter)?;
+    let flexlock_vault_ata = next_account_info(&mut account_info_iter)?;
+    let bmb_mint = next_account_info(&mut account_info_iter)?;
+    let token_program = next_account_info(&mut account_info_iter)?;
 
     // Collect remaining accounts as proof accounts
     let proof_accounts: Vec<AccountInfo> = account_info_iter.cloned().collect();
@@ -106,10 +111,12 @@ fn parse_accounts<'info>(accounts: &'info [AccountInfo<'info>]) -> Result<Payout
         checker_license_metadata,
         merkle_tree,
         system_program,
-        treasury_state,
-        treasury_ata,
-        treasury_config,
-        locked_tokens,
+        checker_rewards_vault,
+        checker_rewards_vault_ata,
+        flexlock_tokens,
+        flexlock_vault_ata,
+        bmb_mint,
+        token_program,
         proof_accounts,
     })
 }
@@ -131,6 +138,21 @@ fn validate_payout_preconditions(
     // Validate global rewards account
     validate_global_rewards_account(program_id, accounts.global_rewards)?;
 
+    // Validate CheckerRewardsVault account
+    validate_checker_rewards_vault_account(program_id, accounts.checker_rewards_vault)?;
+    Ok(())
+}
+
+fn validate_checker_rewards_vault_account(
+    program_id: &Pubkey,
+    checker_rewards_vault_account: &AccountInfo,
+) -> ProgramResult {
+    let (checker_rewards_vault_pda, _) = CheckerRewardsVault::find_pda(program_id);
+    validate_pda_account(
+        checker_rewards_vault_account,
+        &checker_rewards_vault_pda,
+        "CheckerRewardsVault",
+    )?;
     Ok(())
 }
 
@@ -194,10 +216,7 @@ fn validate_metadata_accounts(
 
 fn validate_global_rewards_account(program_id: &Pubkey, global_rewards_account: &AccountInfo) -> ProgramResult {
     let (global_rewards_pda, _) = GlobalRewards::find_pda(program_id);
-    if global_rewards_account.key != &global_rewards_pda {
-        msg!("Error: Global rewards account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(global_rewards_account, &global_rewards_pda, "GlobalRewards")?;
     Ok(())
 }
 
@@ -224,34 +243,27 @@ fn execute_payout(
     input: &input::PayoutCheckerRewardsInput,
     payout_amount: u64,
 ) -> ProgramResult {
-    // Read lock duration days from TreasuryConfig
-    let (treasury_config_pda, _) = TreasuryConfig::find_pda(program_id);
-    if accounts.treasury_config.key != &treasury_config_pda {
-        msg!("Error: TreasuryConfig account does not match expected PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
-
-    if accounts.treasury_config.data_is_empty() {
-        msg!("Error: TreasuryConfig account is not initialized");
-        return Err(ProgramError::UninitializedAccount);
-    }
-
-    let config: TreasuryConfig = read_account_data(
-        &accounts.treasury_config.try_borrow_data()?,
-        TreasuryConfig::account_type(),
+    // Read lock duration days from CheckerRewardsVault
+    let vault: CheckerRewardsVault = read_account_data(
+        &accounts.checker_rewards_vault.try_borrow_data()?,
+        CheckerRewardsVault::account_type(),
     )?;
-    let lock_duration_days: u16 = config.checker_rewards_lock_days;
+    let lock_duration_days: u16 = vault.lock_days;
 
-    grant_locked(
+    // Use the CheckerRewardsVault helper to send locked tokens
+    CheckerRewardsVault::send_locked_tokens(
         program_id,
-        accounts.signer, // payer
-        accounts.treasury_state,
-        accounts.treasury_ata,
-        accounts.locked_tokens,
-        accounts.system_program,
         &input.license_context.owner,
         payout_amount,
         lock_duration_days,
+        accounts.signer,
+        accounts.checker_rewards_vault,
+        accounts.checker_rewards_vault_ata,
+        accounts.flexlock_tokens,
+        accounts.flexlock_vault_ata,
+        accounts.bmb_mint,
+        accounts.token_program,
+        accounts.system_program,
     )?;
 
     Ok(())

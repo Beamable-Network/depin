@@ -28,10 +28,6 @@ pub mod features {
     pub mod checker {
         pub mod accounts;
     }
-    pub mod treasury {
-        pub mod accounts;
-        pub mod utils;
-    }
     pub mod flexlock {
         pub mod accounts;
         pub mod utils;

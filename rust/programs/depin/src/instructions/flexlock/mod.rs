@@ -1,2 +1,4 @@
-pub mod flex_lock;
-pub mod flex_unlock;
+pub mod lock;
+pub mod unlock;
+
+pub use lock::FlexLockInput;
