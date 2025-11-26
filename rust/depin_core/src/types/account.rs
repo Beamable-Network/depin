@@ -8,7 +8,6 @@ pub enum DepinAccountType {
     BMBState = 5,
     CheckerMetadata = 6,
     CheckerLicenseMetadata = 7,
-    LockedTokens = 9,
     FlexlockTokens = 11,
     CheckerRewardsVault = 12,
 }
