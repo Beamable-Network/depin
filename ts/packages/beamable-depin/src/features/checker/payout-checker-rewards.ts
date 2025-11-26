@@ -12,13 +12,12 @@ import { DepinInstruction } from "../../enums.js";
 import { assetToCNftContext, CNftContext, CNftContextCodec } from "../../utils/bubblegum.js";
 import { getCurrentPeriod } from "../../utils/bmb.js";
 import { GlobalRewardsAccount } from "../rewards/global-rewards-account.js";
-import { LockedTokensAccount } from "../treasury/locked-tokens-account.js";
-import { TreasuryAuthority } from "../treasury/treasury-authority.js";
-import { DepinTreasuryConfigAccount } from "../treasury/depin-treasury-config-account.js";
-import { DepinTreasuryStateAccount } from "../treasury/depin-treasury-state-account.js";
+import { CheckerRewardsVault } from "../rewards/checker-rewards-vault.js";
 import { CheckerLicenseMetadataAccount } from "./checker-license-metadata-account.js";
 import { CheckerMetadataAccount } from "./checker-metadata-account.js";
 import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+import { FlexlockTokensAccount } from "../flexlock/flexlock-tokens-account.js";
+import { FlexlockVault } from "../flexlock/flexlock-vault.js";
 
 export interface PayoutCheckerRewardsParams {
     license_context: CNftContext;
@@ -52,7 +51,7 @@ export class PayoutCheckerRewards {
         return Uint8Array.of(DepinInstruction.PayoutCheckerRewards, ...inner);
     }
 
-    public async getInstruction(treasuryConfig: { address: Address; data: DepinTreasuryConfigAccount }, currentPeriod?: number) {
+    public async getInstruction(checkerRewardsVault: { address: Address; data: CheckerRewardsVault }, currentPeriod?: number) {
         const globalRewardsPda = await GlobalRewardsAccount.findGlobalRewardsPDA();
         const checkerMetadataPda = await CheckerMetadataAccount.findCheckerMetadataPDA(
             address(this.checker_license.rpcAsset.id),
@@ -61,11 +60,20 @@ export class PayoutCheckerRewards {
         const checkerLicenseMetadataPda = await CheckerLicenseMetadataAccount.findCheckerLicenseMetadataPDA(
             address(this.checker_license.rpcAsset.id)
         );
-        const treasuryStatePda = await DepinTreasuryStateAccount.findTreasuryStatePDA();
-        const treasuryPda = await TreasuryAuthority.findDepinTreasuryPDA();
-        const treasuryAta = await findAssociatedTokenPda({
+
+        // Get CheckerRewardsVault PDA (sender for flexlock)
+        const checkerRewardsVaultPda = await CheckerRewardsVault.findPDA();
+        const checkerRewardsVaultAta = await findAssociatedTokenPda({
             mint: BMB_MINT,
-            owner: treasuryPda[0],
+            owner: checkerRewardsVaultPda[0],
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+
+        // Get FlexlockVault PDA and its ATA
+        const flexlockVaultPda = await FlexlockVault.findFlexlockVaultPDA();
+        const flexlockVaultAta = await findAssociatedTokenPda({
+            mint: BMB_MINT,
+            owner: flexlockVaultPda[0],
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
@@ -73,12 +81,16 @@ export class PayoutCheckerRewards {
             currentPeriod = getCurrentPeriod();
         }
 
-        // Read lock duration from provided TreasuryConfig account
-        const lockDays = treasuryConfig.data.checkerRewardsLockDays;
-        const lockedTokensPda = await LockedTokensAccount.findLockedTokensPDA(
-            this.params.license_context.owner,
-            currentPeriod,
-            currentPeriod + lockDays
+        // Read lock duration from provided CheckerRewardsVault account
+        const lockDays = checkerRewardsVault.data.lockDays;
+        const unlockPeriod = currentPeriod + lockDays;
+
+        // Derive FlexlockTokens PDA
+        const flexlockTokensPda = await FlexlockTokensAccount.findFlexlockTokensPDA(
+            checkerRewardsVaultPda[0],  // sender
+            this.params.license_context.owner,  // receiver
+            currentPeriod,  // lock_period
+            unlockPeriod    // unlock_period
         );
 
         let accounts = [
@@ -89,10 +101,12 @@ export class PayoutCheckerRewards {
             { address: MPL_ACCOUNT_COMPRESSION_PROGRAM, role: AccountRole.READONLY },
             { address: address(this.checker_license.merkleTree), role: AccountRole.READONLY },
             { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY },
-            { address: treasuryStatePda[0], role: AccountRole.WRITABLE },
-            { address: treasuryAta[0], role: AccountRole.WRITABLE },
-            { address: treasuryConfig.address, role: AccountRole.READONLY },
-            { address: lockedTokensPda[0], role: AccountRole.WRITABLE },
+            { address: checkerRewardsVaultPda[0], role: AccountRole.WRITABLE },
+            { address: checkerRewardsVaultAta[0], role: AccountRole.WRITABLE },
+            { address: flexlockTokensPda[0], role: AccountRole.WRITABLE },
+            { address: flexlockVaultAta[0], role: AccountRole.WRITABLE },
+            { address: BMB_MINT, role: AccountRole.READONLY },
+            { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
             ...this.checker_license.proof.map(proof => ({
                 address: address(proof),
                 role: AccountRole.READONLY

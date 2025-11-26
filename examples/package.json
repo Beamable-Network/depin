@@ -15,7 +15,7 @@
     "tsx": "^4.20.5"
   },
   "dependencies": {
-    "@beamable-network/depin": "0.2.3",
+    "@beamable-network/depin": "0.3.0",
     "@metaplex-foundation/digital-asset-standard-api": "^2.0.0",
     "@metaplex-foundation/mpl-bubblegum": "^5.0.2",
     "@metaplex-foundation/mpl-core": "^1.7.0",

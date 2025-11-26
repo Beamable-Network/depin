@@ -20,6 +20,8 @@ export const CHECKER_SEED = "checker";
 export const METADATA_SEED = "meta";
 export const LICENSE_SEED = "license";
 export const LOCK_SEED = "lock";
+export const VAULT_SEED = "vault";
+export const FLEXLOCK_SEED = "flexlock";
 
 export const WORKER_STAKE_CONFIG_SEED = "worker_stake_config";
 export const MONTHLY_POOL_SEED = "monthly_pool";

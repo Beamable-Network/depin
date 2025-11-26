@@ -1,4 +1,4 @@
-import { LockedTokensAccount } from "@beamable-network/depin";
+import { FlexlockTokensAccount } from "@beamable-network/depin";
 import { createClient } from "../client";
 import { isAddress } from "gill";
 import { askForInput } from "../utils";
@@ -11,20 +11,23 @@ if (!isAddress(userAddress)) {
     throw new Error("Invalid user address");
 }
 
-// Fetch all locked token accounts for the current user
-const lockedTokenAccounts = await LockedTokensAccount.getLockedTokens(
-    async (program, config) => {
-        const resp = await client.rpcClient.rpc.getProgramAccounts(program, config).send();
-        return resp.map(({ pubkey, account }) => ({ pubkey, account }));
+// Fetch all flexlock token accounts for the current user (as receiver)
+const flexlockTokenAccounts = await FlexlockTokensAccount.getFlexlockTokensByReceiver(
+    async (programAddress, filters) => {
+        const resp = await client.rpcClient.rpc.getProgramAccounts(programAddress, { filters }).send();
+        return resp.map((item: any) => ({
+            pubkey: item.pubkey,
+            account: { data: item.account.data }
+        }));
     },
     userAddress
 );
 
-console.log('Found locked token accounts:', lockedTokenAccounts.length);
+console.log('Found flexlock token accounts:', flexlockTokenAccounts.length);
 
-// Display details for each locked token account
-for (const lockedAccount of lockedTokenAccounts) {
-    console.log('\n=== Locked Token Account Details ===');
-    console.log('Account Address:', lockedAccount.address.toString());
-    console.log('Full Account Object:', JSON.stringify(lockedAccount, null, 2));
+// Display details for each flexlock token account
+for (const flexlockAccount of flexlockTokenAccounts) {
+    console.log('\n=== Flexlock Token Account Details ===');
+    console.log('Account Address:', flexlockAccount.address.toString());
+    console.log('Full Account Object:', JSON.stringify(flexlockAccount, null, 2));
 }

@@ -6,12 +6,13 @@ pub enum DepinInstruction {
     ActivateWorker = 3,
     ActivateCheckerLicenses = 4,
     ActivateChecker = 6,
-    Unlock = 7,
     PayoutCheckerRewards = 8,
     UpdateWorkerUri = 9,
     SetBMBState = 10,
-    SetTreasuryConfig = 11,
+    SetCheckerRewardsVault = 11,
     ViewCheckerReward = 12,
+    FlexLock = 13,
+    FlexUnlock = 14,
 }
 
 impl DepinInstruction {
@@ -26,12 +27,13 @@ impl DepinInstruction {
             3 => Self::ActivateWorker,
             4 => Self::ActivateCheckerLicenses,
             6 => Self::ActivateChecker,
-            7 => Self::Unlock,
             8 => Self::PayoutCheckerRewards,
             9 => Self::UpdateWorkerUri,
             10 => Self::SetBMBState,
-            11 => Self::SetTreasuryConfig,
+            11 => Self::SetCheckerRewardsVault,
             12 => Self::ViewCheckerReward,
+            13 => Self::FlexLock,
+            14 => Self::FlexUnlock,
             _ => return Err(ProgramError::InvalidInstructionData),
         })
     }

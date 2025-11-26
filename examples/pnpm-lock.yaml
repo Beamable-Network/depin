@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@beamable-network/depin':
-        specifier: 0.0.8
-        version: 0.0.8(@metaplex-foundation/umi@1.4.1)(@solana/kit@2.3.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(@solana/sysvars@2.3.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
+        specifier: 0.3.0
+        version: 0.3.0(@metaplex-foundation/umi@1.4.1)(@solana/kit@2.3.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(@solana/sysvars@2.3.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
       '@metaplex-foundation/digital-asset-standard-api':
         specifier: ^2.0.0
         version: 2.0.0(@metaplex-foundation/umi@1.4.1)
@@ -52,8 +52,8 @@ packages:
     resolution: {integrity: sha512-Q/N6JNWvIvPnLDvjlE1OUBLPQHH6l3CltCEsHIujp45zQUSSh8K+gHnaEX45yAT1nyngnINhvWtzN+Nb9D8RAQ==}
     engines: {node: '>=6.9.0'}
 
-  '@beamable-network/depin@0.0.8':
-    resolution: {integrity: sha512-Ltw43PfZzYEWKmXqTWZJCFux6NZeOYt7X0fMnVPWyJCfbR1yDJzNqDdmbtQK5/wXCGfch+2Mfrzw/6RlGY/Sqg==}
+  '@beamable-network/depin@0.3.0':
+    resolution: {integrity: sha512-5L0sES6fBIqi20Q6uALptzWjSZQ6/733c3yaAKf4Cy03SAYuTUaclH+ZBM971kqb2QuUCPgAKV/Uh/DIPWB0EA==}
 
   '@esbuild/aix-ppc64@0.25.10':
     resolution: {integrity: sha512-0NFWnA+7l41irNuaSVlLfgNT12caWJVLzp5eAVhZ0z1qpxbockccEt3s+149rE64VUI3Ml2zt8Nv5JVc4QXTsw==}
@@ -1024,7 +1024,7 @@ snapshots:
 
   '@babel/runtime@7.28.4': {}
 
-  '@beamable-network/depin@0.0.8(@metaplex-foundation/umi@1.4.1)(@solana/kit@2.3.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(@solana/sysvars@2.3.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))':
+  '@beamable-network/depin@0.3.0(@metaplex-foundation/umi@1.4.1)(@solana/kit@2.3.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(@solana/sysvars@2.3.0(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))':
     dependencies:
       '@metaplex-foundation/mpl-bubblegum': 5.0.2(@metaplex-foundation/umi@1.4.1)
       '@sinclair/typebox': 0.34.41

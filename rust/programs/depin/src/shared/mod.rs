@@ -28,7 +28,7 @@ pub mod features {
     pub mod checker {
         pub mod accounts;
     }
-    pub mod treasury {
+    pub mod flexlock {
         pub mod accounts;
         pub mod utils;
     }

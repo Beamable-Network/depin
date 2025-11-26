@@ -4,12 +4,13 @@ export enum DepinInstruction {
     ActivateWorker = 3,
     ActivateCheckerLicenses = 4,
     ActivateChecker = 6,
-    Unlock = 7,
     PayoutCheckerRewards = 8,
     UpdateWorkerUri = 9,
     SetBMBState = 10,
-    SetTreasuryConfig = 11,
+    SetCheckerRewardsVault = 11,
     ViewCheckerReward = 12,
+    FlexLock = 13,
+    FlexUnlock = 14,
 }
 
 export enum DepinAccountType {
@@ -20,9 +21,8 @@ export enum DepinAccountType {
     BMBState = 5,
     CheckerMetadata = 6,
     CheckerLicenseMetadata = 7,
-    TreasuryState = 8,
-    LockedTokens = 9,
-    TreasuryConfig = 10
+    FlexlockTokens = 11,
+    CheckerRewardsVault = 12
 }
 
 export enum WorkerStakeInstruction {

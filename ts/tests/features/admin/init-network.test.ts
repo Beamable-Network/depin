@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { BMB_MINT, GlobalRewardsAccount, InitNetwork, TreasuryAuthority, TreasuryStateAccount, TreasuryConfigAccount, DEPIN_PROGRAM } from '@beamable-network/depin';
+import { BMB_MINT, GlobalRewardsAccount, InitNetwork, DEPIN_PROGRAM, CheckerRewardsVault } from '@beamable-network/depin';
 import { initializeNetwork } from '../../helpers/bmb-utils.js';
 import { LiteDepin } from '../../helpers/lite-depin.js';
 
@@ -10,14 +10,14 @@ describe('Init network', async () => {
     await lite.airdrop(signer, 10);
     lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, signer.web3PublicKey);
 
-    // Initialize BMB mint and treasury with some tokens
+    // Initialize BMB mint and CheckerRewardsVault with some tokens
     await lite.createToken(BMB_MINT, signer);
-    const [depinTreasury] = await TreasuryAuthority.findDepinTreasuryPDA();
-    await lite.mintToken(BMB_MINT, depinTreasury, BigInt(10_000_000_000), signer);
+    const [checkerRewardsVault] = await CheckerRewardsVault.findPDA();
+    await lite.mintToken(BMB_MINT, checkerRewardsVault, BigInt(10_000_000_000), signer);
 
-    it('should have treasury balance', async () => {
-        const treasuryBalance = await lite.getTokenBalance(BMB_MINT, depinTreasury);
-        expect(treasuryBalance).toEqual(BigInt(10_000_000_000n));
+    it('should have CheckerRewardsVault balance', async () => {
+        const vaultBalance = await lite.getTokenBalance(BMB_MINT, checkerRewardsVault);
+        expect(vaultBalance).toEqual(BigInt(10_000_000_000n));
     });
 
     it('should be able to init network with progressive resizing', async () => {
@@ -49,8 +49,7 @@ describe('Init network', async () => {
 
         // Check for expected idempotent behavior messages
         const hasIdempotentMessage = secondResult.logs?.some(log =>
-            log.includes("Initialization done") ||
-            log.includes("TreasuryState already exists")
+            log.includes("Initialization done")
         );
         expect(hasIdempotentMessage).toBe(true);
 
@@ -63,8 +62,7 @@ describe('Init network', async () => {
 
 async function verifyNetworkInitialization(lite: LiteDepin): Promise<void> {
     await verifyGlobalRewardsAccount(lite);
-    await verifyTreasuryStateAccount(lite);
-    await verifyTreasuryConfigAccount(lite);
+    await verifyCheckerRewardsVault(lite);
     console.log("All network initialization accounts verified successfully");
 }
 
@@ -78,22 +76,12 @@ async function verifyGlobalRewardsAccount(lite: LiteDepin): Promise<void> {
     expect(globalRewards.checkers.length).toBe(100_000);
 }
 
-async function verifyTreasuryStateAccount(lite: LiteDepin): Promise<void> {
-    const treasuryStatePDA = await TreasuryStateAccount.findTreasuryStatePDA();
-    const treasuryStateData = lite.getAccountData(treasuryStatePDA[0]);
-    expect(treasuryStateData).not.toBeNull();
-    expect(treasuryStateData!.length).toBeGreaterThan(0);
+async function verifyCheckerRewardsVault(lite: LiteDepin): Promise<void> {
+    const vaultPda = await CheckerRewardsVault.findPDA();
+    const vaultData = lite.getAccountData(vaultPda[0]);
+    expect(vaultData).not.toBeNull();
+    expect(vaultData!.length).toBeGreaterThan(0);
 
-    const treasuryState = TreasuryStateAccount.deserializeFrom(treasuryStateData);
-    expect(treasuryState.lockedBalance).toBe(0n);
-}
-
-async function verifyTreasuryConfigAccount(lite: LiteDepin): Promise<void> {
-    const treasuryConfigPDA = await TreasuryConfigAccount.findTreasuryConfigPDA();
-    const treasuryConfigData = lite.getAccountData(treasuryConfigPDA[0]);
-    expect(treasuryConfigData).not.toBeNull();
-    expect(treasuryConfigData!.length).toBeGreaterThan(0);
-
-    const treasuryConfig = TreasuryConfigAccount.deserializeFrom(treasuryConfigData!);
-    expect(treasuryConfig.checkerRewardsLockDays).toBe(90);
+    const vault = CheckerRewardsVault.deserializeFrom(vaultData!);
+    expect(vault.lockDays).toBe(90);
 }

@@ -22,7 +22,7 @@ This SDK is compatible with `gill` and `@solana/kit` packages (not the legacy `@
 ### Basic Example: Claim Checker Rewards
 
 ```typescript
-import { PayoutCheckerRewards, TreasuryConfigAccount } from '@beamable-network/depin';
+import { PayoutCheckerRewards, CheckerRewardsVault } from '@beamable-network/depin';
 import { Address } from 'gill';
 
 // Create the instruction
@@ -31,8 +31,8 @@ const payout = new PayoutCheckerRewards({
     checker_license: checkerLicense,
 });
 
-// Get the treasury config
-const cfg = await TreasuryConfigAccount.readFromState(async (addr) => {
+// Get the vault
+const cfg = await CheckerRewardsVault.readFromState(async (addr) => {
     // Your implementation to fetch account data
     return await fetchAccountData(addr);
 });

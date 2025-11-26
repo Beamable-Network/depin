@@ -1,4 +1,4 @@
-import { BMB_MINT, LockedTokensAccount, Unlock } from "@beamable-network/depin";
+import { BMB_MINT, FlexlockTokensAccount, FlexUnlock, getCurrentPeriod } from "@beamable-network/depin";
 import { findAssociatedTokenPda, getCreateAssociatedTokenIdempotentInstruction, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import {
     appendTransactionMessageInstruction,
@@ -16,48 +16,70 @@ import { askForSecretKey } from "../utils";
 // Initialize Solana client
 const client = await createClient('devnet');
 
-const ownerKey = await askForSecretKey("Tokens owner");
+const receiverKey = await askForSecretKey("Tokens receiver (who will unlock)");
 
-// Fetch all locked token accounts for the current user
-console.log("Finding locked token accounts for:", ownerKey.address);
-const lockedTokenAccounts = await LockedTokensAccount.getLockedTokens(
-    async (program, config) => {
-        const resp = await client.rpcClient.rpc.getProgramAccounts(program, config).send();
-        return resp.map(({ pubkey, account }) => ({ pubkey, account }));
+// Fetch all flexlock token accounts for the receiver
+console.log("Finding flexlock token accounts for:", receiverKey.address);
+const flexlockTokenAccounts = await FlexlockTokensAccount.getFlexlockTokensByReceiver(
+    async (programAddress, filters) => {
+        const resp = await client.rpcClient.rpc.getProgramAccounts(programAddress, { filters }).send();
+        return resp.map((item: any) => ({
+            pubkey: item.pubkey,
+            account: { data: item.account.data }
+        }));
     },
-    ownerKey.address
+    receiverKey.address
 );
 
-console.log('Found locked token accounts:', lockedTokenAccounts.length);
+console.log('Found flexlock token accounts:', flexlockTokenAccounts.length);
 
-if (lockedTokenAccounts.length > 0) {
+if (flexlockTokenAccounts.length > 0) {
     // Unlock the first account for demo purposes
-    const lockedAccount = lockedTokenAccounts[0];
-    console.log('\n=== Locked Token Account Details ===');
-    console.log('Account Address:', lockedAccount.address.toString());
-    console.log('Full Account Object:', JSON.stringify(lockedAccount, null, 2));
+    const flexlockAccount = flexlockTokenAccounts[0];
+    console.log('\n=== Flexlock Token Account Details ===');
+    console.log('Account Address:', flexlockAccount.address.toString());
+    console.log('Full Account Object:', JSON.stringify(flexlockAccount, null, 2));
 
-    // Find associated token account for receiving unlocked tokens
-    const [destinationTokenAccount] = await findAssociatedTokenPda({
+    // Find associated token accounts for receiver and sender
+    const [receiverTokenAccount] = await findAssociatedTokenPda({
         mint: BMB_MINT,
-        owner: lockedAccount.address,
+        owner: flexlockAccount.data.receiver,
         tokenProgram: TOKEN_PROGRAM_ADDRESS,
     });
 
-    // Check if destination account needs to be created
-    let needsDestinationAccount = false;
+    const [senderTokenAccount] = await findAssociatedTokenPda({
+        mint: BMB_MINT,
+        owner: flexlockAccount.data.sender,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
+
+    // Check if receiver destination account needs to be created
+    let needsReceiverAccount = false;
     try {
-        await client.rpcClient.rpc.getAccountInfo(destinationTokenAccount).send();
+        await client.rpcClient.rpc.getAccountInfo(receiverTokenAccount).send();
     } catch (err) {
-        needsDestinationAccount = true;
+        needsReceiverAccount = true;
+    }
+
+    // Check if sender destination account needs to be created (for porential penalty return)
+    let needsSenderAccount = false;
+    if (flexlockAccount.data.unlockPeriod > getCurrentPeriod()) {
+        try {
+            await client.rpcClient.rpc.getAccountInfo(senderTokenAccount).send();
+        } catch (err) {
+            needsSenderAccount = true;
+        }
     }
 
     // Create unlock instruction
-    const unlock = new Unlock({
-        owner: lockedAccount.address,
-        lock_period: lockedAccount.data.lockPeriod,
-        owner_bmb_token_account: destinationTokenAccount,
-        unlock_period_for_address: lockedAccount.data.unlockPeriod
+    const unlock = new FlexUnlock({
+        receiver: flexlockAccount.data.receiver,
+        sender: flexlockAccount.data.sender,
+        receiver_bmb_token_account: receiverTokenAccount,
+        sender_bmb_token_account: senderTokenAccount,
+        lock_period: flexlockAccount.data.lockPeriod,
+        rent_receiver: flexlockAccount.data.rentReceiver,
+        unlock_period: flexlockAccount.data.unlockPeriod
     });
     const unlockInstruction = await unlock.getInstruction();
 
@@ -67,15 +89,29 @@ if (lockedTokenAccounts.length > 0) {
 
     const transactionMessage = pipe(
         createTransactionMessage({ version: 0 }),
-        (tx) => setTransactionMessageFeePayerSigner(ownerKey, tx),
+        (tx) => setTransactionMessageFeePayerSigner(receiverKey, tx),
         (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
         (tx) => {
-            if (needsDestinationAccount) {
+            if (needsReceiverAccount) {
                 return appendTransactionMessageInstruction(
                     getCreateAssociatedTokenIdempotentInstruction({
-                        payer: ownerKey,
-                        ata: destinationTokenAccount,
-                        owner: unlock.owner,
+                        payer: receiverKey,
+                        ata: receiverTokenAccount,
+                        owner: flexlockAccount.data.receiver,
+                        mint: BMB_MINT,
+                    }),
+                    tx
+                );
+            }
+            return tx;
+        },
+        (tx) => {
+            if (needsSenderAccount) {
+                return appendTransactionMessageInstruction(
+                    getCreateAssociatedTokenIdempotentInstruction({
+                        payer: receiverKey,
+                        ata: senderTokenAccount,
+                        owner: flexlockAccount.data.sender,
                         mint: BMB_MINT,
                     }),
                     tx
@@ -93,5 +129,5 @@ if (lockedTokenAccounts.length > 0) {
         maxRetries: 5n
     });
     const signature = await getSignatureFromTransaction(signedTransaction);
-    console.log(`Rewards claimed, locked tokens received: ${getExplorerLink({ transaction: signature, cluster: client.network })}`);
+    console.log(`Flexlock tokens unlocked: ${getExplorerLink({ transaction: signature, cluster: client.network })}`);
 }
