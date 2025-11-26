@@ -1,5 +1,4 @@
 import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
-import { Address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -20,9 +19,6 @@ describe('FlexLock', async () => {
     let sender: LiteKeyPair;
     let receiver: LiteKeyPair;
     let attacker: LiteKeyPair;
-    let senderAtaAddress: Address;
-    let receiverAtaAddress: Address;
-    let attackerAtaAddress: Address;
 
     beforeEach(async () => {
         lite = new LiteDepin();
@@ -35,28 +31,6 @@ describe('FlexLock', async () => {
         await lite.airdrop(sender, 5);
         await lite.airdrop(receiver, 5);
         await lite.airdrop(attacker, 5);
-
-        // Find ATAs
-        const [senderAta] = await findAssociatedTokenPda({
-            mint: BMB_MINT,
-            owner: sender.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS,
-        });
-        senderAtaAddress = senderAta;
-
-        const [receiverAta] = await findAssociatedTokenPda({
-            mint: BMB_MINT,
-            owner: receiver.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS,
-        });
-        receiverAtaAddress = receiverAta;
-
-        const [attackerAta] = await findAssociatedTokenPda({
-            mint: BMB_MINT,
-            owner: attacker.address,
-            tokenProgram: TOKEN_PROGRAM_ADDRESS,
-        });
-        attackerAtaAddress = attackerAta;
 
         // Create ATAs
         const mintAmount = 100_000n * 1_000_000_000n;
@@ -92,7 +66,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: lockAmount,
                 lock_duration_days: lockDurationDays,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -135,8 +108,6 @@ describe('FlexLock', async () => {
             const flexUnlock = new FlexUnlock({
                 receiver: receiver.address,
                 sender: sender.address,
-                receiver_bmb_token_account: receiverAtaAddress,
-                sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
                 rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
@@ -183,7 +154,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: lockAmount,
                 lock_duration_days: lockDurationDays,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -201,8 +171,6 @@ describe('FlexLock', async () => {
             const flexUnlock = new FlexUnlock({
                 receiver: receiver.address,
                 sender: sender.address,
-                receiver_bmb_token_account: receiverAtaAddress,
-                sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
                 rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
@@ -247,7 +215,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: lockAmount,
                 lock_duration_days: lockDurationDays,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -259,8 +226,6 @@ describe('FlexLock', async () => {
             const flexUnlock = new FlexUnlock({
                 receiver: receiver.address,
                 sender: sender.address,
-                receiver_bmb_token_account: receiverAtaAddress,
-                sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
                 rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
@@ -290,7 +255,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: lockAmount,
                 lock_duration_days: lockDurationDays,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -305,8 +269,6 @@ describe('FlexLock', async () => {
             const flexUnlock = new FlexUnlock({
                 receiver: receiver.address, // Correct receiver for PDA
                 sender: sender.address,
-                receiver_bmb_token_account: receiverAtaAddress,
-                sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
                 rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
@@ -333,7 +295,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: lockAmount,
                 lock_duration_days: lockDurationDays,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -347,8 +308,6 @@ describe('FlexLock', async () => {
             const flexUnlock = new FlexUnlock({
                 receiver: receiver.address, // Correct receiver for PDA
                 sender: sender.address,
-                receiver_bmb_token_account: receiverAtaAddress,
-                sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
                 rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
@@ -374,7 +333,6 @@ describe('FlexLock', async () => {
                 receiver: attacker.address, // But receiver is attacker
                 amount: lockAmount,
                 lock_duration_days: lockDurationDays,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -391,11 +349,6 @@ describe('FlexLock', async () => {
         it('should fail when trying to use non-BMB tokens (USDC)', async () => {
             // Create USDC token
             await lite.createToken(USDC_MINT, authority);
-            const [senderUsdcAta] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
-                owner: sender.address,
-                tokenProgram: TOKEN_PROGRAM_ADDRESS,
-            });
             await lite.mintToken(USDC_MINT, sender.address, 100_000n * 1_000_000n, authority);
 
             const vaultAuthorityPda = await FlexlockVault.findFlexlockVaultPDA();
@@ -404,19 +357,29 @@ describe('FlexLock', async () => {
             lite.goToPeriod(100);
             const currentPeriod = lite.getPeriod();
 
-            // Try to lock USDC (should use BMB mint validation)
+            // Get sender's USDC ATA
+            const [senderUsdcAta] = await findAssociatedTokenPda({
+                mint: USDC_MINT,
+                owner: sender.address,
+                tokenProgram: TOKEN_PROGRAM_ADDRESS,
+            });
+
+            // Try to lock USDC by manipulating the instruction
             const flexLock = new FlexLock({
                 sender: sender.address,
                 receiver: receiver.address,
                 amount: 1000n * 1_000_000n,
                 lock_duration_days: 30,
-                sender_bmb_token_account: senderUsdcAta, // Using USDC ATA instead of BMB
                 current_period: currentPeriod,
             });
 
+            const instruction = await flexLock.getInstruction();
+            // Replace sender's BMB token account (index 1) with USDC token account
+            instruction.accounts[1].address = senderUsdcAta;
+
             await expect(async () => {
                 return lite.buildTransaction()
-                    .addInstruction(await flexLock.getInstruction())
+                    .addInstruction(instruction)
                     .sendTransaction({ payer: sender });
             }).rejects.toThrow(); // Should fail BMB mint validation
         });
@@ -437,7 +400,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: lockAmount,
                 lock_duration_days: lockDurationDays,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -448,21 +410,30 @@ describe('FlexLock', async () => {
             // Move to halfway point
             lite.goToPeriod(currentPeriod + Math.floor(lockDurationDays / 2));
 
+            // Get attacker's BMB token account
+            const [attackerBmbAta] = await findAssociatedTokenPda({
+                mint: BMB_MINT,
+                owner: attacker.address,
+                tokenProgram: TOKEN_PROGRAM_ADDRESS,
+            });
+
             // Try to unlock but redirect sender's penalty to attacker
             const flexUnlock = new FlexUnlock({
                 receiver: receiver.address,
                 sender: sender.address,
-                receiver_bmb_token_account: receiverAtaAddress,
-                sender_bmb_token_account: attackerAtaAddress, // Trying to steal penalty
                 lock_period: currentPeriod,
                 rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
             });
 
+            const instruction = await flexUnlock.getInstruction();
+            // Replace sender's BMB token account (index 6) with attacker's BMB token account
+            instruction.accounts[6].address = attackerBmbAta;
+
             // Should fail validation - sender ATA must match FlexlockTokens sender
             await expect(async () => {
                 return lite.buildTransaction()
-                    .addInstruction(await flexUnlock.getInstruction())
+                    .addInstruction(instruction)
                     .sendTransaction({ payer: receiver });
             }).rejects.toThrow(); // Should fail ATA validation
         });
@@ -481,7 +452,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: lockAmount,
                 lock_duration_days: lockDurationDays,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -491,21 +461,30 @@ describe('FlexLock', async () => {
 
             lite.goToPeriod(currentPeriod + lockDurationDays + 5);
 
+            // Get attacker's BMB token account
+            const [attackerBmbAta] = await findAssociatedTokenPda({
+                mint: BMB_MINT,
+                owner: attacker.address,
+                tokenProgram: TOKEN_PROGRAM_ADDRESS,
+            });
+
             // Try to unlock but redirect receiver's tokens to attacker
             const flexUnlock = new FlexUnlock({
                 receiver: receiver.address,
                 sender: sender.address,
-                receiver_bmb_token_account: attackerAtaAddress, // Trying to steal tokens
-                sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
                 rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
             });
 
+            const instruction = await flexUnlock.getInstruction();
+            // Replace receiver's BMB token account (index 5) with attacker's BMB token account
+            instruction.accounts[5].address = attackerBmbAta;
+
             // Should fail validation - receiver ATA must match FlexlockTokens receiver
             await expect(async () => {
                 return lite.buildTransaction()
-                    .addInstruction(await flexUnlock.getInstruction())
+                    .addInstruction(instruction)
                     .sendTransaction({ payer: receiver });
             }).rejects.toThrow(); // Should fail ATA validation
         });
@@ -526,7 +505,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: lockAmount,
                 lock_duration_days: lockDurationDays,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -540,8 +518,6 @@ describe('FlexLock', async () => {
             const flexUnlock = new FlexUnlock({
                 receiver: receiver.address,
                 sender: sender.address,
-                receiver_bmb_token_account: receiverAtaAddress,
-                sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
                 rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
@@ -585,7 +561,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: lockAmount,
                 lock_duration_days: lockDurationDays,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -599,8 +574,6 @@ describe('FlexLock', async () => {
             const flexUnlock = new FlexUnlock({
                 receiver: receiver.address,
                 sender: sender.address,
-                receiver_bmb_token_account: receiverAtaAddress,
-                sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod - 5, // Wrong period!
                 rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
@@ -627,7 +600,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: lockAmount,
                 lock_duration_days: lockDurationDays,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -641,8 +613,6 @@ describe('FlexLock', async () => {
             const flexUnlock = new FlexUnlock({
                 receiver: receiver.address,
                 sender: sender.address,
-                receiver_bmb_token_account: receiverAtaAddress,
-                sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
                 rent_receiver: sender.address,
                 unlock_period: unlockPeriod + 10, // Wrong period!
@@ -671,7 +641,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: lockAmount,
                 lock_duration_days: lockDurationDays,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -700,8 +669,6 @@ describe('FlexLock', async () => {
             const flexUnlock = new FlexUnlock({
                 receiver: receiver.address,
                 sender: sender.address,
-                receiver_bmb_token_account: receiverAtaAddress,
-                sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
                 rent_receiver: sender.address,
                 unlock_period: unlockPeriod,
@@ -738,7 +705,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: lockAmount,
                 lock_duration_days: lockDurationDays,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -752,8 +718,6 @@ describe('FlexLock', async () => {
             const flexUnlock = new FlexUnlock({
                 receiver: receiver.address,
                 sender: sender.address,
-                receiver_bmb_token_account: receiverAtaAddress,
-                sender_bmb_token_account: senderAtaAddress,
                 lock_period: currentPeriod,
                 rent_receiver: attacker.address, // Trying to steal rent!
                 unlock_period: unlockPeriod,
@@ -778,7 +742,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: 0n, // Zero amount
                 lock_duration_days: 30,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -801,7 +764,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: excessiveAmount,
                 lock_duration_days: 30,
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
@@ -823,7 +785,6 @@ describe('FlexLock', async () => {
                 receiver: receiver.address,
                 amount: 1000n * 1_000_000_000n,
                 lock_duration_days: 0, // Zero duration
-                sender_bmb_token_account: senderAtaAddress,
                 current_period: currentPeriod,
             });
 
