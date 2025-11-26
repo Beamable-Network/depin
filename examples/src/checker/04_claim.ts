@@ -1,4 +1,4 @@
-import { PayoutCheckerRewards, TreasuryConfigAccount } from "@beamable-network/depin";
+import { PayoutCheckerRewards, CheckerRewardsVault } from "@beamable-network/depin";
 import { getAssetWithProof } from "@metaplex-foundation/mpl-bubblegum";
 import { publicKey } from "@metaplex-foundation/umi";
 import {
@@ -30,8 +30,8 @@ const payout = new PayoutCheckerRewards({
     checker_license: license
 });
 
-// Fetch treasury config
-const cfg = await TreasuryConfigAccount.readFromState(async (addr) => {
+// Fetch checker rewards vault config
+const cfg = await CheckerRewardsVault.readFromState(async (addr) => {
     const info = await client.rpcClient.rpc.getAccountInfo(addr).send();
     return info.value?.data ?? null;
 });
@@ -58,4 +58,4 @@ const signature = await client.rpcClient.sendAndConfirmTransaction(signedTransac
     maxRetries: 5n
 });
 
-console.log(`Rewards claimed, locked tokens received: ${getExplorerLink({ transaction: signature, cluster: client.network })}`);
+console.log(`Rewards claimed, flexlock tokens received: ${getExplorerLink({ transaction: signature, cluster: client.network })}`);
