@@ -18,11 +18,11 @@ pub fn get_node_emissions(month: u16) -> NodeEmissions {
             workers_cumulative: 0,
         },
 
-        // Month 5 (Nov 2025): 20M checkers, 10M workers (in base units)
+        // Month 5 (Nov 2025): 10M checkers, 10M workers (in base units)
         5 => NodeEmissions {
-            checkers: 20_000_000 * BMB_MULTIPLIER,
+            checkers: 10_000_000 * BMB_MULTIPLIER,
             workers: 10_000_000 * BMB_MULTIPLIER,
-            checkers_cumulative: 20_000_000 * BMB_MULTIPLIER,
+            checkers_cumulative: 10_000_000 * BMB_MULTIPLIER,
             workers_cumulative: 10_000_000 * BMB_MULTIPLIER,
         },
 
@@ -32,7 +32,7 @@ pub fn get_node_emissions(month: u16) -> NodeEmissions {
             NodeEmissions {
                 checkers: 1_500_000 * BMB_MULTIPLIER,
                 workers: 3_000_000 * BMB_MULTIPLIER,
-                checkers_cumulative: (20_000_000 + (1_500_000 * months_since_5)) * BMB_MULTIPLIER,
+                checkers_cumulative: (10_000_000 + (1_500_000 * months_since_5)) * BMB_MULTIPLIER,
                 workers_cumulative: (10_000_000 + (3_000_000 * months_since_5)) * BMB_MULTIPLIER,
             }
         },
@@ -41,7 +41,7 @@ pub fn get_node_emissions(month: u16) -> NodeEmissions {
         _ => NodeEmissions {
             checkers: 0,
             workers: 0,
-            checkers_cumulative: (20_000_000 + (1_500_000 * 60)) * BMB_MULTIPLIER, // = 110M in base units
+            checkers_cumulative: (10_000_000 + (1_500_000 * 60)) * BMB_MULTIPLIER, // = 100M in base units
             workers_cumulative: (10_000_000 + (3_000_000 * 60)) * BMB_MULTIPLIER,  // = 190M in base units
         },
     }

@@ -274,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_month_5_reward_calculation() {
-        // Month 5 (Nov 2025): First month with 20M scheduled emissions
+        // Month 5 (Nov 2025): First month with 10M scheduled emissions
         // - Checkers: 500 active / 1000 desired (0.5 ratio)
         // - Workers: 100 nodes
         // - Days: 30 (November has 30 days)
@@ -293,12 +293,12 @@ mod tests {
         let reward = GlobalRewards::get_checker_reward(period, &bmb_state).unwrap();
 
         // Formula: (ratio_numerator * total_emissions) / (ratio_denominator * max_activities)
-        // total_emissions = 20_000_000 * 10^9 (in smallest units)
-        // = (500 * 20_000_000_000_000_000) / (1000 * 1_536_000)
-        // = 10_000_000_000_000_000 / 1_536_000_000
-        // = 6_510_416_666.67 (6.51 BMB)
+        // total_emissions = 10_000_000 * 10^9 (in smallest units)
+        // = (500 * 10_000_000_000_000_000) / (1000 * 1_536_000)
+        // = 5_000_000_000_000_000 / 1_536_000_000
+        // = 3_255_208_333.33 (3.26 BMB)
 
-        assert_eq!(reward, 6_510_416_666, "Month 5: Expected 6.51 BMB per activity (matches es.csv)");
+        assert_eq!(reward, 3_255_208_333, "Month 5: Expected 3.26 BMB per activity");
     }
 
     #[test]
@@ -316,19 +316,19 @@ mod tests {
             1000, // checkers_activated
             1500, // checkers_desired
             100,  // workers_activated
-            10_000_000 * BMB_MULTIPLIER, // remaining_checker_emissions from month 5 (in smallest units)
+            5_000_000 * BMB_MULTIPLIER, // remaining_checker_emissions from month 5 (in smallest units)
             6,    // sync_month
         );
 
         let reward = GlobalRewards::get_checker_reward(period, &bmb_state).unwrap();
 
         // Formula: (ratio_numerator * total_emissions) / (ratio_denominator * max_activities)
-        // total_emissions = (1_500_000 + 10_000_000) * 10^9 = 11_500_000 * 10^9 (in smallest units)
-        // = (1000 * 11_500_000_000_000_000) / (1500 * 1_587_200)
-        // = 11_500_000_000_000_000_000 / 2_380_800_000
-        // 4_830_309_139 (≈4.83 BMB)
+        // total_emissions = (1_500_000 + 5_000_000) * 10^9 = 6_500_000 * 10^9 (in smallest units)
+        // = (1000 * 6_500_000_000_000_000) / (1500 * 1_587_200)
+        // = 6_500_000_000_000_000_000 / 2_380_800_000
+        // = 2_730_174_731 (≈2.73 BMB)
 
-        assert_eq!(reward, 4_830_309_139, "Month 6: Expected ≈4.83 BMB per activity (matches es.csv)");
+        assert_eq!(reward, 2_730_174_731, "Month 6: Expected ≈2.73 BMB per activity");
     }
 
     #[test]
@@ -366,10 +366,10 @@ mod tests {
         let reward = GlobalRewards::get_checker_reward(period, &bmb_state).unwrap();
 
         // Ratio should be capped at 1.0 (1000/1000, not 1500/1000)
-        // = (1000 * 20_000_000_000_000_000) / (1000 * 1_536_000)
-        // = 20_000_000_000_000_000 / 1_536_000_000
-        // = 13_020_833_333.33 (13.02 BMB)
+        // = (1000 * 10_000_000_000_000_000) / (1000 * 1_536_000)
+        // = 10_000_000_000_000_000 / 1_536_000_000
+        // = 6_510_416_666.67 (6.51 BMB)
 
-        assert_eq!(reward, 13_020_833_333, "Ratio should be capped at 1.0, giving 13.02 BMB per activity");
+        assert_eq!(reward, 6_510_416_666, "Ratio should be capped at 1.0, giving 6.51 BMB per activity");
     }
 }
