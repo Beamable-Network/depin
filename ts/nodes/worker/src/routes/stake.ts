@@ -20,23 +20,30 @@ import {
     isFullySignedTransaction,
     Transaction
 } from 'gill';
+import { COMPUTE_BUDGET_PROGRAM_ADDRESS } from 'gill/programs';
 import { WorkerNode } from '../worker.js';
 import { ValidationError } from './index.js';
 
 async function validateStakeTransaction(transaction: Transaction, worker: WorkerNode): Promise<ValidationError | null> {
     const messageDecoder = getCompiledTransactionMessageCodec();
     const decodedMessage = messageDecoder.decode(transaction.messageBytes);
+    
+    // Filter out compute budget instructions
+    const nonComputeBudgetInstructions = (decodedMessage.instructions || []).filter(ix => {
+        const programId = decodedMessage.staticAccounts[ix.programAddressIndex];
+        return programId !== COMPUTE_BUDGET_PROGRAM_ADDRESS;
+    });
 
-    // Must have exactly one instruction
-    if (!decodedMessage.instructions || decodedMessage.instructions.length !== 1) {
+    // Must have exactly one non-compute-budget instruction
+    if (nonComputeBudgetInstructions.length !== 1) {
         return {
             error: 'invalid_instruction_count',
-            message: `Transaction must contain exactly one instruction, found ${decodedMessage.instructions?.length || 0}`,
+            message: `Transaction must contain exactly one stake instruction, found ${nonComputeBudgetInstructions.length} instructions`,
             timestamp: Date.now()
         };
     }
 
-    const instruction = decodedMessage.instructions[0];
+    const instruction = nonComputeBudgetInstructions[0];
     const programId = decodedMessage.staticAccounts[instruction.programAddressIndex];
 
     // Validate program ID is the worker stake program
