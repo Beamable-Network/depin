@@ -66,5 +66,6 @@ This SDK uses modern Solana development libraries:
 
 - [NPM Package](https://www.npmjs.com/package/@beamable-network/depin)
 - [GitHub Repository](https://github.com/Beamable-Network/depin)
+- [Changelog](https://github.com/Beamable-Network/depin/blob/main/ts/packages/beamable-depin/CHANGELOG.md)
 - [Beamable Network](https://beamable.network/)
 - [Report Issues](https://github.com/Beamable-Network/depin/issues)
