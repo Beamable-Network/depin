@@ -15,9 +15,12 @@ body = """
 {% for group, commits in commits | group_by(attribute="group") %}
     ### {{ group | upper_first }}
     {% for commit in commits %}
-        - {% if commit.scope %}**{{commit.scope}}**: {% endif %}{{ commit.message | upper_first }}{% if commit.breaking %} [**BREAKING**]{% endif %}
+        - {% if commit.scope %}**{{commit.scope}}**: {% endif %}{{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/Beamable-Network/depin/commit/{{ commit.id }})){% if commit.breaking %} [**BREAKING**]{% endif %}
     {%- endfor %}
-{% endfor %}\n
+{% endfor %}
+{% if version %}{% if previous %}{% if previous.version %}\
+    **Full Changelog**: https://github.com/Beamable-Network/depin/compare/{{ previous.version }}...{{ version }}
+{% endif %}{% endif %}{% endif %}\n
 """
 # remove the leading and trailing whitespace from the template
 trim = true
