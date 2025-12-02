@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [sdk-v0.4.1] - 2025-12-02
+
+### Documentation
+
+- Add a changelog link to readme ([fa8b552](https://github.com/Beamable-Network/depin/commit/fa8b552c1dbde6089e4e506ba170411e70fbc8c8))
+
+### Miscellaneous Tasks
+
+- Prepend changelog changes ([bacdfb7](https://github.com/Beamable-Network/depin/commit/bacdfb736b2870ddea3ede311f27c10b31045164))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/sdk-v0.4.0...sdk-v0.4.1
+
 ## [sdk-v0.4.0] - 2025-12-02
 
 ### Miscellaneous Tasks
