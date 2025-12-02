@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [checker-v0.2.0] - 2025-12-02
+
+### Features
+
+- Automatic license rediscovery on period changes (#22) ([2c9af32](https://github.com/Beamable-Network/depin/commit/2c9af324283d21178f6806b25a210d6271e735a1))
+
+### Miscellaneous Tasks
+
+- Prepend changelog changes ([bacdfb7](https://github.com/Beamable-Network/depin/commit/bacdfb736b2870ddea3ede311f27c10b31045164))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/checker-v0.1.0...checker-v0.2.0
+
 ## [checker-v0.1.0] - 2025-12-02
 
 ### Miscellaneous Tasks
