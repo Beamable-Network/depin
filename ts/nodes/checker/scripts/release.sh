@@ -95,10 +95,11 @@ echo -e "${GREEN}✓ Version updated${NC}"
 
 # Generate changelog
 echo -e "\n${BLUE}Generating changelog...${NC}"
-git-cliff --include-path 'ts/nodes/checker/**' \
+git-cliff --unreleased \
+          --include-path 'ts/nodes/checker/**' \
           --tag-pattern 'checker-v[0-9]*' \
           --tag "${TAG_PREFIX}-v${NEW_VERSION}" \
-          --output ts/nodes/checker/CHANGELOG.md
+          --prepend ts/nodes/checker/CHANGELOG.md
 echo -e "${GREEN}✓ Changelog generated${NC}"
 
 # Show changes

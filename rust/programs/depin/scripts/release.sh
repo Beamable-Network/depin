@@ -92,10 +92,11 @@ echo -e "${GREEN}✓ Version updated${NC}"
 
 # Generate changelog
 echo -e "\n${BLUE}Generating changelog...${NC}"
-git-cliff --include-path 'rust/programs/depin/**' \
+git-cliff --unreleased \
+          --include-path 'rust/programs/depin/**' \
           --tag-pattern 'depin-v[0-9]*' \
           --tag "${TAG_PREFIX}-v${NEW_VERSION}" \
-          --output rust/programs/depin/CHANGELOG.md
+          --prepend rust/programs/depin/CHANGELOG.md
 echo -e "${GREEN}✓ Changelog generated${NC}"
 
 # Show changes

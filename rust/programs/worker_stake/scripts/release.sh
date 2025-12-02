@@ -92,10 +92,11 @@ echo -e "${GREEN}✓ Version updated${NC}"
 
 # Generate changelog
 echo -e "\n${BLUE}Generating changelog...${NC}"
-git-cliff --include-path 'rust/programs/worker_stake/**' \
+git-cliff --unreleased \
+          --include-path 'rust/programs/worker_stake/**' \
           --tag-pattern 'worker-stake-v[0-9]*' \
           --tag "${TAG_PREFIX}-v${NEW_VERSION}" \
-          --output rust/programs/worker_stake/CHANGELOG.md
+          --prepend rust/programs/worker_stake/CHANGELOG.md
 echo -e "${GREEN}✓ Changelog generated${NC}"
 
 # Show changes
