@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [checker-v0.2.1] - 2025-12-02
+
+### Miscellaneous Tasks
+
+- Set proper user permissions when coping release files in docker ([ece11d4](https://github.com/Beamable-Network/depin/commit/ece11d4ed8e1a71d768d533bfa5fcc923b1fa876))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/checker-v0.2.0...checker-v0.2.1
+
 ## [checker-v0.2.0] - 2025-12-02
 
 ### Features
