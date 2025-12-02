@@ -40,7 +40,7 @@ if ! git diff-index --quiet HEAD --; then
 fi
 
 # Read current version from package.json
-CURRENT_VERSION=$(node -p "require('./$VERSION_FILE').version")
+CURRENT_VERSION=$(node -p "require('$PACKAGE_DIR/$VERSION_FILE').version")
 echo -e "${GREEN}Current version:${NC} $CURRENT_VERSION"
 
 # Parse version components

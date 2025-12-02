@@ -40,7 +40,7 @@ if ! git diff-index --quiet HEAD --; then
 fi
 
 # Read current version from Cargo.toml
-CURRENT_VERSION=$(grep '^version = ' "rust/programs/worker_stake/$VERSION_FILE" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+CURRENT_VERSION=$(grep '^version = ' "$PACKAGE_DIR/$VERSION_FILE" | head -1 | sed 's/.*"\(.*\)".*/\1/')
 echo -e "${GREEN}Current version:${NC} $CURRENT_VERSION"
 
 # Parse version components
