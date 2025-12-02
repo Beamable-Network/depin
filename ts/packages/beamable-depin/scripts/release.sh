@@ -12,7 +12,6 @@ NC='\033[0m' # No Color
 PACKAGE_NAME="SDK"
 TAG_PREFIX="sdk"
 VERSION_FILE="package.json"
-CHANGELOG_SCRIPT="changelog:sdk"
 
 # Navigate to package root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -96,7 +95,10 @@ echo -e "${GREEN}✓ Version updated${NC}"
 
 # Generate changelog
 echo -e "\n${BLUE}Generating changelog...${NC}"
-pnpm run "$CHANGELOG_SCRIPT"
+git-cliff --include-path 'ts/packages/beamable-depin/**' \
+          --tag-pattern 'sdk-v[0-9]*' \
+          --tag "${TAG_PREFIX}-v${NEW_VERSION}" \
+          --output ts/packages/beamable-depin/CHANGELOG.md
 echo -e "${GREEN}✓ Changelog generated${NC}"
 
 # Show changes

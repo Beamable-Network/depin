@@ -12,7 +12,6 @@ NC='\033[0m' # No Color
 PACKAGE_NAME="DePIN Program"
 TAG_PREFIX="depin"
 VERSION_FILE="Cargo.toml"
-CHANGELOG_SCRIPT="changelog:depin"
 
 # Navigate to package root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -93,7 +92,10 @@ echo -e "${GREEN}✓ Version updated${NC}"
 
 # Generate changelog
 echo -e "\n${BLUE}Generating changelog...${NC}"
-pnpm run "$CHANGELOG_SCRIPT"
+git-cliff --include-path 'rust/programs/depin/**' \
+          --tag-pattern 'depin-v[0-9]*' \
+          --tag "${TAG_PREFIX}-v${NEW_VERSION}" \
+          --output rust/programs/depin/CHANGELOG.md
 echo -e "${GREEN}✓ Changelog generated${NC}"
 
 # Show changes
