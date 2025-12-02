@@ -3,6 +3,7 @@ import {
     address,
     Codec,
     fixCodecSize,
+    getBase16Codec,
     getBytesCodec,
     getStructCodec,
     getU16Codec,
@@ -99,5 +100,16 @@ export class SubmitWorkerProof {
             accounts: accounts,
             data: this.serialize(),
         };
+    }
+
+    public static deserializeFromHex(hexString: string): SubmitWorkerProofParams {
+        const bytes = getBase16Codec().encode(hexString);
+        
+        if (bytes[0] !== DepinInstruction.SubmitWorkerProof) {
+            throw new Error(`Invalid instruction discriminator. Expected ${DepinInstruction.SubmitWorkerProof}, got ${bytes[0]}`);
+        }
+        
+        const paramsBytes = bytes.slice(1);
+        return SubmitWorkerProofParamsCodec.decode(paramsBytes);
     }
 }
