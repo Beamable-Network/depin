@@ -34,7 +34,7 @@ RUN apk add --no-cache curl \
   && adduser -S worker -u 1001
 
 # Copy prebuilt, production-only app from builder
-COPY --from=builder /app .
+COPY --from=builder --chown=worker:nodejs /app .
 
 USER worker
 

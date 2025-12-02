@@ -33,7 +33,7 @@ RUN apk add --no-cache curl \
   && adduser -S checker -u 1001
 
 # Copy prebuilt, production-only app from builder
-COPY --from=builder /app .
+COPY --from=builder --chown=checker:nodejs /app .
 
 USER checker
 
