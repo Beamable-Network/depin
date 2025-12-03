@@ -94,6 +94,7 @@ echo -e "${GREEN}✓ Version updated${NC}"
 echo -e "\n${BLUE}Generating changelog...${NC}"
 git-cliff --unreleased \
           --include-path 'rust/programs/worker_stake/**' \
+          --include-path 'rust/depin_core/src/**' \
           --tag-pattern 'worker-stake-v[0-9]*' \
           --tag "${TAG_PREFIX}-v${NEW_VERSION}" \
           --prepend rust/programs/worker_stake/CHANGELOG.md
