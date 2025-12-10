@@ -2,15 +2,15 @@ use borsh::BorshDeserialize;
 use mpl_bubblegum::types::LeafSchema;
 use mpl_bubblegum::utils::get_asset_id;
 use solana_program::{
-    account_info::{next_account_info, AccountInfo}, 
-    entrypoint::ProgramResult, 
-    msg, 
-    program_error::ProgramError, 
-    pubkey::Pubkey, 
-    system_instruction, 
-    sysvar::{rent::Rent, Sysvar}, 
+    account_info::{next_account_info, AccountInfo},
+    entrypoint::ProgramResult,
+    msg,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    sysvar::{rent::Rent, Sysvar},
     program::invoke_signed
 };
+use solana_system_interface::instruction as system_instruction;
 use crate::shared::{
     features::worker::accounts::WorkerMetadata,
     features::global::accounts::BMBState,

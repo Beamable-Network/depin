@@ -11,7 +11,6 @@ use depin_core::utils::tokens::initialize_ata_if_needed;
 use depin_core::utils::validation::{validate_ata_account, validate_pda_account};
 use solana_program::program::invoke_signed;
 use solana_program::rent::Rent;
-use solana_program::{system_instruction};
 use solana_program::sysvar::Sysvar;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -20,6 +19,7 @@ use solana_program::{
     program_error::ProgramError,
     pubkey::Pubkey,
 };
+use solana_system_interface::instruction as system_instruction;
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct InitInput {
@@ -173,7 +173,7 @@ fn init_global_rewards<'a>(
         }
         
         // Realloc to target size
-        global_rewards_account.realloc(target_len, false)?;
+        global_rewards_account.resize(target_len)?;
         
         // If we've reached final size, initialize
         if target_len == GlobalRewards::LEN {

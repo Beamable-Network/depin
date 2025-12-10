@@ -4,10 +4,10 @@ use solana_program::{
     msg,
     account_info::AccountInfo,
     sysvar::rent::Rent,
-    system_instruction,
     program::invoke,
     entrypoint::ProgramResult,
 };
+use solana_system_interface::instruction as system_instruction;
 
 use crate::constants::DISC_SIZE;
 
@@ -78,7 +78,7 @@ pub fn reallocate_account_if_needed<'a>(
         let required_rent = rent.minimum_balance(required_space);
         
         // Reallocate the account
-        target_account.realloc(required_space, false)?;
+        target_account.resize(required_space)?;
         
         // Handle rent difference
         if required_rent > current_rent {

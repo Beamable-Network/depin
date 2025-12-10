@@ -382,6 +382,7 @@ dependencies = [
  "depin_core",
  "mpl-bubblegum",
  "solana-program",
+ "solana-system-interface",
  "spl-associated-token-account",
  "spl-token",
 ]
@@ -391,7 +392,9 @@ name = "depin_core"
 version = "0.1.0"
 dependencies = [
  "borsh 1.6.0",
+ "solana-loader-v3-interface",
  "solana-program",
+ "solana-system-interface",
  "spl-associated-token-account",
  "spl-token",
 ]
@@ -2677,6 +2680,7 @@ dependencies = [
  "depin_core",
  "mpl-bubblegum",
  "solana-program",
+ "solana-system-interface",
  "spl-associated-token-account",
  "spl-token",
 ]

@@ -11,9 +11,9 @@ use solana_program::{
     program_error::ProgramError,
     pubkey::Pubkey,
     rent::Rent,
-    system_instruction,
     sysvar::Sysvar,
 };
+use solana_system_interface::instruction as system_instruction;
 use crate::{
     state::worker_stake_config::WorkerStakeConfig,
     types::WorkerStakeAccountType,

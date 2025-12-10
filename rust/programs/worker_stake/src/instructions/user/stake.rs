@@ -31,9 +31,9 @@ use solana_program::{
     program_error::ProgramError,
     pubkey::Pubkey,
     rent::Rent,
-    system_instruction,
     sysvar::Sysvar,
 };
+use solana_system_interface::instruction as system_instruction;
 use spl_token::instruction::transfer_checked;
 
 const USER_POSITION_SEED: &[u8] = b"user_position";

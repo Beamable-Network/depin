@@ -5,10 +5,10 @@ use solana_program::{
     msg,
     program_error::ProgramError,
     pubkey::Pubkey,
-    system_instruction,
     sysvar::{rent::Rent, Sysvar},
     program::invoke_signed,
 };
+use solana_system_interface::instruction as system_instruction;
 use crate::shared::{
     constants::seeds::{GLOBAL_SEED, STATE_SEED},
     features::global::accounts::BMBState,

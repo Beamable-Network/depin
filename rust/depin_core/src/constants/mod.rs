@@ -12,3 +12,4 @@ pub const CHECKER_TREE: Pubkey = solana_program::pubkey!("3eHEnELWr4fdVEhq4QKyyj
 pub const WORKER_TREE: Pubkey = solana_program::pubkey!("BMBw28bkTSFicoKZGoYNJzWnSyUjDRcxr7Qoc5mCuxf5");
 
 pub const MPL_ACCOUNT_COMPRESSION_PROGRAM: Pubkey = solana_program::pubkey!("mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW");
+pub const BPF_LOADER_UPGRADEABLE_PROGRAM: Pubkey = solana_program::pubkey!("BPFLoaderUpgradeab1e11111111111111111111111");

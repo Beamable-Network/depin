@@ -15,8 +15,15 @@ use depin_core::utils::{
     bmb::validate_worker_tree
 };
 use solana_program::{
-    account_info::{next_account_info, AccountInfo}, entrypoint::ProgramResult, msg, program::invoke_signed, program_error::ProgramError, pubkey::Pubkey, system_instruction, sysvar::{rent::Rent, Sysvar}
+    account_info::{next_account_info, AccountInfo},
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke_signed,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    sysvar::{rent::Rent, Sysvar}
 };
+use solana_system_interface::instruction as system_instruction;
 
 pub fn process_submit_worker_proof(
     program_id: &Pubkey,

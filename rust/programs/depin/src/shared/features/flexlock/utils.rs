@@ -4,9 +4,9 @@ use solana_program::{
     program::{invoke, invoke_signed},
     program_error::ProgramError,
     pubkey::Pubkey,
-    system_instruction,
     sysvar::{rent::Rent, Sysvar},
 };
+use solana_system_interface::instruction as system_instruction;
 use spl_token::instruction::transfer_checked;
 
 use crate::shared::{

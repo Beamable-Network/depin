@@ -1,10 +1,12 @@
 use solana_program::{
     account_info::AccountInfo,
-    bpf_loader_upgradeable::{self, UpgradeableLoaderState},
     msg,
     program_error::ProgramError,
     pubkey::Pubkey,
 };
+use solana_loader_v3_interface::state::UpgradeableLoaderState;
+
+use crate::constants::BPF_LOADER_UPGRADEABLE_PROGRAM;
 
 /// Validates the upgrade authority from a ProgramData account.
 ///
@@ -45,7 +47,7 @@ pub fn validate_upgrade_authority(
     // Validate ProgramData account matches expected PDA
     let (expected_program_data, _bump) = Pubkey::find_program_address(
         &[program_id.as_ref()],
-        &bpf_loader_upgradeable::id()
+        &BPF_LOADER_UPGRADEABLE_PROGRAM
     );
     if program_data_account.key != &expected_program_data {
         msg!("Error: Invalid ProgramData account");
