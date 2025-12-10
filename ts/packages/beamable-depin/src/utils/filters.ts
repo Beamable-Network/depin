@@ -1,5 +1,5 @@
 import { Address, Base58EncodedBytes, getAddressEncoder, getBase58Codec, GetProgramAccountsMemcmpFilter, getU8Codec, ReadonlyUint8Array } from "gill";
-import { DepinAccountType } from "../enums.js";
+import { DepinAccountType, WorkerStakeAccountType } from "../enums.js";
 
 function toBase58EncodedBytes(data: ReadonlyUint8Array): Base58EncodedBytes {
     return getBase58Codec().decode(new Uint8Array(data)) as Base58EncodedBytes;
@@ -14,6 +14,17 @@ export function optionNoneToBase58EncodedBytes(): Base58EncodedBytes {
 }
 
 export function getDepinAccountFilter(accountType: DepinAccountType): GetProgramAccountsMemcmpFilter {
+    const accountTypeBytes = getU8Codec().encode(accountType);
+    return {
+        memcmp: {
+            bytes: toBase58EncodedBytes(accountTypeBytes),
+            encoding: 'base58',
+            offset: 0n,
+        }
+    };
+};
+
+export function getWorkerStakeAccountFilter(accountType: WorkerStakeAccountType): GetProgramAccountsMemcmpFilter {
     const accountTypeBytes = getU8Codec().encode(accountType);
     return {
         memcmp: {
