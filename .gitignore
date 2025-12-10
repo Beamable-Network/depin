@@ -5,8 +5,6 @@ TDD*.md
 .DS_Store
 .vs
 
-Cargo.lock
-
 test-ledger/
 
 **/*/node_modules
