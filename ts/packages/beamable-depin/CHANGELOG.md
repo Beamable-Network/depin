@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [sdk-v0.4.2] - 2025-12-10
+
+### Features
+
+- Add getWorkerStakeAccountFilter for filtering by worker_stake program accounts ([8b33c4d](https://github.com/Beamable-Network/depin/commit/8b33c4d02e17bd13c9e072ded2c8e739e392aaa8))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/sdk-v0.4.1...sdk-v0.4.2
+
 ## [sdk-v0.4.1] - 2025-12-02
 
 ### Documentation
