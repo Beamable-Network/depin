@@ -2,7 +2,6 @@ use crate::shared::constants::seeds::{CHECKER_SEED, REWARDS_SEED, GLOBAL_SEED, S
 use crate::shared::features::flexlock::accounts::FlexlockVault;
 use crate::shared::features::rewards::accounts::{CheckerRewardsVault, GlobalRewards};
 use crate::shared::features::global::accounts::BMBState;
-use borsh::{BorshDeserialize, BorshSerialize};
 use depin_core::constants::BMB_MINT;
 use depin_core::types::account::DepinAccountType;
 use depin_core::utils::account::{write_account_data, reallocate_account_if_needed};
@@ -20,10 +19,6 @@ use solana_program::{
     pubkey::Pubkey,
 };
 use solana_system_interface::instruction as system_instruction;
-
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub struct InitInput {
-}
 
 pub fn process_init_network<'a>(
     program_id: &Pubkey,
