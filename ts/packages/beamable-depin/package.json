@@ -38,6 +38,7 @@
     "@types/node": "^22.15.3"
   },
   "dependencies": {
+    "@metaplex-foundation/mpl-account-compression": "^0.0.1",
     "@metaplex-foundation/mpl-bubblegum": "^5.0.2",
     "@sinclair/typebox": "^0.34.41",
     "@solana-program/system": "^0.8.0",

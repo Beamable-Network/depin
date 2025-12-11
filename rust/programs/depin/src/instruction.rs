@@ -13,6 +13,7 @@ pub enum DepinInstruction {
     ViewCheckerReward = 12,
     FlexLock = 13,
     FlexUnlock = 14,
+    MintChecker = 15,
 }
 
 impl DepinInstruction {
@@ -34,6 +35,7 @@ impl DepinInstruction {
             12 => Self::ViewCheckerReward,
             13 => Self::FlexLock,
             14 => Self::FlexUnlock,
+            15 => Self::MintChecker,
             _ => return Err(ProgramError::InvalidInstructionData),
         })
     }

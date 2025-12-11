@@ -20,3 +20,4 @@ pub const LICENSE_SEED: &[u8] = b"license";
 pub const CHECKER_SEED: &[u8] = b"checker";
 
 pub const FLEXLOCK_SEED: &[u8] = b"flexlock";
+pub const AUTHORITY_SEED: &[u8] = b"authority";
