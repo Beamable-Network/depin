@@ -1,4 +1,4 @@
-import { DEPIN_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM, periodToTimestamp, timestampToPeriod, MPL_BUBBLEGUM_PROGRAM, WORKER_STAKE_PROGRAM, BPF_LOADER_UPGRADEABLE_PROGRAM, getMonthStartTimestamp } from '@beamable-network/depin';
+import { BPF_LOADER_UPGRADEABLE_PROGRAM, DEPIN_PROGRAM, getMonthFromPeriod, getMonthStartTimestamp, MPL_ACCOUNT_COMPRESSION_PROGRAM, MPL_BUBBLEGUM_PROGRAM, periodToTimestamp, timestampToPeriod, WORKER_STAKE_PROGRAM } from '@beamable-network/depin';
 import { MPL_NOOP_PROGRAM_ID } from '@metaplex-foundation/mpl-account-compression';
 import { AssetWithProof, createTreeV2, findLeafAssetIdPda, hashAssetData, hashCollection, hashMetadataCreators, hashMetadataDataV2, mintV2 } from '@metaplex-foundation/mpl-bubblegum';
 import { createCollection, MPL_CORE_PROGRAM_ID } from '@metaplex-foundation/mpl-core';
@@ -675,13 +675,24 @@ export class LiteDepin {
         return timestampToPeriod(clock.unixTimestamp);
     }
 
+    getMonthPeriod(): number {
+        const period = this.getPeriod();
+        return getMonthFromPeriod(period);
+    }
+
     goToPeriod(period: number): void {
         const timestamp = BigInt(periodToTimestamp(period));
         this.setTime(timestamp);
     }
 
-    goToMonthPeriod(monthPeriod: number): void {
-        const timestamp = getMonthStartTimestamp(monthPeriod);
+    goToMonthPeriod(monthPeriod: number, offset: {day: number, hour: number} = {day: 1, hour: 0}): void {
+        if (offset.day < 1 || offset.day > 31) {
+            throw new Error("Offset day must be between 1 and 31");
+        }
+        if (offset.hour < 0 || offset.hour > 23) {
+            throw new Error("Offset hour must be between 0 and 23");
+        }
+        const timestamp = getMonthStartTimestamp(monthPeriod) + BigInt((offset.day - 1) * 24 * 60 * 60) + BigInt(offset.hour * 60 * 60);
         this.setTime(timestamp);
     }
 
