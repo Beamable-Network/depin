@@ -1,5 +1,5 @@
 import { BMB_DECIMALS } from "../../constants.js";
-import { daysBetween, daysInMonth, getMonthEndTimestamp, getMonthStartTimestamp } from "../../utils/bmb.js";
+import { daysBetween, daysInMonth, getMonthEndTimestamp } from "../../utils/bmb.js";
 import { MonthlyPoolAccount } from "./monthly-pool-account.js";
 import { UserStakePositionAccount } from "./user-stake-position-account.js";
 
@@ -100,72 +100,63 @@ function calculateTimeWeighted(amount: bigint, daysActive: bigint): bigint {
  *
  * @param position - The user's stake position containing all stake entries
  * @param targetMonth - The month period to calculate weights for
- * @param monthStart - Unix timestamp for the start of the target month
- * @param monthEnd - Unix timestamp for the end of the target month
- * @param daysInMonthVal - Number of days in the target month
  * @returns MonthWeightTotals containing stakeDays and pointDays
  * @throws Error if arithmetic overflow occurs
  */
 export function computeMonthWeightTotals(
     position: UserStakePositionAccount,
     targetMonth: number,
-    monthStart: bigint,
-    monthEnd: bigint,
-    daysInMonthVal: number
 ): MonthWeightTotals {
+    const monthEnd = getMonthEndTimestamp(targetMonth);
+    const daysInMonthVal = daysInMonth(targetMonth);
+    
     let stakeDays = 0n;
     let pointDays = 0n;
-
+    
     let cumulativeStake = 0n;
-    let lastCheckerCount = 0;
-    let lastTimestamp = monthStart;
-
+    let lastPoints = 0n;
+    let appliedInheritedPoints = false;
+    
     for (const entry of position.stake_entries) {
-        // Entries from before the target month get full month weight
+        // Previous months
         if (entry.month_period < targetMonth) {
-            const fullMonthWeight = calculateTimeWeighted(entry.amount, BigInt(daysInMonthVal));
-            stakeDays += fullMonthWeight;
-
+            const fullMonthStakeDays = calculateTimeWeighted(entry.amount, BigInt(daysInMonthVal));
+            stakeDays += fullMonthStakeDays;
             cumulativeStake += entry.amount;
-            lastCheckerCount = entry.checker_count;
-            continue;
+            lastPoints = calculatePoints(entry.checker_count, cumulativeStake);
         }
+        // Target month
+        else if (entry.month_period == targetMonth) {
+            const daysLeft = daysBetween(entry.timestamp, monthEnd);
+            
+            const weightedStakeDays = calculateTimeWeighted(entry.amount, daysLeft);
+            stakeDays += weightedStakeDays;
+            cumulativeStake += entry.amount;
+            
+            // Point inheritance
+            if (!appliedInheritedPoints) {
+                if (lastPoints > 0n) {
+                    const points = calculatePoints(Number(lastPoints), cumulativeStake);
+                    pointDays += calculateTimeWeighted(points, BigInt(daysInMonthVal));
+                }
+                appliedInheritedPoints = true;
+            }
 
-        // Skip entries from future months
-        if (entry.month_period > targetMonth) {
-            break;
+            const newPoints = calculatePoints(entry.checker_count, cumulativeStake);
+            const pointsDelta = newPoints - lastPoints;
+            if (pointsDelta != 0n) {
+                if (pointsDelta > 0n)
+                    pointDays += calculateTimeWeighted(pointsDelta, daysLeft);
+                else
+                    pointDays -= calculateTimeWeighted(pointsDelta * -1n, daysLeft);
+                lastPoints = newPoints;
+            }
         }
-
-        // Entry is in the target month
-        // Calculate point-days for the period BEFORE this entry
-        const daysBefore = daysBetween(lastTimestamp, entry.timestamp);
-        if (daysBefore > 0n) {
-            const pointsBefore = calculatePoints(lastCheckerCount, cumulativeStake);
-            pointDays += pointsBefore * daysBefore;
-        }
-
-        // Calculate stake-days for this entry (remaining days in month)
-        const daysActive = daysBetween(entry.timestamp, monthEnd);
-        if (daysActive > 0n) {
-            const weightedAmount = calculateTimeWeighted(entry.amount, daysActive);
-            stakeDays += weightedAmount;
-        }
-
-        cumulativeStake += entry.amount;
-        lastCheckerCount = entry.checker_count;
-        lastTimestamp = entry.timestamp;
-    }
-
-    // Calculate point-days for the final period (from last entry to month end)
-    const finalPoints = calculatePoints(lastCheckerCount, cumulativeStake);
-    const finalDays = daysBetween(lastTimestamp, monthEnd);
-    if (finalDays > 0n && finalPoints > 0n) {
-        pointDays += finalPoints * finalDays;
     }
 
     return {
-        stakeDays,
-        pointDays
+        pointDays,
+        stakeDays
     };
 }
 
@@ -235,20 +226,12 @@ export interface UserRewardShare {
  */
 export function calculateUserRewardShare(
     userPosition: UserStakePositionAccount,
-    monthlyPool: MonthlyPoolAccount,
-    monthPeriod: number
+    monthlyPool: MonthlyPoolAccount
 ): UserRewardShare {
-    const monthStart = getMonthStartTimestamp(monthPeriod);
-    const monthEnd = getMonthEndTimestamp(monthPeriod);
-    const daysInMonthVal = daysInMonth(monthPeriod);
-
     // Compute user's time-weighted contributions
     const totals = computeMonthWeightTotals(
         userPosition,
-        monthPeriod,
-        monthStart,
-        monthEnd,
-        daysInMonthVal
+        monthlyPool.month_period
     );
 
     const totalStakeDays = totals.stakeDays;
