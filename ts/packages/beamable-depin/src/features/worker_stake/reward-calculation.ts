@@ -133,7 +133,7 @@ export function computeMonthWeightTotals(
 
     // Second loop: Process target month entries (apply deltas)
     for (const entry of position.stake_entries) {
-        if (entry.month_period == targetMonth) {
+        if (entry.month_period === targetMonth) {
             const daysLeft = daysBetween(entry.timestamp, monthEnd);
 
             const weightedStakeDays = calculateTimeWeighted(entry.amount, daysLeft);
