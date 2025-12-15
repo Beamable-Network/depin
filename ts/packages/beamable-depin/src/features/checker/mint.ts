@@ -12,6 +12,7 @@ import { BMB_MINT, DEPIN_PROGRAM, getCheckerTree, MPL_ACCOUNT_COMPRESSION_PROGRA
 import { DepinInstruction } from "../../enums.js";
 import { MPL_BUBBLEGUM_PROGRAM } from "../../utils/bubblegum.js";
 import { CheckerLicenseAuthority } from "./checker-license-authority.js";
+import { BMBStateAccount } from "../global/bmb-state-account.js";
 
 export interface CreateMintCheckerInput {
     minter: Address;
@@ -66,11 +67,14 @@ export class MintChecker {
             seeds: [addressEncoder.encode(merkleTree)]
         });
 
+        const bmbStatePda = await BMBStateAccount.findPDA();
+        
         const accounts = [
             { address: this.minter, role: AccountRole.WRITABLE_SIGNER },
             { address: minterBmbTokenAccount[0], role: AccountRole.WRITABLE },
             { address: this.mintReceiver, role: AccountRole.WRITABLE },
             { address: paymentReceiverBmbTokenAccount[0], role: AccountRole.WRITABLE },
+            { address: bmbStatePda[0], role: AccountRole.WRITABLE },
             { address: merkleTree, role: AccountRole.WRITABLE },
             { address: treeConfigPda, role: AccountRole.WRITABLE },
             { address: licenseAuthority, role: AccountRole.READONLY },

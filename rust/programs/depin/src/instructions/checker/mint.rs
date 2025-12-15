@@ -1,16 +1,16 @@
 use crate::shared::{
     constants::seeds::{AUTHORITY_SEED, CHECKER_SEED, LICENSE_SEED},
-    features::checker::accounts::CheckerLicenseAuthority,
+    features::{checker::accounts::CheckerLicenseAuthority, global::accounts::BMBState},
 };
 use depin_core::{
     constants::{
         BMB_DECIMALS, BMB_MINT, BMB_MULTIPLIER, MNOOP_PROGRAM, MPL_CORE_PROGRAM, get_checker_collection
-    },
-    utils::{
-        bmb::validate_checker_tree, tokens::initialize_ata_if_needed, validation::{validate_ata_account, validate_pda_account}
-    },
+    }, types::account::DepinAccountType, utils::{
+        account::{read_account_data, write_account_data}, bmb::{get_current_period, validate_checker_tree}, tokens::initialize_ata_if_needed, validation::{validate_ata_account, validate_pda_account}
+    }
 };
 use mpl_bubblegum::{
+    accounts::TreeConfig,
     instructions::MintV2CpiBuilder,
     types::{Creator, MetadataArgsV2, TokenStandard},
 };
@@ -34,24 +34,26 @@ pub fn process_mint_checker<'info>(
     // 1. [writable] Minter's BMB token account
     // 2. [writable] Mint receiver
     // 3. [writable] Payment receiver BMB token account
-    // 4. [writable] Merkle tree account
-    // 5. [writable] Tree config PDA (derived from merkle tree)
-    // 6. [readonly] Checker authority PDA (tree and collection authority)
-    // 7. [readonly] Collection mint
-    // 8. [readonly] Bubblegum program
-    // 9. [readonly] System program
-    // 10. [readonly] SPL Token program
-    // 11. [readonly] Associated Token program
-    // 12. [readonly] Account Compression program
-    // 13. [readonly] BMB mint
-    // 14. [readonly] Log wrapper (noop program)
-    // 15. [readonly] MPL Core program
+    // 4. [writable] BMB state account
+    // 5. [writable] Merkle tree account
+    // 6. [writable] Tree config PDA (derived from merkle tree)
+    // 7. [readonly] Checker authority PDA (tree and collection authority)
+    // 8. [readonly] Collection mint
+    // 9. [readonly] Bubblegum program
+    // 10. [readonly] System program
+    // 11. [readonly] SPL Token program
+    // 12. [readonly] Associated Token program
+    // 13. [readonly] Account Compression program
+    // 14. [readonly] BMB mint
+    // 15. [readonly] Log wrapper (noop program)
+    // 16. [readonly] MPL Core program
 
     let account_info_iter = &mut accounts.iter();
     let minter_account = next_account_info(account_info_iter)?;
     let minter_bmb_token_account = next_account_info(account_info_iter)?;
     let mint_receiver_account = next_account_info(account_info_iter)?;
     let payment_receiver_bmb_token_account = next_account_info(account_info_iter)?;
+    let bmb_state_account = next_account_info(account_info_iter)?;
     let merkle_tree_account = next_account_info(account_info_iter)?;
     let tree_config_account = next_account_info(account_info_iter)?;
     let checker_authority_account = next_account_info(account_info_iter)?;
@@ -69,10 +71,15 @@ pub fn process_mint_checker<'info>(
     if !minter_account.is_signer {
         msg!("Error: Minter account must be a signer");
         return Err(ProgramError::MissingRequiredSignature);
-    }    
+    }
+
+    // Validate BMBState PDA
+    let (bmb_state_pda, _) = BMBState::find_pda(program_id);
+    validate_pda_account(bmb_state_account, &bmb_state_pda, "BMBState")?;
 
     // Validate license authority PDA
-    let (checker_license_authority_pda, authority_bump) = CheckerLicenseAuthority::find_pda(program_id);
+    let (checker_license_authority_pda, authority_bump) =
+        CheckerLicenseAuthority::find_pda(program_id);
     validate_pda_account(
         checker_authority_account,
         &checker_license_authority_pda,
@@ -118,10 +125,10 @@ pub fn process_mint_checker<'info>(
 
     // Validate minter's BMB token account
     validate_ata_account(
-      minter_bmb_token_account,
-      minter_account.key,
-      &BMB_MINT,
-      "Minter BMB Token Account",
+        minter_bmb_token_account,
+        minter_account.key,
+        &BMB_MINT,
+        "Minter BMB Token Account",
     )?;
 
     let price = 45_000 * BMB_MULTIPLIER;
@@ -212,6 +219,20 @@ pub fn process_mint_checker<'info>(
         AUTHORITY_SEED,
         &[authority_bump],
     ]])?;
+
+    // Activate checker in BMBState
+    let mut bmb_state: BMBState = read_account_data(
+        &bmb_state_account.try_borrow_data()?,
+        DepinAccountType::BMBState,
+    )?;
+    
+    let tree_config_data = tree_config_account.try_borrow_data()?;
+    let tree_config = TreeConfig::from_bytes(&tree_config_data)?;
+
+    // Set checker count for next period (BRAND)
+    bmb_state.set_period_checkers(get_current_period() + 1, tree_config.num_minted as u32);
+    let mut data = bmb_state_account.try_borrow_mut_data()?;
+    write_account_data(&mut data, BMBState::account_type(), &bmb_state)?;
 
     Ok(())
 }

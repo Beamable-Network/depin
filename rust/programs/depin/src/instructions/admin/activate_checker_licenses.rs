@@ -65,8 +65,8 @@ pub fn process_activate_checker_licenses<'info>(
 
     // Validate period constraints
     let current_period = get_current_period();
-    if input.period <= current_period {
-        msg!("Error: New period must be greater than current period ({})", current_period);
+    if input.period != current_period + 1 {
+        msg!("Error: New period must be equal to current period + 1 ({})", current_period);
         return Err(ProgramError::InvalidArgument);
     }
 
@@ -81,8 +81,8 @@ pub fn process_activate_checker_licenses<'info>(
         // Validate that new period is larger than the last period in buffer
         if let Some(entries) = existing_state.get_all_entries().last() {
             let (last_period, _) = entries;
-            if input.period <= *last_period {
-                msg!("Error: New period ({}) must be greater than last period in buffer ({})", 
+            if input.period < *last_period {
+                msg!("Error: New period ({}) must be >= than last period in buffer ({})", 
                      input.period, last_period);
                 return Err(ProgramError::InvalidArgument);
             }
@@ -117,7 +117,7 @@ pub fn process_activate_checker_licenses<'info>(
     };
 
     // Add the new period entry
-    bmb_state.add_period_entry(input.period, input.checker_count);
+    bmb_state.set_period_checkers(input.period, input.checker_count);
 
     // Write the updated state back to the account
     let mut data = bmb_state_account.try_borrow_mut_data()?;
