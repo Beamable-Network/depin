@@ -33,34 +33,6 @@ describe('Stake Weight Calculation', async () => {
     let revenueSource: LiteKeyPair;
 
     // Helper to create a staked user
-    async function createStakedUser(
-        stakeAmount: bigint,
-        checkerCount: number,
-        monthPeriod: number
-    ): Promise<{ user: LiteKeyPair }> {
-        const user = await lite.generateKeyPair();
-        await lite.airdrop(user, 2);
-
-        await lite.mintToken(BMB_MINT, user.address, stakeAmount, tokenAuthorities.bmbMintAuthority);
-
-        const stake = new Stake({
-            user: user.address,
-            worker: worker.address,
-            worker_license: workerLicense,
-            worker_collection: workerCollection,
-            amount: stakeAmount,
-            checker_count: checkerCount,
-            current_month_period: monthPeriod,
-        });
-
-        await lite.buildTransaction()
-            .addInstruction(await stake.getInstruction())
-            .sign(user)
-            .sendTransaction({ payer: worker });
-
-        return { user };
-    }
-
     async function createUser(params: { bmbAmount: number }): Promise<LiteKeyPair> {
         const user = await lite.generateKeyPair();
         await lite.mintToken(BMB_MINT, user.address, bmbToBaseUnits(params.bmbAmount), tokenAuthorities.bmbMintAuthority);
