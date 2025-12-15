@@ -22,17 +22,14 @@ describe('Checker minting', async () => {
         await lite.airdrop(signer, 10);
         await lite.airdrop(treeCreator, 10);
     
-        await lite.createToken(BMB_MINT, signer);
-        await lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, signer.web3PublicKey);
-        await initializeNetwork({ lite, signer });
-    
-        await lite.createToken(BMB_MINT, signer);
+        await lite.createToken(BMB_MINT, signer, BMB_DECIMALS);
         await lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, signer.web3PublicKey);
         await lite.createLicenseTree({ creator: treeCreator, delegatedAuthority: checkerLicenseAuthorityPda });
+
+        await initializeNetwork({ lite, signer });
     
         tree = address(lite.getMerkleTree().publicKey);
     
-        await lite.createToken(BMB_MINT, signer, BMB_DECIMALS);
         await lite.mintToken(BMB_MINT, signer.address, bmbToBaseUnits(1_000_000), signer); // Mint 1M BMB to signer
     });
 

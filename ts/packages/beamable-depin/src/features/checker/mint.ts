@@ -36,7 +36,7 @@ export class MintChecker {
         this.mintReceiver = input.mintReceiver;
         this.merkleTree = input.merkleTree;
         this.checkerCollection = input.checkerCollection;
-        this.network = input.network || "mainnet";
+        this.network = input.network;
     }
 
     private serialize(): Uint8Array {

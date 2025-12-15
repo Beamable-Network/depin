@@ -38,7 +38,7 @@ const DEPIN_CONFIG = {
 export interface TransactionResult {
     signature: string;
     logs: string[];
-    returnData: Uint8Array
+    returnData: Uint8Array;
 }
 
 export interface SendTransactionParams {
