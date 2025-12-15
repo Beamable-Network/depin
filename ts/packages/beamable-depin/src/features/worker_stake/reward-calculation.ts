@@ -109,37 +109,36 @@ export function computeMonthWeightTotals(
 ): MonthWeightTotals {
     const monthEnd = getMonthEndTimestamp(targetMonth);
     const daysInMonthVal = daysInMonth(targetMonth);
-    
+
     let stakeDays = 0n;
     let pointDays = 0n;
-    
+
     let cumulativeStake = 0n;
     let lastPoints = 0n;
-    let appliedInheritedPoints = false;
-    
+
+    // First loop: Process all previous months
     for (const entry of position.stake_entries) {
-        // Previous months
         if (entry.month_period < targetMonth) {
             const fullMonthStakeDays = calculateTimeWeighted(entry.amount, BigInt(daysInMonthVal));
             stakeDays += fullMonthStakeDays;
             cumulativeStake += entry.amount;
             lastPoints = calculatePoints(entry.checker_count, cumulativeStake);
         }
-        // Target month
-        else if (entry.month_period == targetMonth) {
+    }
+
+    // Apply inheritance from previous months
+    if (lastPoints > 0n) {
+        pointDays += calculateTimeWeighted(lastPoints, BigInt(daysInMonthVal));
+    }
+
+    // Second loop: Process target month entries (apply deltas)
+    for (const entry of position.stake_entries) {
+        if (entry.month_period == targetMonth) {
             const daysLeft = daysBetween(entry.timestamp, monthEnd);
-            
+
             const weightedStakeDays = calculateTimeWeighted(entry.amount, daysLeft);
             stakeDays += weightedStakeDays;
             cumulativeStake += entry.amount;
-            
-            // Point inheritance
-            if (!appliedInheritedPoints) {
-                if (lastPoints > 0n) {
-                    pointDays += calculateTimeWeighted(lastPoints, BigInt(daysInMonthVal));
-                }
-                appliedInheritedPoints = true;
-            }
 
             const newPoints = calculatePoints(entry.checker_count, cumulativeStake);
             const pointsDelta = newPoints - lastPoints;
