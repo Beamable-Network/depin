@@ -1,6 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey::Pubkey;
-use crate::shared::constants::seeds::{CHECKER_SEED, LICENSE_SEED, METADATA_SEED};
+use crate::shared::constants::seeds::{AUTHORITY_SEED, CHECKER_SEED, LICENSE_SEED, METADATA_SEED};
 use depin_core::types::account::DepinAccountType;
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
@@ -36,5 +36,18 @@ impl CheckerLicenseMetadata {
     
     pub fn account_type() -> DepinAccountType {
         DepinAccountType::CheckerLicenseMetadata
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct CheckerLicenseAuthority {}
+
+impl CheckerLicenseAuthority {
+    pub fn find_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[CHECKER_SEED, LICENSE_SEED, AUTHORITY_SEED], program_id)
+    }
+
+    pub fn account_type() -> DepinAccountType {
+        DepinAccountType::CheckerLicenseAuthority
     }
 }

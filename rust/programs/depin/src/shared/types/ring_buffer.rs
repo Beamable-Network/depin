@@ -77,6 +77,22 @@ where
     pub fn current_index(&self) -> u8 {
         self.current_index
     }
+
+    /// Returns the index of the last written element, or None if buffer is empty
+    pub fn get_last_index(&self) -> Option<usize> {
+        let last_idx = if self.current_index == 0 {
+            N - 1
+        } else {
+            self.current_index as usize - 1
+        };
+
+        // Check if the buffer has any non-default values
+        if self.data[last_idx] == T::default() {
+            None
+        } else {
+            Some(last_idx)
+        }
+    }
 }
 
 impl<T, const N: usize> Default for RingBuffer<T, N>

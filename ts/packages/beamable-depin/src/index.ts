@@ -32,6 +32,8 @@ export { TreasuryAuthority } from './features/treasury/treasury-authority.js';
 export * from './features/rewards/view-checker-reward.js';
 export * from './features/worker/worker-metadata-account.js';
 export * from './features/checker/checker-metadata-account.js';
+export * from './features/checker/mint.js';
+export * from './features/checker/checker-license-authority.js';
 export * from './features/worker/worker-proof-account.js';
 export * from './features/checker/checker-license-metadata-account.js';
 

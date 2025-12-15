@@ -13,3 +13,27 @@ pub const WORKER_TREE: Pubkey = solana_program::pubkey!("BMBw28bkTSFicoKZGoYNJzW
 
 pub const MPL_ACCOUNT_COMPRESSION_PROGRAM: Pubkey = solana_program::pubkey!("mcmt6YrQEMKw8Mw43FmpRLmf7BqRnFMKmAcbxE3xkAW");
 pub const BPF_LOADER_UPGRADEABLE_PROGRAM: Pubkey = solana_program::pubkey!("BPFLoaderUpgradeab1e11111111111111111111111");
+pub const MNOOP_PROGRAM: Pubkey = solana_program::pubkey!("mnoopTCrg4p8ry25e4bcWA9XZjbNjMTfgYVGGEdRsf3");
+pub const MPL_CORE_PROGRAM: Pubkey = solana_program::pubkey!("CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d");
+
+pub fn get_checker_tree() -> Pubkey {
+    #[cfg(feature = "test")]
+    {
+        solana_program::pubkey!("BMBcEkev9ZEMdqYUjNirrsB4E8uuVfcno7haTcLnwkXo")
+    }
+    #[cfg(not(feature = "test"))]
+    {
+        CHECKER_TREE
+    }
+}
+
+pub fn get_checker_collection() -> Pubkey {
+    #[cfg(feature = "test")]
+    {
+        solana_program::pubkey!("8mUmYkMnbkx77PrKWNCWFLq8htmFcp3KjjAwgkgwAm5u")
+    }
+    #[cfg(not(feature = "test"))]
+    {
+        solana_program::pubkey!("5pGsDtB15vMRWbeZ7bpvaoT8AtHSexsytiTkuRv9H3Ws")
+    }
+}
