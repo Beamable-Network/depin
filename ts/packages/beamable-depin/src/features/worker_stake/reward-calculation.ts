@@ -136,8 +136,7 @@ export function computeMonthWeightTotals(
             // Point inheritance
             if (!appliedInheritedPoints) {
                 if (lastPoints > 0n) {
-                    const points = calculatePoints(Number(lastPoints), cumulativeStake);
-                    pointDays += calculateTimeWeighted(points, BigInt(daysInMonthVal));
+                    pointDays += calculateTimeWeighted(lastPoints, BigInt(daysInMonthVal));
                 }
                 appliedInheritedPoints = true;
             }
