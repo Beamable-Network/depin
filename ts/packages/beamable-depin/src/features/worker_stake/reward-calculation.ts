@@ -142,7 +142,7 @@ export function computeMonthWeightTotals(
 
             const newPoints = calculatePoints(entry.checker_count, cumulativeStake);
             const pointsDelta = newPoints - lastPoints;
-            if (pointsDelta != 0n) {
+            if (pointsDelta !== 0n) {
                 if (pointsDelta > 0n)
                     pointDays += calculateTimeWeighted(pointsDelta, daysLeft);
                 else
