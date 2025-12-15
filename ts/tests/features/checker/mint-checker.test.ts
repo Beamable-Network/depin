@@ -1,34 +1,40 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { BMB_DECIMALS, BMB_MINT, BMBStateAccount, bmbToBaseUnits, CheckerLicenseAuthority, DEPIN_PROGRAM, MintChecker } from '@beamable-network/depin';
 import { findTreeConfigPda, getLeafSchemaSerializer, getTreeConfigAccountDataSerializer } from '@metaplex-foundation/mpl-bubblegum';
 import { publicKey } from '@metaplex-foundation/umi';
 import { Address, address } from 'gill';
-import { LiteDepin } from '../../helpers/lite-depin.js';
+import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { initializeNetwork } from '../../helpers/bmb-utils.js';
 
 describe('Checker minting', async () => {
-    const lite = new LiteDepin();
+    let lite: LiteDepin;
+    let signer: LiteKeyPair;
+    let tree: Address;
+    
+    beforeEach(async () => {
+        lite = new LiteDepin();
+        signer = await lite.generateKeyPair();
 
-    const signer = await lite.generateKeyPair();
-    const treeCreator = await lite.generateKeyPair();
-    const [checkerLicenseAuthorityPda] = await CheckerLicenseAuthority.findPDA();
-
-    await lite.airdrop(signer, 10);
-    await lite.airdrop(treeCreator, 10);
-
-    await lite.createToken(BMB_MINT, signer);
-    await lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, signer.web3PublicKey);
-    await initializeNetwork({ lite, signer });
-
-    await lite.createToken(BMB_MINT, signer);
-    await lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, signer.web3PublicKey);
-    await lite.createLicenseTree({ creator: treeCreator, delegatedAuthority: checkerLicenseAuthorityPda });
-
-    const tree = address(lite.getMerkleTree().publicKey);
-
-    await lite.createToken(BMB_MINT, signer, BMB_DECIMALS);
-    await lite.mintToken(BMB_MINT, signer.address, bmbToBaseUnits(1_000_000), signer); // Mint 1M BMB to signer
+        const treeCreator = await lite.generateKeyPair();
+        const [checkerLicenseAuthorityPda] = await CheckerLicenseAuthority.findPDA();
+    
+        await lite.airdrop(signer, 10);
+        await lite.airdrop(treeCreator, 10);
+    
+        await lite.createToken(BMB_MINT, signer);
+        await lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, signer.web3PublicKey);
+        await initializeNetwork({ lite, signer });
+    
+        await lite.createToken(BMB_MINT, signer);
+        await lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, signer.web3PublicKey);
+        await lite.createLicenseTree({ creator: treeCreator, delegatedAuthority: checkerLicenseAuthorityPda });
+    
+        tree = address(lite.getMerkleTree().publicKey);
+    
+        await lite.createToken(BMB_MINT, signer, BMB_DECIMALS);
+        await lite.mintToken(BMB_MINT, signer.address, bmbToBaseUnits(1_000_000), signer); // Mint 1M BMB to signer
+    });
 
     it('should be able to mint a checker', async () => {
         expect(getTreeConfig(tree).numMinted).toBe(0n);
@@ -37,6 +43,7 @@ describe('Checker minting', async () => {
             minter: signer.address,
             mintReceiver: address("UZAkx8aZ3tnJ6zm446m1MnBGR7dycshvoftaSCRXWVF"),
             merkleTree: tree,
+            network: "devnet"
         });
 
         let txResponse = await lite.buildTransaction()
@@ -67,6 +74,7 @@ describe('Checker minting', async () => {
         const mintChecker = new MintChecker({
             minter: signer.address,
             mintReceiver: address("UZAkx8aZ3tnJ6zm446m1MnBGR7dycshvoftaSCRXWVF"),
+            network: "devnet",
             merkleTree: tree,
         });
 

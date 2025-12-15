@@ -19,7 +19,7 @@ export interface CreateMintCheckerInput {
     mintReceiver: Address;
     merkleTree?: Address;
     checkerCollection?: Address;
-    network?: "mainnet" | "devnet";
+    network: "mainnet" | "devnet";
 }
 
 const addressEncoder = getAddressEncoder();
@@ -60,7 +60,7 @@ export class MintChecker {
         });
 
         // Get network-specific tree
-        const merkleTree = this.merkleTree ?? getCheckerTree(this.network ?? "mainnet");
+        const merkleTree = this.merkleTree ?? getCheckerTree(this.network);
 
         const [treeConfigPda] = await getProgramDerivedAddress({
             programAddress: MPL_BUBBLEGUM_PROGRAM,

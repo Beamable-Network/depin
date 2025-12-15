@@ -2,12 +2,22 @@ use crate::shared::{
     constants::seeds::{AUTHORITY_SEED, CHECKER_SEED, LICENSE_SEED},
     features::{checker::accounts::CheckerLicenseAuthority, global::accounts::BMBState},
 };
+
+#[cfg(not(feature = "test"))]
+use depin_core::constants::get_checker_collection;
+
 use depin_core::{
     constants::{
-        BMB_DECIMALS, BMB_MINT, BMB_MULTIPLIER, MNOOP_PROGRAM, MPL_CORE_PROGRAM, get_checker_collection
-    }, types::account::DepinAccountType, utils::{
-        account::{read_account_data, write_account_data}, bmb::{get_current_period, validate_checker_tree}, tokens::initialize_ata_if_needed, validation::{validate_ata_account, validate_pda_account}
-    }
+        BMB_DECIMALS, BMB_MINT, BMB_MULTIPLIER, MNOOP_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM,
+        MPL_CORE_PROGRAM,
+    },
+    types::account::DepinAccountType,
+    utils::{
+        account::{read_account_data, write_account_data},
+        bmb::{get_current_period, validate_checker_tree},
+        tokens::initialize_ata_if_needed,
+        validation::{validate_ata_account, validate_pda_account},
+    },
 };
 use mpl_bubblegum::{
     accounts::TreeConfig,
@@ -73,6 +83,30 @@ pub fn process_mint_checker<'info>(
         return Err(ProgramError::MissingRequiredSignature);
     }
 
+    // Validate System program
+    if *system_program_account.key != solana_sdk_ids::system_program::ID {
+        msg!("Error: Invalid System program account");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    // Validate Token program
+    if *token_program_account.key != spl_token::ID {
+        msg!("Error: Invalid Token program account");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    // Validate Associated Token program
+    if *associated_token_program_account.key != spl_associated_token_account::ID {
+        msg!("Error: Invalid Associated Token program account");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    // Validate Bubblegum program
+    if *bubblegum_program_account.key != mpl_bubblegum::ID {
+        msg!("Error: Invalid Bubblegum program account");
+        return Err(ProgramError::InvalidArgument);
+    }
+
     // Validate BMBState PDA
     let (bmb_state_pda, _) = BMBState::find_pda(program_id);
     validate_pda_account(bmb_state_account, &bmb_state_pda, "BMBState")?;
@@ -98,19 +132,27 @@ pub fn process_mint_checker<'info>(
         return Err(ProgramError::InvalidArgument);
     }
 
+    if *account_compression_program_account.key != MPL_ACCOUNT_COMPRESSION_PROGRAM {
+        msg!("Error: Invalid Account Compression program account");
+        return Err(ProgramError::InvalidArgument);
+    }
+
     // Validate MPL Core program
     if *mpl_core_program_account.key != MPL_CORE_PROGRAM {
         msg!("Error: Invalid MPL Core program account");
         return Err(ProgramError::InvalidArgument);
     }
 
+    // Validate Tree Config PDA
+    let (expected_tree_config, _) = Pubkey::find_program_address(&[merkle_tree_account.key.as_ref()], &mpl_bubblegum::ID);
+    validate_pda_account(tree_config_account, &expected_tree_config, "Tree Config")?;
+
     // Validate merkle tree account
     validate_checker_tree(merkle_tree_account.key)?;
 
     // Validate collection mint account
-    if *collection_mint_account.key != solana_sdk_ids::system_program::ID
-        && *collection_mint_account.key != get_checker_collection()
-    {
+    #[cfg(not(feature = "test"))]
+    if *collection_mint_account.key != get_checker_collection() {
         msg!("Error: Collection mint account does not match expected checker collection");
         return Err(ProgramError::InvalidArgument);
     }
@@ -131,7 +173,7 @@ pub fn process_mint_checker<'info>(
         "Minter BMB Token Account",
     )?;
 
-    let price = 45_000 * BMB_MULTIPLIER;
+    let price = 50_000 * BMB_MULTIPLIER;
 
     initialize_ata_if_needed(
         minter_account,
@@ -225,7 +267,7 @@ pub fn process_mint_checker<'info>(
         &bmb_state_account.try_borrow_data()?,
         DepinAccountType::BMBState,
     )?;
-    
+
     let tree_config_data = tree_config_account.try_borrow_data()?;
     let tree_config = TreeConfig::from_bytes(&tree_config_data)?;
 

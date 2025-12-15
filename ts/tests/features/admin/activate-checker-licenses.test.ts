@@ -1,13 +1,18 @@
-import { assert, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 
 import { ActivateCheckerLicenses, BMBStateAccount, DEPIN_PROGRAM } from '@beamable-network/depin';
-import { LiteDepin } from '../../helpers/lite-depin.js';
+import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 
 describe('Checker licenses activation', async () => {
-    const lite = new LiteDepin();
-    const admin = await lite.generateKeyPair();
-    lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, admin.web3PublicKey);
-    await lite.airdrop(admin, 10);
+    let lite: LiteDepin;
+    let admin: LiteKeyPair;
+
+    beforeEach(async () => {
+        lite = new LiteDepin();
+        admin = await lite.generateKeyPair();
+        lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, admin.web3PublicKey);
+        await lite.airdrop(admin, 10);
+    });
 
     it('should be able to activate checker licenses', async () => {
         lite.goToPeriod(0);
@@ -49,7 +54,7 @@ describe('Checker licenses activation', async () => {
                 .addInstruction(await activateCurrentPeriod.getInstruction())
                 .sign(admin)
                 .sendTransaction({ payer: admin });
-        }).rejects.toThrow('New period must be greater than current period');
+        }).rejects.toThrow('New period must be equal to current period + 1');
 
         // Test attempting to activate for past period (3)
         const activatePastPeriod = new ActivateCheckerLicenses({
@@ -63,7 +68,7 @@ describe('Checker licenses activation', async () => {
                 .addInstruction(await activatePastPeriod.getInstruction())
                 .sign(admin)
                 .sendTransaction({ payer: admin });
-        }).rejects.toThrow('New period must be greater than current period');
+        }).rejects.toThrow('New period must be equal to current period + 1');
 
         // Verify that activating for a future period (6) still works
         const activateFuturePeriod = new ActivateCheckerLicenses({
@@ -84,14 +89,14 @@ describe('Checker licenses activation', async () => {
         expect(stateAccount.getCheckerCountForPeriod(6)).toEqual(750);
     });
 
-    it('should not allow to change the checker count if already set for period', async () => {
+    it('should allow to change the checker count if already set for period', async () => {
         // Start from period 0 and establish a high checker count
         lite.goToPeriod(0);
 
-        // Activate period 10 with 1000 checkers
+        // Activate period 1 with 1000 checkers
         const activateHighCount = new ActivateCheckerLicenses({
             checker_count: 1000,
-            period: 10,
+            period: 1,
             signer: admin.address
         });
 
@@ -104,32 +109,22 @@ describe('Checker licenses activation', async () => {
         const stateAccountPda = await BMBStateAccount.findPDA();
         let stateAccountDataBytes = lite.getAccountData(stateAccountPda[0]);
         let stateAccount = BMBStateAccount.deserializeFrom(stateAccountDataBytes!);
-        expect(stateAccount.getCheckerCountForPeriod(10)).toEqual(1000);
+        expect(stateAccount.getCheckerCountForPeriod(1)).toEqual(1000);
 
         const changeCount = new ActivateCheckerLicenses({
             checker_count: 500,
-            period: 10,
+            period: 1,
             signer: admin.address
         });
 
-        await expect(async () => {
-            return lite.buildTransaction()
-                .addInstruction(await changeCount.getInstruction())
-                .sign(admin)
-                .sendTransaction({ payer: admin });
-        }).rejects.toThrow('must be greater than last period in buffer');
+        await lite.buildTransaction()
+            .addInstruction(await changeCount.getInstruction())
+            .sign(admin)
+            .sendTransaction({ payer: admin });
 
-        const changeCountInPrevious = new ActivateCheckerLicenses({
-            checker_count: 500,
-            period: 9,
-            signer: admin.address
-        });
-
-        await expect(async () => {
-            return lite.buildTransaction()
-                .addInstruction(await changeCountInPrevious.getInstruction())
-                .sign(admin)
-                .sendTransaction({ payer: admin });
-        }).rejects.toThrow('must be greater than last period in buffer');
+        // Verify the checker count was updated to the new lower value
+        stateAccountDataBytes = lite.getAccountData(stateAccountPda[0]);
+        stateAccount = BMBStateAccount.deserializeFrom(stateAccountDataBytes!);
+        expect(stateAccount.getCheckerCountForPeriod(1)).toEqual(500);
     });
 });
