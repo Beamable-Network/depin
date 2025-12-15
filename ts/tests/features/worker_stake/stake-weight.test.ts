@@ -20,7 +20,6 @@ import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { setupTokens, TokenAuthorities, usdcToBaseUnits } from '../../helpers/spl-tokens.js';
-import { getFilePoolName } from 'vitest/node.js';
 
 describe('Stake Weight Calculation', async () => {
     let lite: LiteDepin;
@@ -210,7 +209,7 @@ describe('Stake Weight Calculation', async () => {
 
         await lite.buildTransaction()
             .addInstruction(await initConfig.getInstruction())
-        .sendTransaction({ payer: stakeAdmin });
+            .sendTransaction({ payer: stakeAdmin });
 
         // Create a monthly pool for months 5, 6
         const pools: MonthlyPoolConfig[] = [{
@@ -254,8 +253,8 @@ describe('Stake Weight Calculation', async () => {
             let position = await getPosition(user);
             expect(position.staked_amount).toBe(bmbToBaseUnits(1_000_000));
 
-            let pool5 = await getCurrentPool();            
-            
+            let pool5 = await getCurrentPool();
+
             // Manual calculation
             expect(pool5.base_pool.total).toBe(bmbToBaseUnits(1_000_000));
             expect(pool5.addon_pool.total).toBe(10n);
@@ -263,7 +262,7 @@ describe('Stake Weight Calculation', async () => {
             expect(pool5.addon_pool.total_weighted).toBe(10n * 29n);
 
             // Share calculation
-            const share = await calculateUserRewardShare(position, pool5, pool5.month_period);
+            const share = await calculateUserRewardShare(position, pool5);
             expect(share.userStakeDays).toBe(bmbToBaseUnits(1_000_000) * 29n);
             expect(share.userPointDays).toBe(10n * 29n);
             expect(share.totalUsdc).toBe(usdcToBaseUnits(1000));
@@ -284,8 +283,12 @@ describe('Stake Weight Calculation', async () => {
             let position = await getPosition(user);
             expect(position.staked_amount).toBe(bmbToBaseUnits(2_000_000));
 
+            // Deposit revenue and emissions for month 6
+            await depositRevenue(usdcToBaseUnits(1000));
+            await depositEmissions(bmbToBaseUnits(1000));
+
             let pool6 = await getCurrentPool();
-            
+
             // Manual calculation
             expect(pool6.base_pool.total).toBe(bmbToBaseUnits(2_000_000));
             expect(pool6.addon_pool.total).toBe(15n);
@@ -293,9 +296,110 @@ describe('Stake Weight Calculation', async () => {
             expect(pool6.addon_pool.total_weighted).toBe(10n * 31n + 5n * 30n);
 
             // Share calculation
-            const share = await calculateUserRewardShare(position, pool6, pool6.month_period);
+            const share = await calculateUserRewardShare(position, pool6);
             expect(share.userStakeDays).toBe(pool6.base_pool.total_weighted);
             expect(share.userPointDays).toBe(pool6.addon_pool.total_weighted);
+
+            // Advance to month 7 to allow claiming
+            lite.goToMonthPeriod(7);
+
+            // Must claim month 5 first (sequential claiming)
+            const claimMonth5 = new ClaimRewards({
+                user: user.address,
+                worker_collection: workerCollection,
+                month_period: 5,
+            });
+
+            await lite.buildTransaction()
+                .addInstruction(await claimMonth5.getInstruction())
+                .sendTransaction({ payer: user });
+
+            // Now claim month 6
+            const claimMonth6 = new ClaimRewards({
+                user: user.address,
+                worker_collection: workerCollection,
+                month_period: 6,
+            });
+
+            await lite.buildTransaction()
+                .addInstruction(await claimMonth6.getInstruction())
+                .sendTransaction({ payer: user });
+
+            // Check received amounts match expected for month 6
+            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
+
+            expect(usdcBalance).toBe(share.totalUsdc);
+            expect(bmbBalance).toBe(bmbToBaseUnits(100_000_000) - bmbToBaseUnits(2_000_000) + share.totalBmb);
+        });
+
+        it('should match weight with multiple stakes in same month', async () => {
+            // Start in December
+            lite.goToMonthPeriod(6, { day: 1, hour: 1 });
+
+            const user = await createUser({ bmbAmount: 100_000_000 });
+
+            // First stake: 2500 BMB with 10 checkers
+            // Points capped by stake: min(10, 2500/2500) = min(10, 1) = 1 point
+            await stake({ user, amount: 2_500, checkers: 10 });
+
+            // Second stake 15 days later: +10000 BMB with 10 checkers
+            lite.goToMonthPeriod(6, { day: 16, hour: 1 });
+            // Total stake: 12500 BMB
+            // Points: min(10, 12500/2500) = min(10, 5) = 5 points
+            await stake({ user, amount: 10_000, checkers: 10 });
+
+            let position = await getPosition(user);
+            expect(position.staked_amount).toBe(bmbToBaseUnits(12_500));
+
+            // Deposit revenue and emissions
+            await depositRevenue(usdcToBaseUnits(1000));
+            await depositEmissions(bmbToBaseUnits(1000));
+
+            let pool6 = await getCurrentPool();
+
+            // Manual calculation:
+            // Stake days:
+            //   - 2500 BMB for 30 days
+            //   - 10000 BMB for 15 days
+            const expectedStakeDays = bmbToBaseUnits(2_500) * 30n + bmbToBaseUnits(10_000) * 15n;
+
+            // Point days:
+            //   - 1 point for 30 days = 30 point-days
+            //   - Delta of +4 points for 15 days = 60 point-days
+            //   - Total: 90 point-days
+            const expectedPointDays = 1n * 30n + 4n * 15n;
+
+            expect(pool6.base_pool.total).toBe(bmbToBaseUnits(12_500));
+            expect(pool6.addon_pool.total).toBe(5n);
+            expect(pool6.base_pool.total_weighted).toBe(expectedStakeDays);
+            expect(pool6.addon_pool.total_weighted).toBe(expectedPointDays);
+
+            // Share calculation should match pool totals
+            const share = await calculateUserRewardShare(position, pool6);
+            expect(share.userStakeDays).toBe(pool6.base_pool.total_weighted);
+            expect(share.userPointDays).toBe(pool6.addon_pool.total_weighted);
+
+            // Advance to month 7 to allow claiming
+            lite.goToMonthPeriod(7);
+
+            // Claim rewards
+            const claimRewards = new ClaimRewards({
+                user: user.address,
+                worker_collection: workerCollection,
+                month_period: 6,
+            });
+
+            await lite.buildTransaction()
+                .addInstruction(await claimRewards.getInstruction())
+                .sendTransaction({ payer: user });
+
+            // Check received amounts match expected
+            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
+
+            expect(usdcBalance).toBe(share.totalUsdc);
+            expect(bmbBalance).toBe(bmbToBaseUnits(100_000_000) - bmbToBaseUnits(12_500) + share.totalBmb);
         });
     });
 });
