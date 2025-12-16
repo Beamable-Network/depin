@@ -102,20 +102,20 @@ echo -e "${GREEN}✓ Changelog generated${NC}"
 
 # Show changes
 echo -e "\n${YELLOW}Changes to be committed:${NC}"
-git diff "$RELATIVE_VERSION_FILE" "rust/programs/worker_stake/CHANGELOG.md"
+git diff "$RELATIVE_VERSION_FILE" "rust/programs/worker_stake/CHANGELOG.md" "rust/Cargo.lock"
 
 # Confirm commit
 echo -e "\n${YELLOW}Commit these changes?${NC} [y/N]"
 read -p "> " confirm
 if [[ ! $confirm =~ ^[Yy]$ ]]; then
     echo -e "${RED}Aborted. Changes not committed.${NC}"
-    git checkout -- "$RELATIVE_VERSION_FILE" "rust/programs/worker_stake/CHANGELOG.md"
+    git checkout -- "$RELATIVE_VERSION_FILE" "rust/programs/worker_stake/CHANGELOG.md" "rust/Cargo.lock"
     exit 1
 fi
 
 # Commit
 echo -e "\n${BLUE}Creating commit...${NC}"
-git add "$RELATIVE_VERSION_FILE" "rust/programs/worker_stake/CHANGELOG.md"
+git add "$RELATIVE_VERSION_FILE" "rust/programs/worker_stake/CHANGELOG.md" "rust/Cargo.lock"
 git commit -m "chore: release ${TAG_PREFIX}-v${NEW_VERSION}"
 echo -e "${GREEN}✓ Committed${NC}"
 
