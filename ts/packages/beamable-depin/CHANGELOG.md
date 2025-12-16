@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [sdk-v0.6.0] - 2025-12-16
+
+### Bug Fixes
+
+- Fix addon pool weight calculation (#23) ([37fac7c](https://github.com/Beamable-Network/depin/commit/37fac7cf69de9de3f29fdcd39cd065caf9b3d5c8))
+
+### Miscellaneous Tasks
+
+- Minor checker mint maintenance ([1e950bf](https://github.com/Beamable-Network/depin/commit/1e950bfdbb2ae24696bf6f9a59ba81a28dcafcba))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/sdk-v0.5.0...sdk-v0.6.0
+
 ## [sdk-v0.5.0] - 2025-12-15
 
 ### Features
