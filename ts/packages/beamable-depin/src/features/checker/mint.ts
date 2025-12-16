@@ -13,6 +13,7 @@ import { DepinInstruction } from "../../enums.js";
 import { MPL_BUBBLEGUM_PROGRAM } from "../../utils/bubblegum.js";
 import { BMBStateAccount } from "../global/bmb-state-account.js";
 import { CheckerLicenseAuthority } from "./checker-license-authority.js";
+import { getProgramDataAddress } from "../../utils/bpf.js";
 
 export interface CreateMintCheckerInput {
     minter: Address;
@@ -70,6 +71,8 @@ export class MintChecker {
 
         const bmbStatePda = await BMBStateAccount.findPDA();
 
+        const programDataAddress = await getProgramDataAddress(DEPIN_PROGRAM);
+
         const accounts = [
             { address: this.minter, role: AccountRole.WRITABLE_SIGNER },
             { address: minterBmbTokenAccount[0], role: AccountRole.WRITABLE },
@@ -89,6 +92,7 @@ export class MintChecker {
             { address: address(MPL_NOOP_PROGRAM_ID), role: AccountRole.READONLY },
             { address: MPL_CORE_PROGRAM_ADDRESS, role: AccountRole.READONLY },
             { address: MPL_CORE_CPI_SIGNER, role: AccountRole.READONLY },
+            { address: programDataAddress, role: AccountRole.READONLY },
         ];
 
         return {

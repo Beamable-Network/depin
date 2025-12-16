@@ -62,6 +62,7 @@ describe('Checker minting', async () => {
         expect(parsedLeaf.owner).toEqual(publicKey(mintChecker.mintReceiver));
 
         expect(getTreeConfig(tree).numMinted).toBe(2n);
+        expect(await lite.getTokenBalance(BMB_MINT, signer.address)).toBe(bmbToBaseUnits(1_000_000));
     });
 
     it('should activate checker license in BMBState after minting', async () => {
@@ -121,6 +122,34 @@ describe('Checker minting', async () => {
         expect(stateAccount.getCheckerCountForPeriod(101)).toBe(2);
         expect(stateAccount.getCheckerCountForPeriod(102)).toBe(3);
         expect(stateAccount.getCheckerCountForPeriod(200)).toBe(3);
+
+        expect(await lite.getTokenBalance(BMB_MINT, signer.address)).toBe(bmbToBaseUnits(1_000_000));
+    });
+
+    it('should be able to charge BMB for minting to non-authority', async () => {
+        expect(getTreeConfig(tree).numMinted).toBe(0n);
+        const buyer = await lite.generateKeyPair();
+        await lite.airdrop(buyer, 10);
+        await lite.mintToken(BMB_MINT, buyer.address, bmbToBaseUnits(1_000_000), signer); // Mint 1M BMB to buyer
+        
+        const mintChecker = new MintChecker({
+            minter: buyer.address,
+            mintReceiver: buyer.address,
+            merkleTree: tree,
+            checkerCollection: address(lite.getCollectionMint().publicKey),
+            network: "devnet"
+        });
+
+        let txResponse = await lite.buildTransaction()
+            .addInstruction(await mintChecker.getInstruction())
+            .sendTransaction({ payer: buyer });
+
+        let [parsedLeaf] = getLeafSchemaSerializer().deserialize(txResponse.returnData, 0);
+        expect(parsedLeaf.owner).toEqual(publicKey(mintChecker.mintReceiver));
+
+        expect(getTreeConfig(tree).numMinted).toBe(1n);
+
+        expect(await lite.getTokenBalance(BMB_MINT, buyer.address)).toBe(bmbToBaseUnits(1_000_000) - bmbToBaseUnits(50_000));
     });
 
     function getTreeConfig(tree: Address) {

@@ -6,7 +6,7 @@ use solana_program::{
 };
 use solana_loader_v3_interface::state::UpgradeableLoaderState;
 
-use crate::constants::BPF_LOADER_UPGRADEABLE_PROGRAM;
+use crate::{constants::BPF_LOADER_UPGRADEABLE_PROGRAM, utils::validation::validate_pda_account};
 
 /// Validates the upgrade authority from a ProgramData account.
 ///
@@ -49,10 +49,7 @@ pub fn validate_upgrade_authority(
         &[program_id.as_ref()],
         &BPF_LOADER_UPGRADEABLE_PROGRAM
     );
-    if program_data_account.key != &expected_program_data {
-        msg!("Error: Invalid ProgramData account");
-        return Err(ProgramError::InvalidArgument);
-    }
+    validate_pda_account(program_data_account, &expected_program_data, "ProgramData")?;
 
     // Extract upgrade authority from ProgramData account
     let authority = extract_upgrade_authority(program_data_account)?;

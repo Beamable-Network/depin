@@ -8,15 +8,11 @@ use depin_core::constants::get_checker_collection;
 
 use depin_core::{
     constants::{
-        BMB_DECIMALS, BMB_MINT, BMB_MULTIPLIER, MNOOP_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM,
-        MPL_CORE_PROGRAM,
+        BMB_DECIMALS, BMB_MINT, BMB_MULTIPLIER, BPF_LOADER_UPGRADEABLE_PROGRAM, MNOOP_PROGRAM, MPL_ACCOUNT_COMPRESSION_PROGRAM, MPL_CORE_PROGRAM
     },
     types::account::DepinAccountType,
     utils::{
-        account::{read_account_data, write_account_data},
-        bmb::{get_current_period, validate_checker_tree},
-        tokens::initialize_ata_if_needed,
-        validation::{validate_ata_account, validate_pda_account},
+        account::{read_account_data, write_account_data}, bmb::{get_current_period, validate_checker_tree}, program_data::validate_upgrade_authority, tokens::initialize_ata_if_needed, validation::{validate_ata_account, validate_pda_account}
     },
 };
 use mpl_bubblegum::{
@@ -58,6 +54,7 @@ pub fn process_mint_checker<'info>(
     // 15. [readonly] Log wrapper (noop program)
     // 16. [readonly] MPL Core program
     // 17. [readonly] MPL Core CPI signer PDA (bubblegum's signer for mpl-core CPIs)
+    // 18. [readonly] ProgramData account
 
     let account_info_iter = &mut accounts.iter();
     let minter_account = next_account_info(account_info_iter)?;
@@ -78,6 +75,7 @@ pub fn process_mint_checker<'info>(
     let noop_program_account = next_account_info(account_info_iter)?;
     let mpl_core_program_account = next_account_info(account_info_iter)?;
     let mpl_core_cpi_signer_account = next_account_info(account_info_iter)?;
+    let program_data_account = next_account_info(account_info_iter)?;
 
     // Validate minter is signer
     if !minter_account.is_signer {
@@ -175,6 +173,13 @@ pub fn process_mint_checker<'info>(
         "Minter BMB Token Account",
     )?;
 
+    // Validate ProgramData account matches expected PDA
+    let (expected_program_data, _bump) = Pubkey::find_program_address(
+        &[program_id.as_ref()],
+        &BPF_LOADER_UPGRADEABLE_PROGRAM
+    );
+    validate_pda_account(program_data_account, &expected_program_data, "ProgramData")?;
+
     let price = 50_000 * BMB_MULTIPLIER;
 
     initialize_ata_if_needed(
@@ -199,16 +204,18 @@ pub fn process_mint_checker<'info>(
         BMB_DECIMALS,
     )?;
 
-    invoke(
-        &transfer_ix,
-        &[
-            minter_bmb_token_account.clone(),
-            bmb_mint_account.clone(),
-            payment_receiver_bmb_token_account.clone(),
-            minter_account.clone(),
-            token_program_account.clone(),
-        ],
-    )?;
+    if validate_upgrade_authority(program_id, program_data_account, minter_account).is_err() {
+        invoke(
+            &transfer_ix,
+            &[
+                minter_bmb_token_account.clone(),
+                bmb_mint_account.clone(),
+                payment_receiver_bmb_token_account.clone(),
+                minter_account.clone(),
+                token_program_account.clone(),
+            ],
+        )?;
+    }
 
     // Prepare metadata
     let metadata = MetadataArgsV2 {
