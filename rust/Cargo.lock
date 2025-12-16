@@ -2675,7 +2675,7 @@ dependencies = [
 
 [[package]]
 name = "worker_stake"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "borsh 1.6.0",
  "depin_core",
