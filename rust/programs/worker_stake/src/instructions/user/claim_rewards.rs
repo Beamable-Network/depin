@@ -10,8 +10,7 @@ use depin_core::{
     utils::{
         account::{read_account_data, write_account_data},
         bmb::{
-            days_in_month, get_current_period, get_month_end_timestamp, get_month_from_period,
-            get_month_start_timestamp,
+            get_current_period, get_month_from_period,
         }, validation::{require_signer, validate_mint, validate_pda_account},
     },
 };
@@ -185,16 +184,9 @@ pub fn process_claim_rewards<'a>(
         return Err(ProgramError::UninitializedAccount);
     }
 
-    let month_start = get_month_start_timestamp(month_period);
-    let month_end = get_month_end_timestamp(month_period);
-    let days_in_month_val = days_in_month(month_period) as u64;
-
     let totals = compute_month_weight_totals(
         &user_position,
-        month_period,
-        month_start,
-        month_end,
-        days_in_month_val,
+        month_period
     )?;
     let total_stake_days = totals.stake_days;
     let total_point_days = totals.point_days;
