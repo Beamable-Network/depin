@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [depin-v0.3.2] - 2025-12-16
+
+### Features
+
+- Allow authority to mint checkers ([9e50d36](https://github.com/Beamable-Network/depin/commit/9e50d36a22389791210cdcc204800e323ea79f4e))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/depin-v0.3.1...depin-v0.3.2
+
 ## [depin-v0.3.1] - 2025-12-16
 
 ### Bug Fixes
