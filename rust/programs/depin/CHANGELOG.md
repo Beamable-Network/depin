@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [depin-v0.3.1] - 2025-12-16
+
+### Bug Fixes
+
+- Add mpl core signer account to mint instruction to enable minting to a collection ([025a0c5](https://github.com/Beamable-Network/depin/commit/025a0c5c96575c6b3384fa6356aa09503fe20c2f))
+
+### Miscellaneous Tasks
+
+- Include Cargo.lock in program release scripts ([48e817f](https://github.com/Beamable-Network/depin/commit/48e817f69dc35b010073fdd9846ee4edddd455cf))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/depin-v0.3.0...depin-v0.3.1
+
 ## [depin-v0.3.0] - 2025-12-16
 
 ### Features

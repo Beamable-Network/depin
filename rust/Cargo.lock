@@ -376,7 +376,7 @@ dependencies = [
 
 [[package]]
 name = "depin"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "borsh 1.6.0",
  "depin_core",
