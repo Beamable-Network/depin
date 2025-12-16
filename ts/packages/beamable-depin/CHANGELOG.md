@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [sdk-v0.6.1] - 2025-12-16
+
+### Bug Fixes
+
+- Add mpl core signer account to mint instruction to enable minting to a collection ([025a0c5](https://github.com/Beamable-Network/depin/commit/025a0c5c96575c6b3384fa6356aa09503fe20c2f))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/sdk-v0.6.0...sdk-v0.6.1
+
 ## [sdk-v0.6.0] - 2025-12-16
 
 ### Bug Fixes
