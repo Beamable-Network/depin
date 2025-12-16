@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [depin-v0.3.0] - 2025-12-16
+
+### Features
+
+- Mint checker ix implementation (#24) ([ae3e46b](https://github.com/Beamable-Network/depin/commit/ae3e46b6f2b7070c0f4bea062a254e4f9c8dd5fe))
+
+### Miscellaneous Tasks
+
+- Prepend changelog changes ([bacdfb7](https://github.com/Beamable-Network/depin/commit/bacdfb736b2870ddea3ede311f27c10b31045164))
+- Include shared depin_core in both program changelogs ([d8c5cfd](https://github.com/Beamable-Network/depin/commit/d8c5cfdb375c0707fa9730bd8b60ca7752ef22db))
+- Migrate to solana_system_interface and solana-loader-v3-interface ([776378b](https://github.com/Beamable-Network/depin/commit/776378b3159acbbee6ff65a12f1db8ead94716eb))
+- Remove dead code in proc_init ([1c65c23](https://github.com/Beamable-Network/depin/commit/1c65c239fd6c885feaeecb1b65d76bd41d011b0a))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/depin-v0.2.0...depin-v0.3.0
+
 ## [depin-v0.2.0] - 2025-12-02
 
 ### Bug Fixes
