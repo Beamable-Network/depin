@@ -382,6 +382,7 @@ dependencies = [
  "depin_core",
  "mpl-bubblegum",
  "solana-program",
+ "solana-sdk-ids",
  "solana-system-interface",
  "spl-associated-token-account",
  "spl-token",

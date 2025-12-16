@@ -1,5 +1,5 @@
 use crate::instructions::{
-    admin::{process_activate_checker_licenses, process_init_network, process_set_bmb_state, process_set_checker_rewards_vault}, checker::{self, activate::process_activate_checker}, flexlock::{lock::process_flex_lock, unlock::process_flex_unlock}, view::process_view_checker_reward, worker::{process_activate_worker, process_submit_worker_proof, process_update_worker_uri}
+    admin::{process_activate_checker_licenses, process_init_network, process_set_bmb_state, process_set_checker_rewards_vault}, checker::{self, activate::process_activate_checker, mint::process_mint_checker}, flexlock::{lock::process_flex_lock, unlock::process_flex_unlock}, view::process_view_checker_reward, worker::{process_activate_worker, process_submit_worker_proof, process_update_worker_uri}
 };
 use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey};
 
@@ -48,6 +48,9 @@ pub fn process<'a>(
         },
         DepinInstruction::FlexUnlock => {
             process_flex_unlock(program_id, accounts, data)?;
+        },
+        DepinInstruction::MintChecker => {
+            process_mint_checker(program_id, accounts, data)?;
         }
     }
     Ok(())

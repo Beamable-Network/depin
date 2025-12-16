@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [sdk-v0.5.0] - 2025-12-15
+
+### Features
+
+- Mint checker ix implementation (#24) ([ae3e46b](https://github.com/Beamable-Network/depin/commit/ae3e46b6f2b7070c0f4bea062a254e4f9c8dd5fe))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/sdk-v0.4.2...sdk-v0.5.0
+
 ## [sdk-v0.4.2] - 2025-12-10
 
 ### Features

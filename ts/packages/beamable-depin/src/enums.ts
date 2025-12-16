@@ -11,6 +11,7 @@ export enum DepinInstruction {
     ViewCheckerReward = 12,
     FlexLock = 13,
     FlexUnlock = 14,
+    MintChecker = 15,
 }
 
 export enum DepinAccountType {

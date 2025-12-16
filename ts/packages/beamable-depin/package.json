@@ -1,6 +1,6 @@
 {
   "name": "@beamable-network/depin",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "Beamable DePIN SDK for Solana blockchain interactions",
   "main": "dist/index.js",
   "type": "module",
@@ -38,6 +38,7 @@
     "@types/node": "^22.15.3"
   },
   "dependencies": {
+    "@metaplex-foundation/mpl-account-compression": "^0.0.1",
     "@metaplex-foundation/mpl-bubblegum": "^5.0.2",
     "@sinclair/typebox": "^0.34.41",
     "@solana-program/system": "^0.8.0",

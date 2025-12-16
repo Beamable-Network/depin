@@ -19,6 +19,7 @@ export const WORKER_SEED = "worker";
 export const CHECKER_SEED = "checker";
 export const METADATA_SEED = "meta";
 export const LICENSE_SEED = "license";
+export const AUTHORITY_SEED = "authority";
 export const LOCK_SEED = "lock";
 export const VAULT_SEED = "vault";
 export const FLEXLOCK_SEED = "flexlock";
@@ -30,6 +31,7 @@ export const WORKER_STAKE_VAULT_SEED = "worker_stake_vault";
 export const COMMUNITY_STAKE_VAULT_SEED = "community_stake_vault";
 
 export const SYSTEM_PROGRAM_ADDRESS = address('11111111111111111111111111111111');
+export const MPL_CORE_PROGRAM_ADDRESS = address('CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d');
 
 export const WORKER_TREE = address('BMBw28bkTSFicoKZGoYNJzWnSyUjDRcxr7Qoc5mCuxf5');
 export const CHECKER_TREE = address('3eHEnELWr4fdVEhq4QKyyjAJ9N9cc197ZNjceb84QarW');

@@ -1,6 +1,6 @@
 import { BPF_LOADER_UPGRADEABLE_PROGRAM, DEPIN_PROGRAM, getMonthFromPeriod, getMonthStartTimestamp, MPL_ACCOUNT_COMPRESSION_PROGRAM, MPL_BUBBLEGUM_PROGRAM, periodToTimestamp, timestampToPeriod, WORKER_STAKE_PROGRAM } from '@beamable-network/depin';
 import { MPL_NOOP_PROGRAM_ID } from '@metaplex-foundation/mpl-account-compression';
-import { AssetWithProof, createTreeV2, findLeafAssetIdPda, hashAssetData, hashCollection, hashMetadataCreators, hashMetadataDataV2, mintV2 } from '@metaplex-foundation/mpl-bubblegum';
+import { AssetWithProof, createTreeV2, findLeafAssetIdPda, hashAssetData, hashCollection, hashMetadataCreators, hashMetadataDataV2, mintV2, setTreeDelegate } from '@metaplex-foundation/mpl-bubblegum';
 import { createCollection, MPL_CORE_PROGRAM_ID } from '@metaplex-foundation/mpl-core';
 import { createSignerFromKeypair, generateSigner, publicKey, Signer, signerIdentity, Umi, PublicKey as UmiPublicKey } from '@metaplex-foundation/umi';
 import { toWeb3JsTransaction } from '@metaplex-foundation/umi-web3js-adapters';
@@ -8,8 +8,9 @@ import { findAssociatedTokenPda, getCreateAssociatedTokenInstruction, getMintEnc
 import { Keypair, LAMPORTS_PER_SOL, PublicKey, Transaction, TransactionInstruction, Signer as Web3Signer } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { AccountRole, Address, createKeyPairSignerFromBytes, Instruction, none, some, TransactionSigner } from 'gill';
-import { Clock, FailedTransactionMetadata, LiteSVM } from 'litesvm';
+import { Clock, FailedTransactionMetadata, LiteSVM, TransactionMetadata } from 'litesvm';
 import { createUmiClient } from './client.js';
+import { getBase58Codec } from '@solana/kit';
 
 // Configuration constants
 const DEPIN_CONFIG = {
@@ -37,6 +38,7 @@ const DEPIN_CONFIG = {
 export interface TransactionResult {
     signature: string;
     logs: string[];
+    returnData: Uint8Array;
 }
 
 export interface SendTransactionParams {
@@ -124,12 +126,13 @@ class TransactionBuilder {
             throw new Error(`Transaction failed: ${result.toString()}`);
         } else {
             this.svm.expireBlockhash(); // Advance block
-            const signature = bs58.encode(result.signature());
+            const signature = bs58.encode(result.signature());            
             const logs = result.logs();
 
             return {
                 signature,
-                logs
+                logs,
+                returnData: result.returnData().data()
             };
         }
     }
@@ -166,8 +169,12 @@ export class LiteDepin {
     public async airdrop(keyPair: LiteKeyPair, solAmount: number): Promise<void> {
         validateLiteKeyPair(keyPair);
         validateSolAmount(solAmount);
-
+        
         this.svm.airdrop(keyPair.web3PublicKey, BigInt(LAMPORTS_PER_SOL * solAmount));
+    }
+
+    public getTransaction(signature: string): TransactionMetadata | FailedTransactionMetadata | null {
+        return this.svm.getTransaction(new Uint8Array(getBase58Codec().encode(signature)));
     }
 
     public getLatestBlockhash(): string { 
@@ -196,16 +203,16 @@ export class LiteDepin {
         };
     }
 
-    public async createLicenseTree(params: { creator: LiteKeyPair }): Promise<void> {
+    public async createLicenseTree(params: { creator: LiteKeyPair, delegatedAuthority?: Address }): Promise<void> {
         // Store the creator for later use in mintLicense
         this.treeCreator = params.creator;
 
         // Create the tree and collection
-        await this.createTreeIfNotExists(params.creator);
+        await this.createTreeIfNotExists(params.creator, params.delegatedAuthority);
         await this.createCollectionIfNotExists(params.creator);
     }
 
-    private async createTreeIfNotExists(creator: LiteKeyPair): Promise<void> {
+    private async createTreeIfNotExists(creator: LiteKeyPair, delegatedAuthority?: Address): Promise<void> {
         if (this.merkleTree) return;
 
         this.merkleTree = generateSigner(this.umi);
@@ -213,7 +220,7 @@ export class LiteDepin {
         // Create UMI context with creator identity
         const umiCtx = this.umi.use(signerIdentity(creator.umiSignerIdentity));
 
-        const builder = await createTreeV2(umiCtx, {
+        const createBuilder = await createTreeV2(umiCtx, {
             merkleTree: this.merkleTree,
             maxDepth: DEPIN_CONFIG.TREE.MAX_DEPTH,
             canopyDepth: DEPIN_CONFIG.TREE.CANOPY_DEPTH,
@@ -221,15 +228,32 @@ export class LiteDepin {
             public: false,
         });
 
-        const createTx = await builder
+        const delegateBuilder = setTreeDelegate(umiCtx, {
+            merkleTree: this.merkleTree.publicKey,
+            treeCreator: creator.umiSignerIdentity,
+            newTreeDelegate: publicKey(delegatedAuthority ?? creator.address)
+        });
+        
+        
+        const createTx = await createBuilder
+        .setBlockhash(this.svm.latestBlockhash())
+        .buildAndSign(umiCtx);
+        
+        const createWeb3Tx = toWeb3JsTransaction(createTx);
+        const createResult = this.svm.sendTransaction(createWeb3Tx);
+        
+        if (createResult instanceof FailedTransactionMetadata) {
+            throw new Error(`Tree creation failed: ${createResult.toString()}`);
+        }
+
+        const delegateTx = await delegateBuilder
             .setBlockhash(this.svm.latestBlockhash())
             .buildAndSign(umiCtx);
 
-        const createWeb3Tx = toWeb3JsTransaction(createTx);
-        const result = this.svm.sendTransaction(createWeb3Tx);
-
-        if (result instanceof FailedTransactionMetadata) {
-            throw new Error(`Tree creation failed: ${result.toString()}`);
+        const delegateWeb3Tx = toWeb3JsTransaction(delegateTx);
+        const delegateResult = this.svm.sendTransaction(delegateWeb3Tx);
+        if (delegateResult instanceof FailedTransactionMetadata) {
+            throw new Error(`Set tree delegate failed: ${delegateResult.toString()}`);
         }
     }
 

@@ -10,6 +10,7 @@ pub enum DepinAccountType {
     CheckerLicenseMetadata = 7,
     FlexlockTokens = 11,
     CheckerRewardsVault = 12,
+    CheckerLicenseAuthority = 13,
 }
 
 impl Into<u8> for DepinAccountType {
