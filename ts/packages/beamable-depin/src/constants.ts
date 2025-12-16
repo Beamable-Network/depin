@@ -32,9 +32,13 @@ export const COMMUNITY_STAKE_VAULT_SEED = "community_stake_vault";
 
 export const SYSTEM_PROGRAM_ADDRESS = address('11111111111111111111111111111111');
 export const MPL_CORE_PROGRAM_ADDRESS = address('CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d');
+export const MPL_CORE_CPI_SIGNER = address('CbNY3JiXdXNE9tPNEk1aRZVEkWdj2v7kfJLNQwZZgpXk');
 
 export const WORKER_TREE = address('BMBw28bkTSFicoKZGoYNJzWnSyUjDRcxr7Qoc5mCuxf5');
 export const CHECKER_TREE = address('3eHEnELWr4fdVEhq4QKyyjAJ9N9cc197ZNjceb84QarW');
 export function getCheckerTree(network: "mainnet" | "devnet") {
   return network === 'mainnet' ? CHECKER_TREE : address('BMBcEkev9ZEMdqYUjNirrsB4E8uuVfcno7haTcLnwkXo');
+}
+export function getCheckerCollection(network: "mainnet" | "devnet") {
+  return network === 'mainnet' ? address('5pGsDtB15vMRWbeZ7bpvaoT8AtHSexsytiTkuRv9H3Ws') : address('8mUmYkMnbkx77PrKWNCWFLq8htmFcp3KjjAwgkgwAm5u');
 }

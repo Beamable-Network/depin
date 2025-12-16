@@ -25,10 +25,10 @@ use mpl_bubblegum::{
     types::{Creator, MetadataArgsV2, TokenStandard},
 };
 use solana_program::{
-    account_info::{next_account_info, AccountInfo},
+    account_info::{AccountInfo, next_account_info},
     entrypoint::ProgramResult,
     msg,
-    program::invoke,
+    program::{invoke},
     program_error::ProgramError,
     pubkey::Pubkey,
 };
@@ -57,6 +57,7 @@ pub fn process_mint_checker<'info>(
     // 14. [readonly] BMB mint
     // 15. [readonly] Log wrapper (noop program)
     // 16. [readonly] MPL Core program
+    // 17. [readonly] MPL Core CPI signer PDA (bubblegum's signer for mpl-core CPIs)
 
     let account_info_iter = &mut accounts.iter();
     let minter_account = next_account_info(account_info_iter)?;
@@ -76,6 +77,7 @@ pub fn process_mint_checker<'info>(
     let bmb_mint_account = next_account_info(account_info_iter)?;
     let noop_program_account = next_account_info(account_info_iter)?;
     let mpl_core_program_account = next_account_info(account_info_iter)?;
+    let mpl_core_cpi_signer_account = next_account_info(account_info_iter)?;
 
     // Validate minter is signer
     if !minter_account.is_signer {
@@ -229,16 +231,12 @@ pub fn process_mint_checker<'info>(
             },
         ],
         token_standard: Some(TokenStandard::NonFungible),
-        collection: if collection_mint_account.key != &solana_sdk_ids::system_program::ID {
-            Some(*collection_mint_account.key)
-        } else {
-            None
-        },
+        collection: Some(*collection_mint_account.key),
     };
 
     // Mint the checker cNFT
     let mut builder = MintV2CpiBuilder::new(bubblegum_program_account);
-    let mut cpi_builder = builder
+    let cpi_builder = builder
         .tree_config(tree_config_account)
         .leaf_owner(mint_receiver_account)
         .leaf_delegate(Some(mint_receiver_account))
@@ -249,11 +247,9 @@ pub fn process_mint_checker<'info>(
         .compression_program(account_compression_program_account)
         .mpl_core_program(mpl_core_program_account)
         .system_program(system_program_account)
-        .log_wrapper(noop_program_account);
-
-    if collection_mint_account.key != &solana_sdk_ids::system_program::ID {
-        cpi_builder = cpi_builder.core_collection(Some(collection_mint_account));
-    }
+        .log_wrapper(noop_program_account)
+        .core_collection(Some(collection_mint_account))
+        .mpl_core_cpi_signer(Some(mpl_core_cpi_signer_account));
 
     cpi_builder.invoke_signed(&[&[
         CHECKER_SEED,

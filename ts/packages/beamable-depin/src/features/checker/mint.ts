@@ -8,11 +8,11 @@ import {
 
 import { MPL_NOOP_PROGRAM_ID } from '@metaplex-foundation/mpl-account-compression';
 import { ASSOCIATED_TOKEN_PROGRAM_ADDRESS, findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
-import { BMB_MINT, DEPIN_PROGRAM, getCheckerTree, MPL_ACCOUNT_COMPRESSION_PROGRAM, MPL_CORE_PROGRAM_ADDRESS, SYSTEM_PROGRAM_ADDRESS } from "../../constants.js";
+import { BMB_MINT, DEPIN_PROGRAM, getCheckerCollection, getCheckerTree, MPL_ACCOUNT_COMPRESSION_PROGRAM, MPL_CORE_CPI_SIGNER, MPL_CORE_PROGRAM_ADDRESS, SYSTEM_PROGRAM_ADDRESS } from "../../constants.js";
 import { DepinInstruction } from "../../enums.js";
 import { MPL_BUBBLEGUM_PROGRAM } from "../../utils/bubblegum.js";
-import { CheckerLicenseAuthority } from "./checker-license-authority.js";
 import { BMBStateAccount } from "../global/bmb-state-account.js";
+import { CheckerLicenseAuthority } from "./checker-license-authority.js";
 
 export interface CreateMintCheckerInput {
     minter: Address;
@@ -59,8 +59,9 @@ export class MintChecker {
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
-        // Get network-specific tree
+        // Get network-specific tree and collection if not provided
         const merkleTree = this.merkleTree ?? getCheckerTree(this.network);
+        const checkerCollection = this.checkerCollection ?? getCheckerCollection(this.network);
 
         const [treeConfigPda] = await getProgramDerivedAddress({
             programAddress: MPL_BUBBLEGUM_PROGRAM,
@@ -68,7 +69,7 @@ export class MintChecker {
         });
 
         const bmbStatePda = await BMBStateAccount.findPDA();
-        
+
         const accounts = [
             { address: this.minter, role: AccountRole.WRITABLE_SIGNER },
             { address: minterBmbTokenAccount[0], role: AccountRole.WRITABLE },
@@ -78,7 +79,7 @@ export class MintChecker {
             { address: merkleTree, role: AccountRole.WRITABLE },
             { address: treeConfigPda, role: AccountRole.WRITABLE },
             { address: licenseAuthority, role: AccountRole.READONLY },
-            { address: this.checkerCollection ?? SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY },
+            { address: checkerCollection, role: AccountRole.WRITABLE },
             { address: MPL_BUBBLEGUM_PROGRAM, role: AccountRole.READONLY },
             { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
@@ -87,6 +88,7 @@ export class MintChecker {
             { address: BMB_MINT, role: AccountRole.READONLY },
             { address: address(MPL_NOOP_PROGRAM_ID), role: AccountRole.READONLY },
             { address: MPL_CORE_PROGRAM_ADDRESS, role: AccountRole.READONLY },
+            { address: MPL_CORE_CPI_SIGNER, role: AccountRole.READONLY },
         ];
 
         return {

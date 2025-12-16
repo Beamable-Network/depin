@@ -209,7 +209,7 @@ export class LiteDepin {
 
         // Create the tree and collection
         await this.createTreeIfNotExists(params.creator, params.delegatedAuthority);
-        await this.createCollectionIfNotExists(params.creator);
+        await this.createCollectionIfNotExists(params.creator, params.delegatedAuthority);
     }
 
     private async createTreeIfNotExists(creator: LiteKeyPair, delegatedAuthority?: Address): Promise<void> {
@@ -257,7 +257,7 @@ export class LiteDepin {
         }
     }
 
-    private async createCollectionIfNotExists(creator: LiteKeyPair): Promise<void> {
+    private async createCollectionIfNotExists(creator: LiteKeyPair, delegatedAuthority?: Address): Promise<void> {
         if (this.collectionMint) return;
 
         this.collectionMint = generateSigner(this.umi);
@@ -269,7 +269,7 @@ export class LiteDepin {
             collection: this.collectionMint,
             name: DEPIN_CONFIG.COLLECTION.NAME,
             uri: DEPIN_CONFIG.COLLECTION.URI,
-            updateAuthority: creator.umiPublicKey,
+            updateAuthority: publicKey(delegatedAuthority ?? creator.address),
             plugins: [
                 {
                     type: "BubblegumV2"

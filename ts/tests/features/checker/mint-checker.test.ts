@@ -4,32 +4,32 @@ import { BMB_DECIMALS, BMB_MINT, BMBStateAccount, bmbToBaseUnits, CheckerLicense
 import { findTreeConfigPda, getLeafSchemaSerializer, getTreeConfigAccountDataSerializer } from '@metaplex-foundation/mpl-bubblegum';
 import { publicKey } from '@metaplex-foundation/umi';
 import { Address, address } from 'gill';
-import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { initializeNetwork } from '../../helpers/bmb-utils.js';
+import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 
 describe('Checker minting', async () => {
     let lite: LiteDepin;
     let signer: LiteKeyPair;
     let tree: Address;
-    
+
     beforeEach(async () => {
         lite = new LiteDepin();
         signer = await lite.generateKeyPair();
 
         const treeCreator = await lite.generateKeyPair();
         const [checkerLicenseAuthorityPda] = await CheckerLicenseAuthority.findPDA();
-    
+
         await lite.airdrop(signer, 10);
         await lite.airdrop(treeCreator, 10);
-    
+
         await lite.createToken(BMB_MINT, signer, BMB_DECIMALS);
         await lite.setProgramUpgradeAuthority(DEPIN_PROGRAM, signer.web3PublicKey);
         await lite.createLicenseTree({ creator: treeCreator, delegatedAuthority: checkerLicenseAuthorityPda });
 
         await initializeNetwork({ lite, signer });
-    
+
         tree = address(lite.getMerkleTree().publicKey);
-    
+
         await lite.mintToken(BMB_MINT, signer.address, bmbToBaseUnits(1_000_000), signer); // Mint 1M BMB to signer
     });
 
@@ -40,6 +40,7 @@ describe('Checker minting', async () => {
             minter: signer.address,
             mintReceiver: address("UZAkx8aZ3tnJ6zm446m1MnBGR7dycshvoftaSCRXWVF"),
             merkleTree: tree,
+            checkerCollection: address(lite.getCollectionMint().publicKey),
             network: "devnet"
         });
 
@@ -71,8 +72,9 @@ describe('Checker minting', async () => {
         const mintChecker = new MintChecker({
             minter: signer.address,
             mintReceiver: address("UZAkx8aZ3tnJ6zm446m1MnBGR7dycshvoftaSCRXWVF"),
-            network: "devnet",
             merkleTree: tree,
+            checkerCollection: address(lite.getCollectionMint().publicKey),
+            network: "devnet",
         });
 
         const stateAccountPda = await BMBStateAccount.findPDA();
