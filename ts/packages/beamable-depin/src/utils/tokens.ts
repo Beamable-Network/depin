@@ -19,3 +19,11 @@ export function bmbToBaseUnits(amount: number): bigint {
 export function baseUnitsToBmb(amount: bigint): number {
     return Number(amount) / 10 ** BMB_DECIMALS;
 }
+
+export function usdcToBaseUnits(amount: number): bigint {
+    return BigInt(Math.floor(amount * 10 ** 6));
+}
+
+export function baseUnitsToUsdc(amount: bigint): number {
+    return Number(amount) / 10 ** 6;
+}
