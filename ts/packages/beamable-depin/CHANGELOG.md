@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [sdk-v0.7.0] - 2025-12-23
+
+### Bug Fixes
+
+- Usdc address is different on devnet, enable testing with usdc on devnet ([58cd40c](https://github.com/Beamable-Network/depin/commit/58cd40cfefec1118eb9e3d232df4c9a4e77778d4))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/sdk-v0.6.2...sdk-v0.7.0
+
 ## [sdk-v0.6.2] - 2025-12-16
 
 ### Features
