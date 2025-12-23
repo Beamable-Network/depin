@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [worker-stake-v0.4.0] - 2025-12-23
+
+### Bug Fixes
+
+- Usdc address is different on devnet, enable testing with usdc on devnet ([58cd40c](https://github.com/Beamable-Network/depin/commit/58cd40cfefec1118eb9e3d232df4c9a4e77778d4))
+
+### Features
+
+- Allow authority to mint checkers ([9e50d36](https://github.com/Beamable-Network/depin/commit/9e50d36a22389791210cdcc204800e323ea79f4e))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/worker-stake-v0.3.0...worker-stake-v0.4.0
+
 ## [worker-stake-v0.3.0] - 2025-12-16
 
 ### Bug Fixes
