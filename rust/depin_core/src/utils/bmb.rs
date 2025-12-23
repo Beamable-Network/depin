@@ -3,7 +3,7 @@ use solana_program::{clock::Clock, entrypoint::ProgramResult, pubkey::Pubkey, sy
 use solana_program::{msg, program_error::ProgramError};
 
 #[cfg(not(feature = "test"))]
-use crate::constants::{CHECKER_TREE, WORKER_TREE};
+use crate::constants::{WORKER_TREE, get_checker_tree};
 
 /// Seconds in a day
 pub const SECONDS_PER_DAY: i64 = 86_400;
@@ -103,7 +103,7 @@ pub fn validate_checker_tree(
     #[cfg_attr(feature = "test", allow(unused_variables))] merkle_tree: &Pubkey
 ) -> ProgramResult {
     #[cfg(not(feature = "test"))]
-    if merkle_tree != &CHECKER_TREE {
+    if merkle_tree != &get_checker_tree() {
         msg!("Error: Invalid checker tree");
         return Err(ProgramError::InvalidArgument);
     }

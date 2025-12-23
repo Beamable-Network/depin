@@ -11,8 +11,7 @@ import {
     MonthlyPoolAccount,
     UserStakePositionAccount,
     WORKER_STAKE_PROGRAM,
-    BMB_MINT,
-    USDC_MINT
+    BMB_MINT
 } from '@beamable-network/depin';
 import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';

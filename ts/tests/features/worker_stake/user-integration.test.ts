@@ -14,7 +14,7 @@ import {
     UserStakePositionAccount,
     WORKER_STAKE_PROGRAM,
     BMB_MINT,
-    USDC_MINT
+    getUsdcMint
 } from '@beamable-network/depin';
 import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -32,7 +32,9 @@ describe('User Integration Tests - Complex Scenarios', async () => {
     let worker: LiteKeyPair;
     let workerLicense: AssetWithProof;
     let revenueSource: LiteKeyPair;
-
+    let network: "devnet" | "mainnet" = "devnet";
+    let usdcMint: Address = getUsdcMint(network);
+    
     // Helper to create a staked user
     async function createStakedUser(
         stakeAmount: bigint,
@@ -86,6 +88,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             total_revenue: amount,
             current_month_period: monthPeriod,
             has_monthly_pool: true,
+            network
         });
 
         // Only set previous pool if last_active_pool_month exists
@@ -215,7 +218,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             const revenueAmount = usdcToBaseUnits(1000); // 1000 USDC per month
             const emissionAmount = bmbToBaseUnits(500); // 500 BMB per month
 
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount * 3n, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount * 3n, tokenAuthorities.usdcMintAuthority);
             await lite.mintToken(BMB_MINT, revenueSource.address, emissionAmount * 3n, tokenAuthorities.bmbMintAuthority);
 
             await depositRevenue(revenueAmount, 5);
@@ -238,6 +241,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
                     user: user.address,
                     worker_collection: workerCollection,
                     month_period: monthPeriod,
+                    network
                 });
 
                 lite.buildTransaction()
@@ -246,7 +250,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             }
 
             // Verify total rewards (3 months × (200 base + 100 addon) = 900 USDC)
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             expect(usdcBalance).toBe(usdcToBaseUnits(900));
 
             // Verify BMB emissions (3 months × 75 BMB = 225 BMB)
@@ -497,9 +501,9 @@ describe('User Integration Tests - Complex Scenarios', async () => {
 
             // Deposit 1000 USDC revenue
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
 
-            const initialWorkerBalance = await lite.getTokenBalance(USDC_MINT, workerWallet.address);
+            const initialWorkerBalance = await lite.getTokenBalance(usdcMint, workerWallet.address);
 
             await depositRevenue(revenueAmount, 5);
 
@@ -517,7 +521,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
             expect(pool.addon_pool.collected).toBe(usdcToBaseUnits(200));
 
             // Verify worker received remainder
-            const finalWorkerBalance = await lite.getTokenBalance(USDC_MINT, workerWallet.address);
+            const finalWorkerBalance = await lite.getTokenBalance(usdcMint, workerWallet.address);
             expect(finalWorkerBalance - initialWorkerBalance).toBe(usdcToBaseUnits(500));
         });
 
@@ -543,7 +547,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
 
             // Deposit revenue 3 times
             const revenueAmount = usdcToBaseUnits(500); // 500 USDC each time
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount * 3n, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount * 3n, tokenAuthorities.usdcMintAuthority);
 
             await depositRevenue(revenueAmount, 5);
             await depositRevenue(revenueAmount, 5);
@@ -590,7 +594,7 @@ describe('User Integration Tests - Complex Scenarios', async () => {
 
             // Deposit revenue for month 5
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             // Unstake

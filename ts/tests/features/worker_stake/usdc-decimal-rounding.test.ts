@@ -3,11 +3,11 @@ import {
     bmbToBaseUnits,
     ClaimRewards,
     DepositRevenue,
+    getUsdcMint,
     InitializeWorkerStakeConfig,
     MonthlyPoolConfig,
     SetMonthlyPool,
     Stake,
-    USDC_MINT,
     WORKER_STAKE_PROGRAM,
 } from '@beamable-network/depin';
 import { AssetWithProof } from '@metaplex-foundation/mpl-bubblegum';
@@ -39,6 +39,8 @@ describe('USDC Decimal and Rounding Tests', async () => {
     let worker: LiteKeyPair;
     let workerLicense: AssetWithProof;
     let revenueSource: LiteKeyPair;
+    let network: "devnet" | "mainnet" = "devnet";
+    let usdcMint: Address = getUsdcMint(network);
 
     // Helper to create a staked user
     async function createStakedUser(
@@ -79,6 +81,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
             current_month_period: monthPeriod,
             has_monthly_pool: true,
             previous_pool_month_period: previousPoolMonth,
+            network
         });
 
         await lite.buildTransaction()
@@ -161,7 +164,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
 
             // Deposit exactly 100 USDC (6 decimals)
             const revenueAmount = usdcToBaseUnits(100); // 100_000_000 base units
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 to allow claiming
@@ -172,6 +175,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -179,7 +183,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 .sendTransaction({ payer: user });
 
             // User should receive exactly 20 USDC (20% of 100 USDC)
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             expect(usdcBalance).toBe(usdcToBaseUnits(20)); // 20_000_000 base units
         });
 
@@ -189,7 +193,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
 
             // Deposit 0.123456 USDC (using all 6 decimal places)
             const revenueAmount = 123456n; // 0.123456 USDC in base units
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6
@@ -200,6 +204,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -208,7 +213,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
 
             // User should receive 20% of 0.123456 = 0.0246912 USDC = 24691 base units (rounded down)
             const expectedReward = (123456n * 20n) / 100n; // 24691 base units
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             expect(usdcBalance).toBe(expectedReward);
         });
 
@@ -218,7 +223,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
 
             // Deposit 1 base unit (0.000001 USDC)
             const revenueAmount = 1n;
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6
@@ -229,6 +234,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -236,7 +242,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 .sendTransaction({ payer: user });
 
             // 20% of 1 base unit = 0 (rounds down)
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             expect(usdcBalance).toBe(0n);
         });
     });
@@ -249,7 +255,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
 
             // Deposit 1000 USDC (20% = 200 USDC to pool)
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             lite.goToMonthPeriod(6);
@@ -259,6 +265,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user1.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
             await lite.buildTransaction()
                 .addInstruction(await claimRewards.getInstruction())
@@ -269,14 +276,15 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user2.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
             await lite.buildTransaction()
                 .addInstruction(await claimRewards.getInstruction())
                 .sendTransaction({ payer: user2 });
 
             // Each user should receive exactly 100 USDC (50% of 200 USDC pool)
-            const user1Balance = await lite.getTokenBalance(USDC_MINT, user1.address);
-            const user2Balance = await lite.getTokenBalance(USDC_MINT, user2.address);
+            const user1Balance = await lite.getTokenBalance(usdcMint, user1.address);
+            const user2Balance = await lite.getTokenBalance(usdcMint, user2.address);
 
             expect(user1Balance).toBe(usdcToBaseUnits(100));
             expect(user2Balance).toBe(usdcToBaseUnits(100));
@@ -295,7 +303,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
             // 100 USDC / 3 = 33.333333... USDC per user
             // In base units: 100_000_000 / 3 = 33_333_333.333... = 33_333_333 (rounds down)
             const revenueAmount = usdcToBaseUnits(500); // 20% = 100 USDC
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             lite.goToMonthPeriod(6);
@@ -306,15 +314,16 @@ describe('USDC Decimal and Rounding Tests', async () => {
                     user: user.address,
                     worker_collection: workerCollection,
                     month_period: 5,
+                    network
                 });
                 await lite.buildTransaction()
                     .addInstruction(await claimRewards.getInstruction())
                     .sendTransaction({ payer: user });
             }
 
-            const user1Balance = await lite.getTokenBalance(USDC_MINT, user1.address);
-            const user2Balance = await lite.getTokenBalance(USDC_MINT, user2.address);
-            const user3Balance = await lite.getTokenBalance(USDC_MINT, user3.address);
+            const user1Balance = await lite.getTokenBalance(usdcMint, user1.address);
+            const user2Balance = await lite.getTokenBalance(usdcMint, user2.address);
+            const user3Balance = await lite.getTokenBalance(usdcMint, user3.address);
 
             // Each user gets 33_333_333 base units (33.333333 USDC, rounded down)
             const expectedPerUser = 33_333_333n;
@@ -339,7 +348,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
             // Deposit very small amount: 0.00001 USDC = 10 base units
             // 20% goes to pool = 2 base units
             const revenueAmount = 10n;
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             lite.goToMonthPeriod(6);
@@ -349,6 +358,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user1.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
             await lite.buildTransaction()
                 .addInstruction(await claimRewards.getInstruction())
@@ -359,13 +369,14 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user2.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
             await lite.buildTransaction()
                 .addInstruction(await claimRewards.getInstruction())
                 .sendTransaction({ payer: user2 });
 
-            const user1Balance = await lite.getTokenBalance(USDC_MINT, user1.address);
-            const user2Balance = await lite.getTokenBalance(USDC_MINT, user2.address);
+            const user1Balance = await lite.getTokenBalance(usdcMint, user1.address);
+            const user2Balance = await lite.getTokenBalance(usdcMint, user2.address);
 
             // User 1 gets 1 base unit (90% of 2, rounded down)
             // User 2 gets 0 base units (10% of 2, rounded down)
@@ -381,7 +392,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
 
             // Deposit 1000 USDC (addon pool gets 10% = 100 USDC)
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             lite.goToMonthPeriod(6);
@@ -390,6 +401,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -400,7 +412,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
             // Base: 20% of 1000 = 200 USDC
             // Addon: 10% of 1000 = 100 USDC
             // Total: 300 USDC
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             expect(usdcBalance).toBe(usdcToBaseUnits(300));
         });
 
@@ -416,7 +428,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
             // User 1 should get: (2/3) * 100 = 66.666666... USDC = 66_666_666 base units (rounded down)
             // User 2 should get: (1/3) * 100 = 33.333333... USDC = 33_333_333 base units (rounded down)
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             lite.goToMonthPeriod(6);
@@ -426,6 +438,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user1.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
             await lite.buildTransaction()
                 .addInstruction(await claimRewards.getInstruction())
@@ -436,13 +449,14 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user2.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
             await lite.buildTransaction()
                 .addInstruction(await claimRewards.getInstruction())
                 .sendTransaction({ payer: user2 });
 
-            const user1Balance = await lite.getTokenBalance(USDC_MINT, user1.address);
-            const user2Balance = await lite.getTokenBalance(USDC_MINT, user2.address);
+            const user1Balance = await lite.getTokenBalance(usdcMint, user1.address);
+            const user2Balance = await lite.getTokenBalance(usdcMint, user2.address);
 
             // User 1: Base (5000/7500 * 200) + Addon (2/3 * 100)
             // Base: 133_333_333 base units
@@ -476,7 +490,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
             // Deposit 1 billion USDC (very large amount)
             // Base pool gets 20% = 200 million USDC
             const revenueAmount = usdcToBaseUnits(1_000_000_000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             lite.goToMonthPeriod(6);
@@ -485,6 +499,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -492,7 +507,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 .sendTransaction({ payer: user });
 
             // Should receive exactly 200 million USDC
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             expect(usdcBalance).toBe(usdcToBaseUnits(200_000_000));
         });
 
@@ -504,7 +519,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
 
             // Deposit 1000 USDC (base pool gets 200 USDC)
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             lite.goToMonthPeriod(6);
@@ -514,12 +529,13 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user2.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
             await lite.buildTransaction()
                 .addInstruction(await claimRewards.getInstruction())
                 .sendTransaction({ payer: user2 });
 
-            const user2Balance = await lite.getTokenBalance(USDC_MINT, user2.address);
+            const user2Balance = await lite.getTokenBalance(usdcMint, user2.address);
 
             // User 2 has 10/1,000,000 = 0.00001 of total stake
             // Should get 0.00001 * 200 USDC = 0.002 USDC = 2000 base units
@@ -531,12 +547,13 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user1.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
             await lite.buildTransaction()
                 .addInstruction(await claimRewards.getInstruction())
                 .sendTransaction({ payer: user1 });
 
-            const user1Balance = await lite.getTokenBalance(USDC_MINT, user1.address);
+            const user1Balance = await lite.getTokenBalance(usdcMint, user1.address);
 
             // User 1 should get almost all of the 200 USDC
             // The sum should be close to 200 USDC (minus rounding dust)
@@ -556,7 +573,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
 
             // Deposit 999.999999 USDC (using all 6 decimals)
             const revenueAmount = 999_999_999n; // 999.999999 USDC
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             lite.goToMonthPeriod(6);
@@ -565,6 +582,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -573,7 +591,7 @@ describe('USDC Decimal and Rounding Tests', async () => {
 
             // Should receive 20% of 999.999999 = 199.9999998 USDC = 199_999_999 base units (rounded down)
             const expectedReward = (999_999_999n * 20n) / 100n;
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             expect(usdcBalance).toBe(expectedReward);
         });
     });

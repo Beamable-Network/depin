@@ -1,14 +1,13 @@
 import {
-    bmbToBaseUnits,
     BMB_MINT,
+    bmbToBaseUnits,
     DepositEmissions,
     DepositRevenue,
+    getUsdcMint,
     InitializeWorkerStakeConfig,
     MonthlyPoolAccount,
     MonthlyPoolConfig,
     SetMonthlyPool,
-    Stake,
-    USDC_MINT,
     WORKER_STAKE_PROGRAM,
     WorkerStakeConfigAccount
 } from '@beamable-network/depin';
@@ -28,6 +27,8 @@ describe('Deposit tests', async () => {
     let worker: LiteKeyPair;
     let workerLicense: AssetWithProof;
     let revenueSource: LiteKeyPair;
+    let network: 'mainnet' | 'devnet' = 'devnet';
+    let usdcMint: Address = getUsdcMint(network);
 
     // Helper to deposit revenue
     async function depositRevenue(amount: bigint, monthPeriod: number) {
@@ -43,6 +44,7 @@ describe('Deposit tests', async () => {
             total_revenue: amount,
             current_month_period: monthPeriod,
             has_monthly_pool: true,
+            network
         });
 
         // Only set previous pool if last_active_pool_month exists
@@ -153,9 +155,9 @@ describe('Deposit tests', async () => {
 
             // Deposit 1000 USDC
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
 
-            const initialWorkerBalance = await lite.getTokenBalance(USDC_MINT, workerWallet.address);
+            const initialWorkerBalance = await lite.getTokenBalance(usdcMint, workerWallet.address);
 
             await depositRevenue(revenueAmount, 5);
 
@@ -172,7 +174,7 @@ describe('Deposit tests', async () => {
             expect(pool.addon_pool.collected).toBe(usdcToBaseUnits(200));
 
             // Verify worker wallet received remainder
-            const finalWorkerBalance = await lite.getTokenBalance(USDC_MINT, workerWallet.address);
+            const finalWorkerBalance = await lite.getTokenBalance(usdcMint, workerWallet.address);
             expect(finalWorkerBalance - initialWorkerBalance).toBe(usdcToBaseUnits(500));
         });
 
@@ -196,9 +198,9 @@ describe('Deposit tests', async () => {
 
             // Deposit revenue 3 times: 500 USDC each
             const revenueAmount = usdcToBaseUnits(500);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount * 3n, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount * 3n, tokenAuthorities.usdcMintAuthority);
 
-            const initialWorkerBalance = await lite.getTokenBalance(USDC_MINT, workerWallet.address);
+            const initialWorkerBalance = await lite.getTokenBalance(usdcMint, workerWallet.address);
 
             await depositRevenue(revenueAmount, 5);
             await depositRevenue(revenueAmount, 5);
@@ -213,16 +215,16 @@ describe('Deposit tests', async () => {
             expect(pool.addon_pool.collected).toBe(usdcToBaseUnits(150));
 
             // Verify worker received remainders: 3 × (500 - 100 - 50) = 3 × 350 = 1050 USDC
-            const finalWorkerBalance = await lite.getTokenBalance(USDC_MINT, workerWallet.address);
+            const finalWorkerBalance = await lite.getTokenBalance(usdcMint, workerWallet.address);
             expect(finalWorkerBalance - initialWorkerBalance).toBe(usdcToBaseUnits(1050));
         });
 
         it('should send full revenue to worker when no pool exists', async () => {
             // No pool created, deposit revenue directly
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
 
-            const initialWorkerBalance = await lite.getTokenBalance(USDC_MINT, workerWallet.address);
+            const initialWorkerBalance = await lite.getTokenBalance(usdcMint, workerWallet.address);
 
             // Deposit without pool
             const depositRev = new DepositRevenue({
@@ -232,6 +234,7 @@ describe('Deposit tests', async () => {
                 total_revenue: revenueAmount,
                 current_month_period: 5,
                 has_monthly_pool: false,
+                network
             });
 
             lite.buildTransaction()
@@ -239,7 +242,7 @@ describe('Deposit tests', async () => {
                 .sendTransaction({ payer: revenueSource });
 
             // Verify full amount went to worker
-            const finalWorkerBalance = await lite.getTokenBalance(USDC_MINT, workerWallet.address);
+            const finalWorkerBalance = await lite.getTokenBalance(usdcMint, workerWallet.address);
             expect(finalWorkerBalance - initialWorkerBalance).toBe(revenueAmount);
         });
 
@@ -262,9 +265,9 @@ describe('Deposit tests', async () => {
                 .sendTransaction({ payer: collectionCreator });
 
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
 
-            const initialWorkerBalance = await lite.getTokenBalance(USDC_MINT, workerWallet.address);
+            const initialWorkerBalance = await lite.getTokenBalance(usdcMint, workerWallet.address);
 
             await depositRevenue(revenueAmount, 5);
 
@@ -277,7 +280,7 @@ describe('Deposit tests', async () => {
             expect(pool.addon_pool.collected).toBe(0n);
 
             // Worker gets 800 USDC
-            const finalWorkerBalance = await lite.getTokenBalance(USDC_MINT, workerWallet.address);
+            const finalWorkerBalance = await lite.getTokenBalance(usdcMint, workerWallet.address);
             expect(finalWorkerBalance - initialWorkerBalance).toBe(usdcToBaseUnits(800));
         });
     });
@@ -470,10 +473,10 @@ describe('Deposit tests', async () => {
             const revenueAmount = usdcToBaseUnits(1000);
             const emissionAmount = bmbToBaseUnits(500);
 
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await lite.mintToken(BMB_MINT, revenueSource.address, emissionAmount, tokenAuthorities.bmbMintAuthority);
 
-            const initialWorkerUSDC = await lite.getTokenBalance(USDC_MINT, workerWallet.address);
+            const initialWorkerUSDC = await lite.getTokenBalance(usdcMint, workerWallet.address);
             const initialWorkerBMB = await lite.getTokenBalance(BMB_MINT, workerWallet.address);
 
             await depositRevenue(revenueAmount, 5);
@@ -489,7 +492,7 @@ describe('Deposit tests', async () => {
             expect(pool.collected_bmb_base).toBe(bmbToBaseUnits(75));
 
             // Verify worker balances
-            const finalWorkerUSDC = await lite.getTokenBalance(USDC_MINT, workerWallet.address);
+            const finalWorkerUSDC = await lite.getTokenBalance(usdcMint, workerWallet.address);
             const finalWorkerBMB = await lite.getTokenBalance(BMB_MINT, workerWallet.address);
 
             expect(finalWorkerUSDC - initialWorkerUSDC).toBe(usdcToBaseUnits(700));

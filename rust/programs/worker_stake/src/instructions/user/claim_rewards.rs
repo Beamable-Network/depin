@@ -6,7 +6,7 @@ use crate::{
     },
 };
 use depin_core::{
-    constants::{BMB_MINT, USDC_DECIMALS, USDC_MINT},
+    constants::{BMB_MINT, USDC_DECIMALS, get_usdc_mint},
     utils::{
         account::{read_account_data, write_account_data},
         bmb::{
@@ -69,7 +69,7 @@ pub fn process_claim_rewards<'a>(
     require_signer(user_account, "User")?;
 
     // Validate mints
-    validate_mint(usdc_mint_account, &USDC_MINT, "USDC")?;
+    validate_mint(usdc_mint_account, &get_usdc_mint(), "USDC")?;
     validate_mint(bmb_mint_account, &BMB_MINT, "BMB")?;
 
     // Validate WorkerStakeConfig PDA

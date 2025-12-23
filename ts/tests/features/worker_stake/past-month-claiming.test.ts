@@ -3,11 +3,11 @@ import {
     bmbToBaseUnits,
     ClaimRewards,
     DepositRevenue,
+    getUsdcMint,
     InitializeWorkerStakeConfig,
     MonthlyPoolConfig,
     SetMonthlyPool,
     Stake,
-    USDC_MINT,
     WORKER_STAKE_PROGRAM,
     WorkerStakeConfigAccount
 } from '@beamable-network/depin';
@@ -16,6 +16,7 @@ import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
 import { setupTokens, TokenAuthorities, usdcToBaseUnits } from '../../helpers/spl-tokens.js';
+import { get } from 'http';
 
 describe('Past Month Claiming', async () => {
     let lite: LiteDepin;
@@ -27,6 +28,8 @@ describe('Past Month Claiming', async () => {
     let worker: LiteKeyPair;
     let workerLicense: AssetWithProof;
     let revenueSource: LiteKeyPair;
+    let network: "devnet" | "mainnet" = "devnet";
+    let usdcMint: Address = getUsdcMint(network);
 
     // Helper to deposit revenue
     async function depositRevenue(amount: bigint, monthPeriod: number) {
@@ -41,6 +44,7 @@ describe('Past Month Claiming', async () => {
             total_revenue: amount,
             current_month_period: monthPeriod,
             has_monthly_pool: true,
+            network
         });
 
         if (config.last_active_pool_month > 0) {
@@ -141,7 +145,7 @@ describe('Past Month Claiming', async () => {
 
         // Deposit revenue for month 5
         const revenueAmount = usdcToBaseUnits(1000);
-        await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+        await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
         await depositRevenue(revenueAmount, 5);
 
         // 3. Go to month 6
@@ -169,6 +173,7 @@ describe('Past Month Claiming', async () => {
             user: user.address,
             worker_collection: workerCollection,
             month_period: 5,
+            network
         });
 
         await lite.buildTransaction()
@@ -176,7 +181,7 @@ describe('Past Month Claiming', async () => {
             .sendTransaction({ payer: user });
 
         // User should receive 200 USDC (20% of 1000)
-        const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+        const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
         expect(usdcBalance).toBe(usdcToBaseUnits(200));
     });
 });

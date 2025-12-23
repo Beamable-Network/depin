@@ -3,14 +3,13 @@ import {
     Address,
     Codec,
     Endian,
-    getAddressEncoder,
     getStructCodec,
     getU16Codec
 } from "gill";
 
 import {
     BMB_MINT,
-    USDC_MINT,
+    getUsdcMint,
     WORKER_STAKE_PROGRAM
 } from "../../constants.js";
 import { WorkerStakeInstruction } from "../../enums.js";
@@ -32,11 +31,13 @@ export const ClaimRewardsParamsCodec: Codec<ClaimRewardsParams> = getStructCodec
 export interface CreateClaimRewardsInput {
     user: Address;
     worker_collection: Address;
+    network: "mainnet" | "devnet";
     month_period: number;
 }
 
 export class ClaimRewards {
     user: Address;
+    network: "mainnet" | "devnet";
     worker_collection: Address;
     readonly params: ClaimRewardsParams;
 
@@ -46,6 +47,7 @@ export class ClaimRewards {
         };
         this.user = input.user;
         this.worker_collection = input.worker_collection;
+        this.network = input.network;
     }
 
     private serialize(): Uint8Array {
@@ -60,9 +62,11 @@ export class ClaimRewards {
         
         const treasuryPda = await TreasuryAuthority.findWorkerStakeTreasuryPDA(this.worker_collection);
 
+        const usdcMint = getUsdcMint(this.network);
+
         // ATAs for treasuries
         const usdcTreasuryAta = await findAssociatedTokenPda({
-            mint: USDC_MINT,
+            mint: usdcMint,
             owner: treasuryPda[0],
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
@@ -74,7 +78,7 @@ export class ClaimRewards {
 
         // ATAs for user's tokens
         const userUsdcAccount = await findAssociatedTokenPda({
-            mint: USDC_MINT,
+            mint: usdcMint,
             owner: this.user,
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
@@ -96,7 +100,7 @@ export class ClaimRewards {
             { address: treasuryPda[0], role: AccountRole.READONLY },
             { address: bmbTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: userBmbAccount[0], role: AccountRole.WRITABLE },
-            { address: USDC_MINT, role: AccountRole.READONLY },
+            { address: usdcMint, role: AccountRole.READONLY },
             { address: BMB_MINT, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
             { address: ASSOCIATED_TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },

@@ -4,7 +4,7 @@ use crate::{
     utils::{find_treasury_pda, initialize_pool_with_inheritance, MAX_BASIS_POINTS},
 };
 use depin_core::{
-    constants::{USDC_DECIMALS, USDC_MINT},
+    constants::{USDC_DECIMALS, get_usdc_mint},
     utils::{
         account::{read_account_data, write_account_data},
         bmb::{get_current_period, get_month_from_period},
@@ -70,7 +70,7 @@ pub fn process_deposit_revenue<'a>(
     require_signer(revenue_authority, "Revenue authority")?;
 
     // Validate USDC mint
-    validate_mint(usdc_mint_account, &USDC_MINT, "USDC")?;
+    validate_mint(usdc_mint_account, &get_usdc_mint(), "USDC")?;
 
     // Get current month
     let current_period = get_current_period();

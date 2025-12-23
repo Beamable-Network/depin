@@ -4,12 +4,12 @@ import {
     ClaimRewards,
     DepositEmissions,
     DepositRevenue,
+    getUsdcMint,
     InitializeWorkerStakeConfig,
     MonthlyPoolConfig,
     SetMonthlyPool,
     Stake,
     TreasuryAuthority,
-    USDC_MINT,
     UserStakePositionAccount,
     WORKER_STAKE_PROGRAM,
     WorkerStakeConfigAccount
@@ -30,6 +30,8 @@ describe('User Claim Rewards Instructions', async () => {
     let worker: LiteKeyPair;
     let workerLicense: AssetWithProof;
     let revenueSource: LiteKeyPair;
+    let network: "mainnet" | "devnet" = 'devnet';
+    let usdcMint: Address = getUsdcMint(network);
 
     // Helper to create a staked user
     async function createStakedUser(
@@ -70,6 +72,7 @@ describe('User Claim Rewards Instructions', async () => {
             current_month_period: monthPeriod,
             has_monthly_pool: true,
             previous_pool_month_period: previousPoolMonth,
+            network
         });
 
         await lite.buildTransaction()
@@ -177,7 +180,7 @@ describe('User Claim Rewards Instructions', async () => {
 
             // Deposit revenue (1000 USDC)
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(getUsdcMint(network), revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
@@ -188,6 +191,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -195,7 +199,7 @@ describe('User Claim Rewards Instructions', async () => {
                 .sendTransaction({ payer: user });
 
             // Verify user received base USDC rewards (20% of 1000 = 200 USDC)
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(getUsdcMint(network), user.address);
             expect(usdcBalance).toBeGreaterThan(0n);
             expect(usdcBalance).toBe(usdcToBaseUnits(200));
 
@@ -230,6 +234,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -247,7 +252,7 @@ describe('User Claim Rewards Instructions', async () => {
 
             // Deposit revenue (1000 USDC)
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(getUsdcMint(network), revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
@@ -257,6 +262,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -267,7 +273,7 @@ describe('User Claim Rewards Instructions', async () => {
             // Base: 20% of 1000 = 200 USDC
             // Addon: 10% of 1000 = 100 USDC
             // Total: 300 USDC
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(getUsdcMint(network), user.address);
             expect(usdcBalance).toBe(usdcToBaseUnits(300));
         });
 
@@ -278,7 +284,7 @@ describe('User Claim Rewards Instructions', async () => {
             const revenueAmount = usdcToBaseUnits(2000);
             const emissionAmount = bmbToBaseUnits(500); // 500 BMB
 
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             await lite.mintToken(BMB_MINT, revenueSource.address, emissionAmount, tokenAuthorities.bmbMintAuthority);
@@ -291,6 +297,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -298,7 +305,7 @@ describe('User Claim Rewards Instructions', async () => {
                 .sendTransaction({ payer: user });
 
             // Verify USDC rewards: Base (20% of 2000) + Addon (10% of 2000) = 400 + 200 = 600 USDC
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             expect(usdcBalance).toBe(usdcToBaseUnits(600));
 
             // Verify BMB rewards: Base (15% of 500) = 75 BMB
@@ -311,7 +318,7 @@ describe('User Claim Rewards Instructions', async () => {
 
             // Only deposit revenue, no emissions
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
@@ -322,6 +329,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -329,7 +337,7 @@ describe('User Claim Rewards Instructions', async () => {
                 .sendTransaction({ payer: user });
 
             // Verify user received USDC but no BMB
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             expect(usdcBalance).toBe(usdcToBaseUnits(200));
 
             const bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
@@ -375,6 +383,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -386,6 +395,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 6,
+                network
             });
 
             await lite.buildTransaction()
@@ -397,7 +407,7 @@ describe('User Claim Rewards Instructions', async () => {
             expect(bmbBalance).toBe(bmbToBaseUnits(150)); // 15% of 1000 BMB
 
             // No USDC since no revenue was deposited
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             expect(usdcBalance).toBe(0n);
         });
     });
@@ -434,7 +444,7 @@ describe('User Claim Rewards Instructions', async () => {
 
             // Deposit revenue for all months
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount * 3n, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount * 3n, tokenAuthorities.usdcMintAuthority);
 
             // Deposit for month 5 (while in month 5)
             await depositRevenue(revenueAmount, 5);
@@ -455,6 +465,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -466,6 +477,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 7,
+                network
             });
 
             await expect(async () => {
@@ -479,6 +491,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 6,
+                network
             });
 
             await lite.buildTransaction()
@@ -490,6 +503,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 7,
+                network
             });
 
             await lite.buildTransaction()
@@ -503,7 +517,7 @@ describe('User Claim Rewards Instructions', async () => {
             expect(position.last_claimed_month_period).toBe(7);
 
             // Verify total USDC received (200 * 3 = 600)
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             expect(usdcBalance).toBe(usdcToBaseUnits(600));
         });
 
@@ -511,7 +525,7 @@ describe('User Claim Rewards Instructions', async () => {
             const { user } = await createStakedUser(bmbToBaseUnits(5000), 0, 5);
 
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount * 2n, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount * 2n, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
@@ -521,6 +535,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             // First claim - should succeed
@@ -549,7 +564,7 @@ describe('User Claim Rewards Instructions', async () => {
 
             // Deposit revenue (1000 USDC)
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
@@ -560,6 +575,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user1.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -571,6 +587,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user2.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -579,8 +596,8 @@ describe('User Claim Rewards Instructions', async () => {
 
             // Each user should receive 50% of base pool (20% of 1000 = 200 USDC total)
             // Each gets 100 USDC
-            const user1UsdcBalance = await lite.getTokenBalance(USDC_MINT, user1.address);
-            const user2UsdcBalance = await lite.getTokenBalance(USDC_MINT, user2.address);
+            const user1UsdcBalance = await lite.getTokenBalance(usdcMint, user1.address);
+            const user2UsdcBalance = await lite.getTokenBalance(usdcMint, user2.address);
 
             expect(user1UsdcBalance).toBe(usdcToBaseUnits(100));
             expect(user2UsdcBalance).toBe(usdcToBaseUnits(100));
@@ -595,7 +612,7 @@ describe('User Claim Rewards Instructions', async () => {
 
             // Deposit revenue (1000 USDC)
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             // Advance to month 6 (after month 5 ends) to allow claiming
@@ -606,6 +623,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user1.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -617,6 +635,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user2.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -625,8 +644,8 @@ describe('User Claim Rewards Instructions', async () => {
 
             // User 1: base (60% of 200) + addon (100% of 100) = 120 + 100 = 220 USDC
             // User 2: base (40% of 200) + addon (0) = 80 USDC
-            const user1UsdcBalance = await lite.getTokenBalance(USDC_MINT, user1.address);
-            const user2UsdcBalance = await lite.getTokenBalance(USDC_MINT, user2.address);
+            const user1UsdcBalance = await lite.getTokenBalance(usdcMint, user1.address);
+            const user2UsdcBalance = await lite.getTokenBalance(usdcMint, user2.address);
 
             // User 1 gets more due to addon rewards
             expect(user1UsdcBalance).toBeGreaterThan(user2UsdcBalance);
@@ -661,6 +680,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 10,
+                network
             });
 
             await expect(async () => {
@@ -675,7 +695,7 @@ describe('User Claim Rewards Instructions', async () => {
 
             // Deposit revenue for month 5
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             // Don't advance time - still in month 5
@@ -684,6 +704,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             // Should fail because we're still in month 5
@@ -706,6 +727,7 @@ describe('User Claim Rewards Instructions', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             // Should succeed with 0 rewards
@@ -720,7 +742,7 @@ describe('User Claim Rewards Instructions', async () => {
             expect(position.last_claimed_month_period).toBe(5);
 
             // Verify balances are 0
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             const bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
             expect(usdcBalance).toBe(0n);
             expect(bmbBalance).toBe(0n);
@@ -746,7 +768,7 @@ describe('User Claim Rewards Instructions', async () => {
 
             // Deposit revenue for all months
             const revenueAmount = usdcToBaseUnits(1000);
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount * 3n, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount * 3n, tokenAuthorities.usdcMintAuthority);
 
             await depositRevenue(revenueAmount, 5);
             lite.goToMonthPeriod(6);
@@ -762,6 +784,7 @@ describe('User Claim Rewards Instructions', async () => {
                         user: user.address,
                         worker_collection: workerCollection,
                         month_period: 7,
+                        network
                     })).getInstruction())
                     .sendTransaction({ payer: user });
             }).rejects.toThrow("First claim must be for earliest month");

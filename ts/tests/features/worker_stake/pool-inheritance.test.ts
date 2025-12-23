@@ -10,12 +10,12 @@ import {
     UserStakePositionAccount,
     WORKER_STAKE_PROGRAM,
     BMB_MINT,
-    USDC_MINT,
     daysInMonth,
     timestampToPeriod,
     ClaimRewards,
     DepositRevenue,
     DepositEmissions,
+    getUsdcMint,
 } from '@beamable-network/depin';
 import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -33,6 +33,8 @@ describe('Pool Inheritance Tests', async () => {
     let worker: LiteKeyPair;
     let workerLicense: AssetWithProof;
     let revenueSource: LiteKeyPair;
+    let network: "devnet" | "mainnet" = "devnet";
+    let usdcMint: Address = getUsdcMint(network);
 
     // Helper to create a staked user
     async function createStakedUser(
@@ -87,6 +89,7 @@ describe('Pool Inheritance Tests', async () => {
             total_revenue: amount,
             current_month_period: monthPeriod,
             has_monthly_pool: true,
+            network
         });
 
         // Only set previous pool if last_active_pool_month exists
@@ -463,7 +466,7 @@ describe('Pool Inheritance Tests', async () => {
         const revenueAmount = usdcToBaseUnits(1000); // 1000 USDC
         const emissionAmount = bmbToBaseUnits(500); // 500 BMB
 
-        await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount * 2n, tokenAuthorities.usdcMintAuthority);
+        await lite.mintToken(usdcMint, revenueSource.address, revenueAmount * 2n, tokenAuthorities.usdcMintAuthority);
         await lite.mintToken(BMB_MINT, revenueSource.address, emissionAmount * 2n, tokenAuthorities.bmbMintAuthority);
 
         await depositRevenue(revenueAmount, 5);
@@ -476,6 +479,7 @@ describe('Pool Inheritance Tests', async () => {
             user: user.address,
             worker_collection: workerCollection,
             month_period: 5,
+            network
         });
 
         lite.buildTransaction()
@@ -487,7 +491,7 @@ describe('Pool Inheritance Tests', async () => {
         // Addon USDC: 10% of 1000 = 100 USDC
         // Total USDC: 300 USDC
         // Base BMB: 15% of 500 = 75 BMB
-        let usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+        let usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
         let bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
         expect(usdcBalance).toBe(usdcToBaseUnits(300));
         expect(bmbBalance).toBe(bmbToBaseUnits(75));
@@ -526,6 +530,7 @@ describe('Pool Inheritance Tests', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: skipMonth,
+                network
             });
 
             lite.buildTransaction()
@@ -540,6 +545,7 @@ describe('Pool Inheritance Tests', async () => {
             user: user.address,
             worker_collection: workerCollection,
             month_period: 9,
+            network
         });
 
         lite.buildTransaction()
@@ -548,7 +554,7 @@ describe('Pool Inheritance Tests', async () => {
 
         // Verify month 9 rewards received (same amounts as month 5)
         // User had full weight in month 9 (inherited stake)
-        usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+        usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
         bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
 
         // Total USDC should be: month 5 (300) + month 9 (300) = 600

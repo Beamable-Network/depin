@@ -5,12 +5,12 @@ import {
     ClaimRewards,
     DepositEmissions,
     DepositRevenue,
+    getUsdcMint,
     InitializeWorkerStakeConfig,
     MonthlyPoolAccount,
     MonthlyPoolConfig,
     SetMonthlyPool,
     Stake,
-    USDC_MINT,
     UserStakePositionAccount,
     WORKER_STAKE_PROGRAM,
     WorkerStakeConfigAccount
@@ -31,6 +31,8 @@ describe('Stake Weight Calculation', async () => {
     let worker: LiteKeyPair;
     let workerLicense: AssetWithProof;
     let revenueSource: LiteKeyPair;
+    let network: "devnet" | "mainnet" = "devnet";
+    let usdcMint: Address = getUsdcMint(network);
 
     // Helper to create a staked user
     async function createUser(params: { bmbAmount: number }): Promise<LiteKeyPair> {
@@ -79,7 +81,8 @@ describe('Stake Weight Calculation', async () => {
             worker_wallet: workerWallet.address,
             total_revenue: amount,
             current_month_period: lite.getMonthPeriod(),
-            has_monthly_pool: true
+            has_monthly_pool: true,
+            network
         });
 
         // Only set previous pool if last_active_pool_month exists
@@ -207,7 +210,7 @@ describe('Stake Weight Calculation', async () => {
             .sendTransaction({ payer: collectionCreator });
 
         await lite.mintToken(BMB_MINT, revenueSource.address, bmbToBaseUnits(1_000_000_000), tokenAuthorities.bmbMintAuthority);
-        await lite.mintToken(USDC_MINT, revenueSource.address, usdcToBaseUnits(1_000_000_000), tokenAuthorities.usdcMintAuthority);
+        await lite.mintToken(usdcMint, revenueSource.address, usdcToBaseUnits(1_000_000_000), tokenAuthorities.usdcMintAuthority);
     });
 
     describe('Basic', () => {
@@ -280,6 +283,7 @@ describe('Stake Weight Calculation', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             await lite.buildTransaction()
@@ -291,6 +295,7 @@ describe('Stake Weight Calculation', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 6,
+                network
             });
 
             await lite.buildTransaction()
@@ -298,7 +303,7 @@ describe('Stake Weight Calculation', async () => {
                 .sendTransaction({ payer: user });
 
             // Check received amounts match expected for month 6
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             const bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
 
             expect(usdcBalance).toBe(share.totalUsdc);
@@ -360,6 +365,7 @@ describe('Stake Weight Calculation', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 6,
+                network
             });
 
             await lite.buildTransaction()
@@ -367,7 +373,7 @@ describe('Stake Weight Calculation', async () => {
                 .sendTransaction({ payer: user });
 
             // Check received amounts match expected
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             const bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
 
             expect(usdcBalance).toBe(share.totalUsdc);

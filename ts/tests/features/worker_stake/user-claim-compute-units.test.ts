@@ -18,7 +18,7 @@ import {
     UserStakePositionAccount,
     WORKER_STAKE_PROGRAM,
     BMB_MINT,
-    USDC_MINT
+    getUsdcMint
 } from '@beamable-network/depin';
 import { Address, address } from 'gill';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -55,6 +55,8 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
     let worker: LiteKeyPair;
     let workerLicense: AssetWithProof;
     let revenueSource: LiteKeyPair;
+    let network: "devnet" | "mainnet" = "devnet";
+    let usdcMint: Address = getUsdcMint(network);
 
     // Helper to deposit revenue
     async function depositRevenue(amount: bigint, monthPeriod: number) {
@@ -69,6 +71,7 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
             total_revenue: amount,
             current_month_period: monthPeriod,
             has_monthly_pool: true,
+            network
         });
 
         if (config.last_active_pool_month > 0) {
@@ -234,7 +237,7 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
             const revenueAmount = usdcToBaseUnits(10000); // 10,000 USDC
             const emissionAmount = bmbToBaseUnits(5000); // 5,000 BMB
 
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             await lite.mintToken(BMB_MINT, revenueSource.address, emissionAmount, tokenAuthorities.bmbMintAuthority);
@@ -248,6 +251,7 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
                 user: user.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             const result = lite.buildTransaction()
@@ -282,7 +286,7 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
             expect(position.last_claimed_month_period).toBe(5);
 
             // Verify user received rewards
-            const usdcBalance = await lite.getTokenBalance(USDC_MINT, user.address);
+            const usdcBalance = await lite.getTokenBalance(usdcMint, user.address);
             const bmbBalance = await lite.getTokenBalance(BMB_MINT, user.address);
 
             console.log(`\n💰 Rewards claimed:`);
@@ -358,7 +362,7 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
             const revenueAmount = usdcToBaseUnits(10000);
             const emissionAmount = bmbToBaseUnits(5000);
 
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 5);
 
             await lite.mintToken(BMB_MINT, revenueSource.address, emissionAmount, tokenAuthorities.bmbMintAuthority);
@@ -372,6 +376,7 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
                 user: user1.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             const result1 = lite.buildTransaction()
@@ -385,6 +390,7 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
                 user: user2.address,
                 worker_collection: workerCollection,
                 month_period: 5,
+                network
             });
 
             const result2 = lite.buildTransaction()
@@ -556,7 +562,7 @@ describe('User Claim Rewards - Compute Units Tests', async () => {
             const revenueAmount = usdcToBaseUnits(10000);
             const emissionAmount = bmbToBaseUnits(5000);
 
-            await lite.mintToken(USDC_MINT, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
+            await lite.mintToken(usdcMint, revenueSource.address, revenueAmount, tokenAuthorities.usdcMintAuthority);
             await depositRevenue(revenueAmount, 7);
 
             await lite.mintToken(BMB_MINT, revenueSource.address, emissionAmount, tokenAuthorities.bmbMintAuthority);

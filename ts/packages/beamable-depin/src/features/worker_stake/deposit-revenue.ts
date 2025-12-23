@@ -4,21 +4,20 @@ import {
     Codec,
     Endian,
     getAddressCodec,
-    getAddressEncoder,
     getStructCodec,
     getU64Codec
 } from "gill";
 
 import { ASSOCIATED_TOKEN_PROGRAM_ADDRESS, findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import {
+    getUsdcMint,
     SYSTEM_PROGRAM_ADDRESS,
-    USDC_MINT,
     WORKER_STAKE_PROGRAM
 } from "../../constants.js";
 import { WorkerStakeInstruction } from "../../enums.js";
+import { TreasuryAuthority } from "../treasury/treasury-authority.js";
 import { MonthlyPoolAccount } from "./monthly-pool-account.js";
 import { WorkerStakeConfigAccount } from "./worker-stake-config-account.js";
-import { TreasuryAuthority } from "../treasury/treasury-authority.js";
 
 export interface DepositRevenueParams {
     worker_collection: Address;
@@ -38,12 +37,14 @@ export interface CreateDepositRevenueInput {
     current_month_period: number;
     has_monthly_pool: boolean; // Whether current month has a pool
     previous_pool_month_period?: number; // Optional, for inheritance
+    network: "mainnet" | "devnet";
 }
 
 export class DepositRevenue {
     revenue_source: Address;
     worker_collection: Address;
     worker_wallet: Address;
+    network: "mainnet" | "devnet";
     current_month_period: number;
     has_monthly_pool: boolean;
     previous_pool_month_period?: number;
@@ -60,6 +61,7 @@ export class DepositRevenue {
         this.current_month_period = input.current_month_period;
         this.has_monthly_pool = input.has_monthly_pool;
         this.previous_pool_month_period = input.previous_pool_month_period;
+        this.network = input.network;
     }
 
     private serialize(): Uint8Array {
@@ -73,21 +75,23 @@ export class DepositRevenue {
         // USDC treasury PDA
         const treasuryPda = await TreasuryAuthority.findWorkerStakeTreasuryPDA(this.worker_collection);
 
+        const usdcMint = getUsdcMint(this.network);
+
         // ATA for USDC treasury
         const usdcTreasuryAta = await findAssociatedTokenPda({
-            mint: USDC_MINT,
+            mint: usdcMint,
             owner: treasuryPda[0],
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
 
         // ATAs for revenue source and worker wallet
         const revenueSourceUsdcAccount = await findAssociatedTokenPda({
-            mint: USDC_MINT,
+            mint: usdcMint,
             owner: this.revenue_source,
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
         const workerWalletUsdcAccount = await findAssociatedTokenPda({
-            mint: USDC_MINT,
+            mint: usdcMint,
             owner: this.worker_wallet,
             tokenProgram: TOKEN_PROGRAM_ADDRESS
         });
@@ -100,7 +104,7 @@ export class DepositRevenue {
             { address: usdcTreasuryAta[0], role: AccountRole.WRITABLE },
             { address: this.worker_wallet, role: AccountRole.WRITABLE },
             { address: workerWalletUsdcAccount[0], role: AccountRole.WRITABLE },
-            { address: USDC_MINT, role: AccountRole.READONLY },
+            { address: usdcMint, role: AccountRole.READONLY },
             { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
             { address: ASSOCIATED_TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
             { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY }

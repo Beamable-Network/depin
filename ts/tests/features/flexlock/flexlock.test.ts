@@ -8,10 +8,11 @@ import {
     FlexlockVault,
     FlexUnlock,
     getCurrentPeriod,
-    USDC_MINT
+    getUsdcMint
 } from '@beamable-network/depin';
 import { standardNetworkSetup } from '../../helpers/bmb-utils.js';
 import { LiteDepin, LiteKeyPair } from '../../helpers/lite-depin.js';
+import { Address } from 'gill';
 
 describe('FlexLock', async () => {
     let lite: LiteDepin;
@@ -19,6 +20,7 @@ describe('FlexLock', async () => {
     let sender: LiteKeyPair;
     let receiver: LiteKeyPair;
     let attacker: LiteKeyPair;
+    let usdcMint: Address = getUsdcMint("devnet");
 
     beforeEach(async () => {
         lite = new LiteDepin();
@@ -348,18 +350,18 @@ describe('FlexLock', async () => {
     describe('Token Validation Tests', () => {
         it('should fail when trying to use non-BMB tokens (USDC)', async () => {
             // Create USDC token
-            await lite.createToken(USDC_MINT, authority);
-            await lite.mintToken(USDC_MINT, sender.address, 100_000n * 1_000_000n, authority);
+            await lite.createToken(usdcMint, authority);
+            await lite.mintToken(usdcMint, sender.address, 100_000n * 1_000_000n, authority);
 
             const vaultAuthorityPda = await FlexlockVault.findFlexlockVaultPDA();
-            await lite.mintToken(USDC_MINT, vaultAuthorityPda[0], 0n, authority);
+            await lite.mintToken(usdcMint, vaultAuthorityPda[0], 0n, authority);
 
             lite.goToPeriod(100);
             const currentPeriod = lite.getPeriod();
 
             // Get sender's USDC ATA
             const [senderUsdcAta] = await findAssociatedTokenPda({
-                mint: USDC_MINT,
+                mint: usdcMint,
                 owner: sender.address,
                 tokenProgram: TOKEN_PROGRAM_ADDRESS,
             });
