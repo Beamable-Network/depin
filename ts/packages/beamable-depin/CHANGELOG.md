@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [sdk-v0.7.1] - 2025-12-23
+
+### Features
+
+- Add usdc utility functions ([463fc49](https://github.com/Beamable-Network/depin/commit/463fc49eeb1cddff25045eacbe33b273f47bbcb3))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/sdk-v0.7.0...sdk-v0.7.1
+
 ## [sdk-v0.7.0] - 2025-12-23
 
 ### Bug Fixes
