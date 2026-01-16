@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [worker-v0.2.0] - 2026-01-16
+
+### Features
+
+- Use dual stack S3 endpoint for IPv6 support ([901dc80](https://github.com/Beamable-Network/depin/commit/901dc80c0eb7c409fa67057100ed58e7ab72e008))
+
+### Miscellaneous Tasks
+
+- Prepend changelog changes ([bacdfb7](https://github.com/Beamable-Network/depin/commit/bacdfb736b2870ddea3ede311f27c10b31045164))
+- Set proper user permissions when coping release files in docker ([ece11d4](https://github.com/Beamable-Network/depin/commit/ece11d4ed8e1a71d768d533bfa5fcc923b1fa876))
+- Add publish scripts for Checker and Worker Docker images ([c5c5860](https://github.com/Beamable-Network/depin/commit/c5c5860797e1222687d44976b86770c2936a6160))
+
+**Full Changelog**: https://github.com/Beamable-Network/depin/compare/worker-v0.1.0...worker-v0.2.0
+
 ## [worker-v0.1.0] - 2025-12-02
 
 ### Miscellaneous Tasks
