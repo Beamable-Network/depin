@@ -21,6 +21,7 @@ export class ProofStorageService {
     });
     const s3Config: any = {
       region: config.s3Config.region,
+      useDualstackEndpoint: true, // Required for IPv6-only subnets
     };
 
     if (config.s3Config.accessKeyId && config.s3Config.secretAccessKey) {
